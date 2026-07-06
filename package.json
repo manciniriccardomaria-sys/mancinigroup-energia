@@ -1,0 +1,37 @@
+{
+  "name": "gestionale-energia-mancini-group",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "build:pages": "next build && node scripts/prepare-github-pages.mjs",
+    "start": "next start",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "firebase:login": "firebase login",
+    "firebase:deploy-rules": "firebase deploy --only firestore",
+    "firebase:push-store": "node scripts/push-store-to-firebase.mjs",
+    "firebase:backup": "node scripts/backup-firestore-store.mjs",
+    "firebase:create-user": "node scripts/create-firebase-auth-user.mjs"
+  },
+  "dependencies": {
+    "firebase": "^12.15.0",
+    "firebase-admin": "^14.1.0",
+    "lucide-react": "^0.468.0",
+    "next": "16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "server-only": "^0.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "16.2.10",
+    "firebase-tools": "^15.22.4",
+    "typescript": "^5.7.2"
+  }
+}

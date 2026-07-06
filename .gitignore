@@ -1,0 +1,11 @@
+.next
+.next.stale.*
+out/
+node_modules
+data/store.json
+data/uploads/*
+.env*.local
+backups/
+tmp/
+*.log
+tsconfig.tsbuildinfo
