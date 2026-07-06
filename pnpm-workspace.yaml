@@ -1,6 +1,8 @@
 allowBuilds:
   '@firebase/util': false
   protobufjs: false
+  re2: true
+  sharp: true
   unrs-resolver: false
 minimumReleaseAgeExclude:
   - '@next/env@16.2.10'
