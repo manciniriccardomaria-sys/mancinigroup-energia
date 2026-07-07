@@ -101,6 +101,7 @@ type ViewProps = {
 const LOCAL_STORE_KEY = "mg_energia_static_store";
 const LOCAL_AUTH_KEY = "mg_energia_static_auth";
 const ADMIN_EMAIL = "manciniriccardomaria@gmail.com";
+const DATA_LOAD_TIMEOUT_MS = 18000;
 
 const navItems: Array<{
   href: string;
@@ -295,6 +296,19 @@ function printSavingClass(value: number) {
   return "";
 }
 
+function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), milliseconds);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  });
+}
+
 export function StaticApp({ initialView }: { initialView: StaticView }) {
   const useLocalAuth = localAuthEnabled();
   const firebaseEnabled = hasFirebaseClientConfig() && !useLocalAuth;
@@ -305,6 +319,8 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
   const [store, setStore] = useState<StoreData | null>(null);
   const [persistedStore, setPersistedStore] = useState<StoreData | null>(null);
   const [flash, setFlash] = useState<Flash | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -338,12 +354,21 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(firebaseAuth(), (user) => {
-      setFirebaseUser(user);
-      setAuthReady(true);
-    });
+    try {
+      const unsubscribe = onAuthStateChanged(firebaseAuth(), (user) => {
+        setFirebaseUser(user);
+        setAuthReady(true);
+      });
 
-    return unsubscribe;
+      return unsubscribe;
+    } catch (error) {
+      queueMicrotask(() => {
+        setLoadError(error instanceof Error ? error.message : "Firebase Auth non disponibile.");
+        setAuthReady(true);
+        setDataReady(true);
+      });
+      return undefined;
+    }
   }, [firebaseEnabled]);
 
   useEffect(() => {
@@ -362,12 +387,23 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
 
     let cancelled = false;
     const db = firebaseDb();
-    queueMicrotask(() => setDataReady(false));
+    queueMicrotask(() => {
+      setLoadError(null);
+      setDataReady(false);
+    });
 
-    readFirestoreStore(db, firebaseUser.email)
+    withTimeout(
+      readFirestoreStore(db, firebaseUser.email),
+      DATA_LOAD_TIMEOUT_MS,
+      "La sincronizzazione dati sta impiegando troppo tempo. Controlla la connessione e riprova."
+    )
       .then(async ({ isEmpty, store: nextStore }) => {
         if (isEmpty) {
-          await seedFirestoreStore(db, nextStore);
+          await withTimeout(
+            seedFirestoreStore(db, nextStore),
+            DATA_LOAD_TIMEOUT_MS,
+            "La prima sincronizzazione Firebase sta impiegando troppo tempo."
+          );
         }
 
         if (!cancelled) {
@@ -378,9 +414,11 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
       })
       .catch((error: unknown) => {
         if (!cancelled) {
+          const message = error instanceof Error ? error.message : "Errore nel caricamento dati Firebase.";
+          setLoadError(message);
           setFlash({
             type: "error",
-            message: error instanceof Error ? error.message : "Errore nel caricamento dati Firebase."
+            message
           });
           setDataReady(true);
         }
@@ -389,7 +427,7 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
     return () => {
       cancelled = true;
     };
-  }, [authReady, firebaseEnabled, firebaseUser]);
+  }, [authReady, firebaseEnabled, firebaseUser, retryKey]);
 
   const sessionUser = useMemo(() => {
     if (localUser) {
@@ -485,6 +523,18 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
 
   if (!authReady || !dataReady) {
     return <LoadingScreen />;
+  }
+
+  if (loadError && firebaseUser?.email) {
+    return (
+      <LoadErrorScreen
+        error={loadError}
+        onLogout={handleLogout}
+        onRetry={() => {
+          setRetryKey((value) => value + 1);
+        }}
+      />
+    );
   }
 
   if (!sessionUser || !store) {
@@ -591,6 +641,39 @@ function LoadingScreen() {
           </div>
         </div>
         <p className="muted-text">Sincronizzazione dati in corso.</p>
+      </section>
+    </main>
+  );
+}
+
+function LoadErrorScreen({
+  error,
+  onLogout,
+  onRetry
+}: {
+  error: string;
+  onLogout: () => Promise<void>;
+  onRetry: () => void;
+}) {
+  return (
+    <main className="login-shell">
+      <section className="login-panel">
+        <div className="brand-block">
+          <div className="brand-mark">MS</div>
+          <div>
+            <p className="eyebrow">Mancini Service</p>
+            <h1>Dati non caricati</h1>
+          </div>
+        </div>
+        <div className="alert error">{error}</div>
+        <div className="split-actions">
+          <button className="primary-button" type="button" onClick={onRetry}>
+            Riprova
+          </button>
+          <button className="secondary-button" type="button" onClick={() => void onLogout()}>
+            Esci
+          </button>
+        </div>
       </section>
     </main>
   );

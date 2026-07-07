@@ -148,10 +148,15 @@ async function commitOperations(db: Firestore, operations: BatchOperation[]) {
 
 export async function readFirestoreStore(db: Firestore, adminEmail?: string) {
   const partial: Partial<StoreData> = {};
-  let totalRecords = 0;
+  const snapshots = await Promise.all(
+    collectionKeys.map(async (key) => ({
+      key,
+      snapshot: await getDocs(collection(db, STORE_ROOT, key, "items"))
+    }))
+  );
 
-  for (const key of collectionKeys) {
-    const snapshot = await getDocs(collection(db, STORE_ROOT, key, "items"));
+  let totalRecords = 0;
+  for (const { key, snapshot } of snapshots) {
     const rows = snapshot.docs.map((item) => item.data()) as never;
     partial[key] = rows;
     totalRecords += snapshot.size;

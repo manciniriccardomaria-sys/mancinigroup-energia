@@ -248,6 +248,12 @@ textarea:focus {
   color: var(--blue);
 }
 
+.split-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 .icon-button {
   width: 36px;
   height: 36px;
@@ -289,7 +295,7 @@ textarea:focus {
 
 .nav-grid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
   gap: 8px;
   margin-bottom: 18px;
 }
