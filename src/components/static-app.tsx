@@ -749,6 +749,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   const [trendCommodity, setTrendCommodity] = useState<"entrambi" | "luce" | "gas">("entrambi");
   const [trendMetric, setTrendMetric] = useState<"andamento" | "agenzia">("andamento");
   const [trendPeriod, setTrendPeriod] = useState<3 | 6 | 12>(12);
+  const [uploadCategory, setUploadCategory] = useState<UploadCategory>("caricamenti");
   const customers = visibleCustomers(user, store);
   const loadingRecords = visibleLoadingRecords(user, store);
   const agencyMarginRecords = visibleAgencyMarginRecords(user, store);
@@ -762,6 +763,9 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   const totalCommissions = commissionRows.reduce((sum, row) => sum + row.total, 0);
   const paidCommissions = commissionRows.reduce((sum, row) => sum + row.paid, 0);
   const matchedLoading = loadingRecords.filter((record) => record.matchedSourceId).length;
+  const unmatchedLoading = Math.max(0, loadingRecords.length - matchedLoading);
+  const exitedCustomers = customers.filter((customer) => customer.status === "cessato").length;
+  const commissionsDue = Math.max(0, totalCommissions - paidCommissions);
   const monthlyRows = monthlyPerformance(
     customers,
     visibleCommissionEntries(user, store),
@@ -875,63 +879,14 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   return (
     <>
       <section className="stats-grid">
-        <StatCard icon={<UsersRound size={24} />} label="POD associati" value={customers.length} />
-        <StatCard icon={<SearchCheck size={24} />} label="Caricamenti" value={loadingRecords.length} />
+        <StatCard icon={<UsersRound size={24} />} label="Contratti" value={customers.length} />
+        <StatCard icon={<SearchCheck size={24} />} label="Da abbinare" value={unmatchedLoading} />
         <StatCard icon={<ReceiptText size={24} />} label="Margine agenzia" value={formatEuro(agencySummary.totalMargin)} />
-        <StatCard icon={<BarChart3 size={24} />} label="Provvigioni" value={formatEuro(totalCommissions)} />
+        <StatCard icon={<BadgeEuro size={24} />} label="Da pagare" value={formatEuro(commissionsDue)} />
       </section>
 
-      <section className="workspace-grid">
-        <div>
-          <section className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Upload</p>
-                <h2>Carica file</h2>
-              </div>
-              <FolderUp size={24} />
-            </div>
-            <form className="form-grid compact" onSubmit={(event) => void upload(event)}>
-              <label>
-                Tipo file
-                <select name="category" defaultValue="caricamenti">
-                  <option value="caricamenti">Caricamenti</option>
-                  <option value="margini_agenzia">Provvigioni agenzia</option>
-                  <option value="altro">Altro</option>
-                </select>
-              </label>
-              <label>
-                Mese provvigioni
-                <input name="referenceMonth" type="month" defaultValue={currentMonthKey()} />
-              </label>
-              <label>
-                Tipologia
-                <select name="commodity" defaultValue="luce">
-                  <option value="luce">Luce</option>
-                  <option value="gas">Gas</option>
-                </select>
-              </label>
-              <label>
-                File
-                <input name="files" type="file" multiple />
-              </label>
-              <button className="primary-button wide-field" type="submit">
-                <Upload size={18} />
-                Carica e importa
-              </button>
-            </form>
-            <div className="upload-list">
-              {latestUploads.map((file) => (
-                <div className="upload-row" key={file.id}>
-                  <strong>{file.originalName}</strong>
-                  <span>
-                    {uploadCategoryLabels[file.category]} - {formatDateTime(file.uploadedAt)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
-
+      <section className="dashboard-main-grid">
+        <div className="dashboard-primary-column">
           <section className="table-section performance-section">
             <div className="section-heading performance-heading">
               <div>
@@ -1023,7 +978,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
           </section>
         </div>
 
-        <aside className="panel">
+        <aside className="panel operations-panel">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Totale</p>
@@ -1034,13 +989,82 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
             <SummaryRow label="Contratti totali" value={customers.length} />
             <SummaryRow label="Caricamenti importati" value={loadingRecords.length} />
             <SummaryRow label="Abbinati a fonte" value={matchedLoading} />
-            <SummaryRow label="Da abbinare" value={Math.max(0, loadingRecords.length - matchedLoading)} />
-            <SummaryRow label="Clienti usciti" value={customers.filter((customer) => customer.status === "cessato").length} />
+            <SummaryRow label="Da abbinare" value={unmatchedLoading} />
+            <SummaryRow label="Clienti usciti" value={exitedCustomers} />
             <SummaryRow label="Margine luce" value={formatEuro(agencySummary.luceMargin)} />
             <SummaryRow label="Margine gas" value={formatEuro(agencySummary.gasMargin)} />
             <SummaryRow label="Provvigioni maturate" value={formatEuro(totalCommissions)} />
             <SummaryRow label="Provvigioni pagate" value={formatEuro(paidCommissions)} />
-            <SummaryRow label="Provvigioni da pagare" value={formatEuro(Math.max(0, totalCommissions - paidCommissions))} />
+            <SummaryRow label="Provvigioni da pagare" value={formatEuro(commissionsDue)} />
+          </div>
+        </aside>
+      </section>
+
+      <section className="upload-dock">
+        <section className="panel upload-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Caricamenti</p>
+              <h2>Importa documenti</h2>
+            </div>
+            <FolderUp size={24} />
+          </div>
+          <form className="upload-form-grid" onSubmit={(event) => void upload(event)}>
+            <label>
+              Tipo file
+              <select
+                name="category"
+                value={uploadCategory}
+                onChange={(event) => setUploadCategory(event.target.value as UploadCategory)}
+              >
+                <option value="caricamenti">Caricamenti</option>
+                <option value="margini_agenzia">Provvigioni agenzia</option>
+                <option value="altro">Altro</option>
+              </select>
+            </label>
+            {uploadCategory === "margini_agenzia" && (
+              <>
+                <label>
+                  Mese provvigioni
+                  <input name="referenceMonth" type="month" defaultValue={currentMonthKey()} />
+                </label>
+                <label>
+                  Tipologia
+                  <select name="commodity" defaultValue="luce">
+                    <option value="luce">Luce</option>
+                    <option value="gas">Gas</option>
+                  </select>
+                </label>
+              </>
+            )}
+            <label className="upload-file-field">
+              File
+              <input name="files" type="file" multiple />
+            </label>
+            <button className="primary-button" type="submit">
+              <Upload size={18} />
+              Carica e importa
+            </button>
+          </form>
+        </section>
+
+        <aside className="panel latest-uploads-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Archivio</p>
+              <h2>Ultimi import</h2>
+            </div>
+          </div>
+          <div className="upload-list">
+            {latestUploads.map((file) => (
+              <div className="upload-row" key={file.id}>
+                <strong>{file.originalName}</strong>
+                <span>
+                  {uploadCategoryLabels[file.category]} - {formatDateTime(file.uploadedAt)}
+                </span>
+              </div>
+            ))}
+            {latestUploads.length === 0 && <p className="muted-text">Nessun file importato.</p>}
           </div>
         </aside>
       </section>

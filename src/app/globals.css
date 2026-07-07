@@ -489,6 +489,29 @@ textarea:focus {
   align-items: start;
 }
 
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.35fr) minmax(360px, 0.85fr);
+  gap: 22px;
+  align-items: start;
+  margin-bottom: 22px;
+}
+
+.dashboard-primary-column {
+  min-width: 0;
+}
+
+.dashboard-primary-column .table-section {
+  margin-top: 0;
+}
+
+.upload-dock {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.75fr);
+  gap: 22px;
+  align-items: start;
+}
+
 .panel {
   padding: 22px;
 }
@@ -518,6 +541,11 @@ textarea:focus {
 
 .performance-section {
   overflow: visible;
+}
+
+.operations-panel {
+  position: sticky;
+  top: 24px;
 }
 
 .section-heading {
@@ -1245,6 +1273,10 @@ td small {
   margin-top: 16px;
 }
 
+.latest-uploads-panel .upload-list {
+  margin-top: 0;
+}
+
 .upload-row {
   display: grid;
   gap: 2px;
@@ -1257,6 +1289,27 @@ td small {
 .upload-row span {
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+.upload-panel {
+  background:
+    linear-gradient(180deg, rgba(22, 122, 91, 0.04), rgba(255, 255, 255, 0.86)),
+    var(--surface);
+}
+
+.upload-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.upload-form-grid > label {
+  min-width: 0;
+}
+
+.upload-file-field input {
+  background: #f8fbfa;
 }
 
 .preventivatore-card {
@@ -1308,11 +1361,18 @@ td small {
   }
 
   .workspace-grid,
+  .dashboard-main-grid,
+  .upload-dock,
   .histogram-grid,
   .market-entry-grid,
   .quote-layout,
+  .upload-form-grid,
   .trend-filter-stack {
     grid-template-columns: 1fr;
+  }
+
+  .operations-panel {
+    position: static;
   }
 
   .quote-result-card {
@@ -1337,10 +1397,13 @@ td small {
 
   .stats-grid,
     .workspace-grid,
+    .dashboard-main-grid,
+    .upload-dock,
     .action-grid,
     .histogram-grid,
     .market-entry-fields,
     .market-entry-grid,
+    .upload-form-grid,
     .quote-actions,
     .quote-fasce-grid,
     .quote-fields.top,
