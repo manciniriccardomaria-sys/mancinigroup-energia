@@ -40,7 +40,7 @@ export function AppChrome({
             MG
           </div>
           <div>
-            <p className="eyebrow">Mancini Service</p>
+            <p className="eyebrow">Mancini Group</p>
             <h1>Gestionale Energia</h1>
           </div>
         </div>

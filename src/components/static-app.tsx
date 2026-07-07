@@ -101,6 +101,7 @@ type ViewProps = {
 const LOCAL_STORE_KEY = "mg_energia_static_store";
 const LOCAL_AUTH_KEY = "mg_energia_static_auth";
 const ADMIN_EMAIL = "manciniriccardomaria@gmail.com";
+const AUTH_READY_TIMEOUT_MS = 6000;
 const DATA_LOAD_TIMEOUT_MS = 18000;
 
 const navItems: Array<{
@@ -354,14 +355,23 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
       return;
     }
 
+    const authTimeout = window.setTimeout(() => {
+      setAuthReady(true);
+    }, AUTH_READY_TIMEOUT_MS);
+
     try {
       const unsubscribe = onAuthStateChanged(firebaseAuth(), (user) => {
+        window.clearTimeout(authTimeout);
         setFirebaseUser(user);
         setAuthReady(true);
       });
 
-      return unsubscribe;
+      return () => {
+        window.clearTimeout(authTimeout);
+        unsubscribe();
+      };
     } catch (error) {
+      window.clearTimeout(authTimeout);
       queueMicrotask(() => {
         setLoadError(error instanceof Error ? error.message : "Firebase Auth non disponibile.");
         setAuthReady(true);
@@ -602,9 +612,9 @@ function LoginScreen({
     <main className="login-shell">
       <section className="login-panel">
         <div className="brand-block">
-          <div className="brand-mark">MS</div>
+          <div className="brand-mark">MG</div>
           <div>
-            <p className="eyebrow">Mancini Service</p>
+            <p className="eyebrow">Mancini Group</p>
             <h1>Gestionale Energia</h1>
           </div>
         </div>
@@ -634,13 +644,16 @@ function LoadingScreen() {
     <main className="login-shell">
       <section className="login-panel">
         <div className="brand-block">
-          <div className="brand-mark">MS</div>
+          <div className="brand-mark">MG</div>
           <div>
-            <p className="eyebrow">Mancini Service</p>
+            <p className="eyebrow">Mancini Group</p>
             <h1>Caricamento</h1>
           </div>
         </div>
-        <p className="muted-text">Sincronizzazione dati in corso.</p>
+        <div className="loading-state" aria-live="polite">
+          <span className="loading-spinner" aria-hidden="true" />
+          <p className="muted-text">Apertura gestionale in corso.</p>
+        </div>
       </section>
     </main>
   );
@@ -659,9 +672,9 @@ function LoadErrorScreen({
     <main className="login-shell">
       <section className="login-panel">
         <div className="brand-block">
-          <div className="brand-mark">MS</div>
+          <div className="brand-mark">MG</div>
           <div>
-            <p className="eyebrow">Mancini Service</p>
+            <p className="eyebrow">Mancini Group</p>
             <h1>Dati non caricati</h1>
           </div>
         </div>
@@ -698,9 +711,9 @@ function AppChrome({
     <main className="app-shell">
       <header className="topbar">
         <div className="topbar-brand">
-          <div className="brand-mark small">MS</div>
+          <div className="brand-mark small">MG</div>
           <div>
-            <p className="eyebrow">Mancini Service</p>
+            <p className="eyebrow">Mancini Group</p>
             <h1>Gestionale Energia</h1>
           </div>
         </div>
