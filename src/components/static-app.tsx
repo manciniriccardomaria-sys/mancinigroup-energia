@@ -1943,273 +1943,318 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
 
   return (
     <>
-      <MarketVariablesPanel store={store} user={user} mutateStore={mutateStore} />
-      <section className="quote-layout">
-        <div className="quote-card quote-input-card">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Preventivatore</p>
-              <h2>Nuovo preventivo</h2>
-            </div>
-            <Calculator size={26} />
+      <section className="quote-workbench">
+        <div className="quote-workbench-header">
+          <div>
+            <p className="eyebrow">Preventivatore</p>
+            <h2>Confronto offerte {quoteInput.commodity === "luce" ? "luce" : "gas"}</h2>
           </div>
-
-          <div className="quote-form-section">
-            <div className="quote-section-heading">
-              <span>Anagrafica</span>
-            </div>
-            <div className="quote-fields top">
-              <label>
-                Data
-                <input
-                  type="date"
-                  value={quoteInput.quoteDate}
-                  onChange={(event) => updateQuote("quoteDate", event.target.value)}
-                />
-              </label>
-              <label>
-                Fonte
-                <select value={quoteInput.sourceId ?? ""} onChange={(event) => updateQuote("sourceId", event.target.value)}>
-                  <option value="">Nessuna</option>
-                  {store.sources.filter((source) => source.active).map((source) => (
-                    <option key={source.id} value={source.id}>
-                      {source.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Nome Cliente
-                <input value={quoteInput.firstName} onChange={(event) => updateQuote("firstName", event.target.value)} />
-              </label>
-              <label>
-                Cognome Cliente
-                <input value={quoteInput.lastName} onChange={(event) => updateQuote("lastName", event.target.value)} />
-              </label>
-              <label>
-                Cellulare
-                <input value={quoteInput.phone ?? ""} onChange={(event) => updateQuote("phone", event.target.value)} />
-              </label>
-            </div>
-          </div>
-
-          <div className="quote-form-section">
-            <div className="quote-section-heading">
-              <span>Offerta</span>
-            </div>
-            <div className="quote-fields-three">
-              <label>
-                Tipologia
-                <select
-                  value={quoteInput.commodity}
-                  onChange={(event) => updateQuote("commodity", event.target.value as QuoteCommodity)}
-                >
-                  <option value="luce">Luce</option>
-                  <option value="gas">Gas</option>
-                </select>
-              </label>
-              <label>
-                Cliente
-                <select
-                  value={quoteInput.customerType}
-                  onChange={(event) => updateQuote("customerType", event.target.value as QuoteCustomerType)}
-                >
-                  <option value="RES">Residenziale</option>
-                  <option value="BUS">Business</option>
-                </select>
-              </label>
-              <label>
-                Tariffa preventivata
-                <select
-                  value={selectedOffer?.code ?? ""}
-                  onChange={(event) => updateQuote("selectedOfferCode", event.target.value)}
-                >
-                  {offerChoices.map((offer) => (
-                    <option key={offer.code} value={offer.code}>
-                      {offer.offerName} - {offer.customerType}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </div>
-
-          <div className="quote-form-section">
-            <div className="quote-section-heading">
-              <span>Bolletta</span>
-            </div>
-            <div className="quote-fields-three">
-              <label>
-                Mese 1
-                <select value={quoteInput.monthKey} onChange={(event) => updateQuote("monthKey", event.target.value)}>
-                  {dynamicMonthOptions.map((monthKey) => (
-                    <option key={monthKey} value={monthKey}>
-                      {formatMonthKey(monthKey)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Mese 2
-                <select
-                  value={quoteInput.secondMonthKey ?? ""}
-                  onChange={(event) => updateQuote("secondMonthKey", event.target.value)}
-                >
-                  {dynamicMonthOptions.map((monthKey) => (
-                    <option key={monthKey} value={monthKey}>
-                      {formatMonthKey(monthKey)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                PCV mensile attuale
-                <input
-                  inputMode="decimal"
-                  value={formatInputNumber(quoteInput.currentPcv)}
-                  onChange={(event) => updateQuote("currentPcv", parseEuro(event.target.value))}
-                />
-              </label>
-              <label>
-                Prezzo medio {quoteInput.commodity === "luce" ? "kWh spesa energia" : "Smc spesa vendita gas"}
-                <input
-                  inputMode="decimal"
-                  value={formatInputNumber(quoteInput.currentAveragePrice)}
-                  onChange={(event) => updateQuote("currentAveragePrice", parseEuro(event.target.value))}
-                />
-              </label>
-              {quoteInput.commodity === "luce" && (
-                <>
-                  <label>
-                    Calcolo consumi
-                    <select
-                      value={quoteInput.lightConsumptionMode}
-                      onChange={(event) => updateQuote("lightConsumptionMode", event.target.value as LightConsumptionMode)}
-                    >
-                      <option value="totale">Consumo totale mensile</option>
-                      <option value="fasce">Consumi per fasce</option>
-                    </select>
-                  </label>
-                  <label>
-                    Perdite
-                    <select
-                      value={quoteInput.lightLossMode}
-                      onChange={(event) => updateQuote("lightLossMode", event.target.value as LightLossMode)}
-                    >
-                      <option value="bassa">Bassa tensione</option>
-                      <option value="media_alta">Media/alta tensione</option>
-                    </select>
-                  </label>
-                </>
-              )}
-              {quoteInput.commodity === "gas" && (
-                <label>
-                  <span className="field-label-row">
-                    Consumo annuo gas
-                    <span className="field-info" tabIndex={0}>
-                      <Info size={13} />
-                      <span className="field-info-tooltip">Se non e disponibile, usa 300 Smc.</span>
-                    </span>
-                  </span>
-                  <input
-                    inputMode="decimal"
-                    value={formatInputNumber(quoteInput.gasAnnualConsumption)}
-                    onChange={(event) => updateQuote("gasAnnualConsumption", parseEuro(event.target.value))}
-                  />
-                </label>
-              )}
-            </div>
-            {quoteInput.commodity === "luce" && quoteInput.lightConsumptionMode === "fasce" ? (
-              <div className="quote-fasce-grid">
-                {(["f1Month1", "f2Month1", "f3Month1", "f1Month2", "f2Month2", "f3Month2"] as const).map((key) => (
-                  <label key={key}>
-                    {key.replace("Month", " mese ")}
-                    <input
-                      inputMode="decimal"
-                      value={formatInputNumber(quoteInput[key])}
-                      onChange={(event) => updateQuote(key, parseEuro(event.target.value))}
-                    />
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <div className="quote-fields-two">
-                <label>
-                  Consumo mese 1
-                  <input
-                    inputMode="decimal"
-                    value={formatInputNumber(quoteInput.consumptionMonth1)}
-                    onChange={(event) => updateQuote("consumptionMonth1", parseEuro(event.target.value))}
-                  />
-                </label>
-                <label>
-                  Consumo mese 2
-                  <input
-                    inputMode="decimal"
-                    value={formatInputNumber(quoteInput.consumptionMonth2)}
-                    onChange={(event) => updateQuote("consumptionMonth2", parseEuro(event.target.value))}
-                  />
-                </label>
-              </div>
-            )}
+          <div className={`quote-header-result ${selectedOffer && selectedOffer.annualSaving < 0 ? "negative" : ""}`}>
+            <span>Risparmio annuo</span>
+            <strong>{selectedOffer ? formatEuro(selectedOffer.annualSaving) : "-"}</strong>
           </div>
         </div>
 
-        <aside className="quote-card quote-result-card">
-          <div className="panel-heading">
+        <div className="quote-command-bar">
+          <div className="quote-segment-group" aria-label="Tipologia fornitura">
+            <button
+              className={quoteInput.commodity === "luce" ? "active" : ""}
+              type="button"
+              onClick={() => updateQuote("commodity", "luce")}
+            >
+              <Zap size={16} />
+              Luce
+            </button>
+            <button
+              className={quoteInput.commodity === "gas" ? "active gas" : "gas"}
+              type="button"
+              onClick={() => updateQuote("commodity", "gas")}
+            >
+              <Flame size={16} />
+              Gas
+            </button>
+          </div>
+
+          <div className="quote-segment-group compact" aria-label="Tipo cliente">
+            <button
+              className={quoteInput.customerType === "RES" ? "active" : ""}
+              type="button"
+              onClick={() => updateQuote("customerType", "RES")}
+            >
+              RES
+            </button>
+            <button
+              className={quoteInput.customerType === "BUS" ? "active" : ""}
+              type="button"
+              onClick={() => updateQuote("customerType", "BUS")}
+            >
+              BUS
+            </button>
+          </div>
+
+          <label className="quote-offer-select">
+            Tariffa
+            <select
+              value={selectedOffer?.code ?? ""}
+              onChange={(event) => updateQuote("selectedOfferCode", event.target.value)}
+            >
+              {offerChoices.map((offer) => (
+                <option key={offer.code} value={offer.code}>
+                  {offer.offerName} - {offer.customerType}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="quote-workbench-grid">
+          <div className="quote-sheet">
+            <div className="quote-sheet-title">
+              <div>
+                <span className="quote-kicker">Dati preventivo</span>
+                <strong>{quoteInput.firstName || quoteInput.lastName ? `${quoteInput.firstName} ${quoteInput.lastName}`.trim() : "Nuovo cliente"}</strong>
+              </div>
+              <Calculator size={22} />
+            </div>
+
+            <div className="quote-band">
+              <div className="quote-band-title">Anagrafica</div>
+              <div className="quote-line-grid five">
+                <label>
+                  Data
+                  <input
+                    type="date"
+                    value={quoteInput.quoteDate}
+                    onChange={(event) => updateQuote("quoteDate", event.target.value)}
+                  />
+                </label>
+                <label>
+                  Fonte
+                  <select value={quoteInput.sourceId ?? ""} onChange={(event) => updateQuote("sourceId", event.target.value)}>
+                    <option value="">Nessuna</option>
+                    {store.sources.filter((source) => source.active).map((source) => (
+                      <option key={source.id} value={source.id}>
+                        {source.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Nome
+                  <input value={quoteInput.firstName} onChange={(event) => updateQuote("firstName", event.target.value)} />
+                </label>
+                <label>
+                  Cognome
+                  <input value={quoteInput.lastName} onChange={(event) => updateQuote("lastName", event.target.value)} />
+                </label>
+                <label>
+                  Cellulare
+                  <input value={quoteInput.phone ?? ""} onChange={(event) => updateQuote("phone", event.target.value)} />
+                </label>
+              </div>
+            </div>
+
+            <div className="quote-band">
+              <div className="quote-band-title">Bolletta attuale</div>
+              <div className="quote-line-grid four">
+                <label>
+                  Mese 1
+                  <select value={quoteInput.monthKey} onChange={(event) => updateQuote("monthKey", event.target.value)}>
+                    {dynamicMonthOptions.map((monthKey) => (
+                      <option key={monthKey} value={monthKey}>
+                        {formatMonthKey(monthKey)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Mese 2
+                  <select
+                    value={quoteInput.secondMonthKey ?? ""}
+                    onChange={(event) => updateQuote("secondMonthKey", event.target.value)}
+                  >
+                    {dynamicMonthOptions.map((monthKey) => (
+                      <option key={monthKey} value={monthKey}>
+                        {formatMonthKey(monthKey)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  PCV attuale
+                  <input
+                    inputMode="decimal"
+                    value={formatInputNumber(quoteInput.currentPcv)}
+                    onChange={(event) => updateQuote("currentPcv", parseEuro(event.target.value))}
+                  />
+                </label>
+                <label>
+                  Prezzo medio {quoteInput.commodity === "luce" ? "kWh" : "Smc"}
+                  <input
+                    inputMode="decimal"
+                    value={formatInputNumber(quoteInput.currentAveragePrice)}
+                    onChange={(event) => updateQuote("currentAveragePrice", parseEuro(event.target.value))}
+                  />
+                </label>
+              </div>
+
+              <div className="quote-line-grid four secondary">
+                {quoteInput.commodity === "luce" && (
+                  <>
+                    <label>
+                      Calcolo consumi
+                      <select
+                        value={quoteInput.lightConsumptionMode}
+                        onChange={(event) => updateQuote("lightConsumptionMode", event.target.value as LightConsumptionMode)}
+                      >
+                        <option value="totale">Totale mensile</option>
+                        <option value="fasce">Fasce F1/F2/F3</option>
+                      </select>
+                    </label>
+                    <label>
+                      Perdite
+                      <select
+                        value={quoteInput.lightLossMode}
+                        onChange={(event) => updateQuote("lightLossMode", event.target.value as LightLossMode)}
+                      >
+                        <option value="bassa">Bassa tensione</option>
+                        <option value="media_alta">Media/alta tensione</option>
+                      </select>
+                    </label>
+                  </>
+                )}
+                {quoteInput.commodity === "gas" && (
+                  <label>
+                    <span className="field-label-row">
+                      Consumo annuo gas
+                      <span className="field-info" tabIndex={0}>
+                        <Info size={13} />
+                        <span className="field-info-tooltip">Se non e disponibile, usa 300 Smc.</span>
+                      </span>
+                    </span>
+                    <input
+                      inputMode="decimal"
+                      value={formatInputNumber(quoteInput.gasAnnualConsumption)}
+                      onChange={(event) => updateQuote("gasAnnualConsumption", parseEuro(event.target.value))}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {quoteInput.commodity === "luce" && quoteInput.lightConsumptionMode === "fasce" ? (
+                <div className="quote-fasce-grid refined">
+                  {(["f1Month1", "f2Month1", "f3Month1", "f1Month2", "f2Month2", "f3Month2"] as const).map((key) => (
+                    <label key={key}>
+                      {key.replace("Month", " mese ")}
+                      <input
+                        inputMode="decimal"
+                        value={formatInputNumber(quoteInput[key])}
+                        onChange={(event) => updateQuote(key, parseEuro(event.target.value))}
+                      />
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="quote-line-grid two consumptions">
+                  <label>
+                    Consumo mese 1
+                    <input
+                      inputMode="decimal"
+                      value={formatInputNumber(quoteInput.consumptionMonth1)}
+                      onChange={(event) => updateQuote("consumptionMonth1", parseEuro(event.target.value))}
+                    />
+                  </label>
+                  <label>
+                    Consumo mese 2
+                    <input
+                      inputMode="decimal"
+                      value={formatInputNumber(quoteInput.consumptionMonth2)}
+                      onChange={(event) => updateQuote("consumptionMonth2", parseEuro(event.target.value))}
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="quote-comparison-strip">
+              <div className="quote-comparison-cell current">
+                <span>Quota consumi attuale</span>
+                <strong>{formatEuro(calculation.source.currentSpend)}</strong>
+              </div>
+              <div className="quote-comparison-cell current">
+                <span>Spread attuale</span>
+                <strong>{formatSpread(calculation.source.currentSpread, 3)} €</strong>
+              </div>
+              <div className="quote-comparison-cell current">
+                <span>PCV attuale</span>
+                <strong>{formatEuro(calculation.source.currentPcv)}</strong>
+              </div>
+              <div className="quote-comparison-cell proposed">
+                <span>Quota proposta</span>
+                <strong>{selectedOffer ? formatEuro(selectedOffer.quotaConsumi) : "-"}</strong>
+              </div>
+              <div className="quote-comparison-cell proposed">
+                <span>Spread proposto</span>
+                <strong>{selectedOffer ? `${formatSpread(selectedOffer.spread, 3)} €` : "-"}</strong>
+              </div>
+              <div className="quote-comparison-cell proposed">
+                <span>PCV proposto</span>
+                <strong>{selectedOffer ? formatEuro(selectedOffer.pcv) : "-"}</strong>
+              </div>
+            </div>
+          </div>
+
+          <aside className="quote-summary-card">
             <div>
               <p className="eyebrow">Risultato</p>
               <h2>{selectedOffer?.offerName ?? "Preventivo"}</h2>
             </div>
-            <BadgeEuro size={24} />
-          </div>
-          <div className="quote-result-meta">
-            <span className={`status-badge ${quoteInput.commodity}`}>{commodityLabels[quoteInput.commodity]}</span>
-            <span className={`status-badge ${quoteInput.customerType.toLowerCase()}`}>{quoteInput.customerType}</span>
-          </div>
-          {calculation.warnings.map((warning) => (
-            <div className="quote-warning" key={warning}>
-              {warning}
+            <div className="quote-summary-tags">
+              <span className={`status-badge ${quoteInput.commodity}`}>{commodityLabels[quoteInput.commodity]}</span>
+              <span className={`status-badge ${quoteInput.customerType.toLowerCase()}`}>{quoteInput.customerType}</span>
             </div>
-          ))}
-          <div className="quote-result-list">
-            <div className="quote-current-row">
-              <span>Quota consumi attuale</span>
-              <strong>{formatEuro(calculation.source.currentSpend)}</strong>
-            </div>
-            <div className="quote-current-row">
-              <span>Spread attuale</span>
-              <strong>{formatSpread(calculation.source.currentSpread, 3)} €</strong>
-            </div>
-            <div className="quote-current-row">
-              <span>PCV attuale</span>
-              <strong>{formatEuro(calculation.source.currentPcv)}</strong>
-            </div>
-            <div className="quote-proposed-row">
-              <span>Quota consumi proposta</span>
-              <strong>{selectedOffer ? formatEuro(selectedOffer.quotaConsumi) : "-"}</strong>
-            </div>
-            <div className="quote-proposed-row">
-              <span>PCV proposto</span>
-              <strong>{selectedOffer ? formatEuro(selectedOffer.pcv) : "-"}</strong>
-            </div>
-            <div className="quote-highlight">
-              <span>Risparmio annuo</span>
+
+            <div className={`quote-saving-box ${selectedOffer && selectedOffer.annualSaving < 0 ? "negative" : ""}`}>
+              <span>Risparmio annuo stimato</span>
               <strong>{selectedOffer ? formatEuro(selectedOffer.annualSaving) : "-"}</strong>
+              <small>{selectedOffer && selectedOffer.annualSaving < 0 ? "Offerta piu costosa dell'attuale" : "Confronto su base annua"}</small>
             </div>
-          </div>
-          <div className="quote-actions">
-            <button className="secondary-button" type="button" onClick={() => void saveQuote()}>
-              <Save size={18} />
-              Salva preventivo
-            </button>
-            <button className="print-button" type="button" onClick={() => window.print()}>
-              <Upload size={18} />
-              Stampa preventivo
-            </button>
-          </div>
-        </aside>
+
+            {calculation.warnings.map((warning) => (
+              <div className="quote-warning" key={warning}>
+                {warning}
+              </div>
+            ))}
+
+            <div className="quote-mini-list">
+              <div>
+                <span>Consumo periodo</span>
+                <strong>{formatNumber(calculation.source.totalConsumption)} {quoteInput.commodity === "luce" ? "kWh" : "Smc"}</strong>
+              </div>
+              <div>
+                <span>Consumo annuo</span>
+                <strong>{formatNumber(calculation.source.annualConsumption)} {quoteInput.commodity === "luce" ? "kWh" : "Smc"}</strong>
+              </div>
+              <div>
+                <span>Differenza annua</span>
+                <strong>{selectedOffer ? formatEuro(selectedOffer.annualDifference) : "-"}</strong>
+              </div>
+            </div>
+
+            <div className="quote-actions">
+              <button className="secondary-button" type="button" onClick={() => void saveQuote()}>
+                <Save size={18} />
+                Salva
+              </button>
+              <button className="print-button" type="button" onClick={() => window.print()}>
+                <Upload size={18} />
+                Stampa
+              </button>
+            </div>
+          </aside>
+        </div>
       </section>
+      <MarketVariablesPanel store={store} user={user} mutateStore={mutateStore} />
       <QuotePrintPage calculation={calculation} input={quoteInput} selectedOffer={selectedOffer} />
     </>
   );
