@@ -918,11 +918,11 @@ export async function addUser(input: {
   }
 
   const source =
-    input.sourceId && input.role !== "admin"
+    input.sourceId && input.role !== "admin" && input.role !== "operativo"
       ? store.sources.find((item) => item.id === input.sourceId && item.active)
       : undefined;
 
-  if (input.role !== "admin" && !source) {
+  if (input.role !== "admin" && input.role !== "operativo" && !source) {
     throw new Error("Collega l'utente a una fonte attiva.");
   }
 

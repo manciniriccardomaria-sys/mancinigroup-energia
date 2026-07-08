@@ -1,6 +1,6 @@
 export type SourceKind = "collaboratore" | "frontline" | "sede";
 
-export type UserRole = "admin" | "frontline" | "agent";
+export type UserRole = "admin" | "frontline" | "agent" | "operativo";
 
 export type CustomerStatus = "attivo" | "in_lavorazione" | "cessato";
 

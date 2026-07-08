@@ -9,7 +9,8 @@ export const sourceKindLabels: Record<SourceKind, string> = {
 export const userRoleLabels: Record<UserRole, string> = {
   admin: "Admin",
   frontline: "Frontline",
-  agent: "Agente"
+  agent: "Agente",
+  operativo: "Operativo"
 };
 
 export const customerStatusLabels: Record<CustomerStatus, string> = {

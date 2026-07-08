@@ -29,12 +29,12 @@ const authOnly = process.argv.includes("--auth-only");
 
 if (!email || !password || !name) {
   throw new Error(
-    "Uso: pnpm firebase:create-user -- --email=nome@example.com --password='PasswordSicura' --name='Nome' --role=admin|frontline|agent [--sourceId=src_nome] [--auth-only]"
+    "Uso: pnpm firebase:create-user -- --email=nome@example.com --password='PasswordSicura' --name='Nome' --role=admin|frontline|agent|operativo [--sourceId=src_nome] [--auth-only]"
   );
 }
 
-if (!["admin", "frontline", "agent"].includes(role)) {
-  throw new Error("Ruolo non valido. Usa admin, frontline o agent.");
+if (!["admin", "frontline", "agent", "operativo"].includes(role)) {
+  throw new Error("Ruolo non valido. Usa admin, frontline, agent o operativo.");
 }
 
 const serviceAccount = firebaseServiceAccount();
@@ -78,7 +78,7 @@ if (!authOnly) {
     createdAt: new Date().toISOString()
   };
 
-  if (role !== "admin" && sourceId) {
+  if (role !== "admin" && role !== "operativo" && sourceId) {
     userDoc.sourceId = sourceId;
   }
 

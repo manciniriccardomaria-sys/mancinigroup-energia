@@ -116,19 +116,28 @@ const navItems: Array<{
   href: string;
   view: StaticView;
   label: string;
+  operationalLabel?: string;
   icon: ReactNode;
   adminOnly?: boolean;
+  roles?: UserRole[];
 }> = [
-  { href: "/dashboard/", view: "dashboard", label: "Home", icon: <Home size={18} /> },
-  { href: "/customers/new/", view: "customers-new", label: "Pre-associa", icon: <FilePlus2 size={18} /> },
-  { href: "/customers/", view: "customers", label: "Associazioni", icon: <UsersRound size={18} /> },
-  { href: "/caricamenti/", view: "caricamenti", label: "Caricamenti", icon: <ClipboardList size={18} /> },
+  { href: "/dashboard/", view: "dashboard", label: "Home", icon: <Home size={18} />, roles: ["admin", "frontline", "agent"] },
+  { href: "/customers/new/", view: "customers-new", label: "Pre-associa", icon: <FilePlus2 size={18} />, roles: ["admin", "frontline", "agent"] },
+  { href: "/customers/", view: "customers", label: "Clienti", icon: <UsersRound size={18} />, roles: ["admin", "frontline", "agent"] },
+  {
+    href: "/caricamenti/",
+    view: "caricamenti",
+    label: "Caricamenti",
+    operationalLabel: "Abbinamenti",
+    icon: <ClipboardList size={18} />,
+    roles: ["admin", "frontline", "operativo"]
+  },
   { href: "/offers/", view: "offers", label: "Offerte", icon: <Tags size={18} /> },
-  { href: "/sources/", view: "sources", label: "Fonti", icon: <UserPlus size={18} /> },
-  { href: "/commissions/", view: "commissions", label: "Provvigioni", icon: <BarChart3 size={18} /> },
-  { href: "/commission-rules/", view: "commission-rules", label: "Regole", icon: <SlidersHorizontal size={18} /> },
+  { href: "/sources/", view: "sources", label: "Fonti", icon: <UserPlus size={18} />, roles: ["admin", "frontline", "operativo"] },
+  { href: "/commissions/", view: "commissions", label: "Provvigioni", icon: <BarChart3 size={18} />, roles: ["admin", "frontline", "agent"] },
+  { href: "/commission-rules/", view: "commission-rules", label: "Regole", icon: <SlidersHorizontal size={18} />, roles: ["admin"] },
   { href: "/preventivatore/", view: "preventivatore", label: "Preventivatore", icon: <Calculator size={18} /> },
-  { href: "/users/", view: "users", label: "Utenti", icon: <ShieldCheck size={18} />, adminOnly: true }
+  { href: "/users/", view: "users", label: "Utenti", icon: <ShieldCheck size={18} />, adminOnly: true, roles: ["admin"] }
 ];
 
 function normalizeInitialView(view: StaticView) {
@@ -161,8 +170,30 @@ const sourceKindLabels: Record<SourceKind, string> = {
 const roleLabels: Record<UserRole, string> = {
   admin: "Admin",
   frontline: "Frontline",
-  agent: "Agente"
+  agent: "Agente",
+  operativo: "Operativo"
 };
+
+function canUseNavItem(user: SessionUser, item: (typeof navItems)[number]) {
+  if (item.adminOnly && user.role !== "admin") {
+    return false;
+  }
+
+  return !item.roles || item.roles.includes(user.role);
+}
+
+function navLabel(item: (typeof navItems)[number], user: SessionUser) {
+  return user.role === "operativo" && item.operationalLabel ? item.operationalLabel : item.label;
+}
+
+function canUseView(user: SessionUser, view: StaticView) {
+  const item = navItems.find((candidate) => candidate.view === view);
+  return item ? canUseNavItem(user, item) : true;
+}
+
+function firstViewForUser(user: SessionUser) {
+  return navItems.find((item) => canUseNavItem(user, item))?.view ?? "preventivatore";
+}
 
 function formData(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();
@@ -235,11 +266,28 @@ function monthRange(startMonthKey: string, endMonthKey: string) {
   return months;
 }
 
+function addMonthsToMonthKey(monthKey: string, months: number) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, 1));
+  date.setUTCMonth(date.getUTCMonth() + months);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthDistance(startMonthKey: string, currentMonthKey: string) {
+  const [startYear, startMonth] = startMonthKey.split("-").map(Number);
+  const [currentYear, currentMonth] = currentMonthKey.split("-").map(Number);
+  return (currentYear - startYear) * 12 + (currentMonth - startMonth);
+}
+
 function latestFullMonthKey(entries: CommissionEntry[]) {
   return entries
     .map((entry) => entry.dueMonth)
     .filter(isFullMonthKey)
     .sort((a, b) => b.localeCompare(a))[0];
+}
+
+function latestFullMonthValue(monthKeys: string[]) {
+  return monthKeys.filter(isFullMonthKey).sort((a, b) => b.localeCompare(a))[0];
 }
 
 function buildCommissionMonthColumns(entries: CommissionEntry[], cutoffMonthKey: string, startMonthCandidates: string[] = []) {
@@ -253,11 +301,23 @@ function buildCommissionMonthColumns(entries: CommissionEntry[], cutoffMonthKey:
   return firstMonthKey ? monthRange(firstMonthKey, cutoffMonthKey) : [];
 }
 
+type ProjectedCommission = {
+  sourceId: string;
+  monthKey: string;
+  amount: number;
+};
+
+type MonthlyCommissionCell = {
+  actual: number;
+  projected: number;
+};
+
 function buildMonthlyCommissionRows(
   entries: CommissionEntry[],
   payments: CommissionPayment[],
   sources: Source[],
-  monthKeys: string[]
+  monthKeys: string[],
+  projectedEntries: ProjectedCommission[] = []
 ) {
   const paymentsBySource = new Map<string, number>();
 
@@ -267,15 +327,24 @@ function buildMonthlyCommissionRows(
 
   return sources
     .map((source) => {
-      const monthly = Object.fromEntries(monthKeys.map((monthKey) => [monthKey, 0])) as Record<string, number>;
+      const monthly = Object.fromEntries(
+        monthKeys.map((monthKey) => [monthKey, { actual: 0, projected: 0 }])
+      ) as Record<string, MonthlyCommissionCell>;
 
       for (const entry of entries) {
         if (entry.sourceId === source.id && monthly[entry.dueMonth] !== undefined) {
-          monthly[entry.dueMonth] += entry.amount;
+          monthly[entry.dueMonth].actual += entry.amount;
         }
       }
 
-      const total = monthKeys.reduce((sum, monthKey) => sum + monthly[monthKey], 0);
+      for (const entry of projectedEntries) {
+        if (entry.sourceId === source.id && monthly[entry.monthKey] !== undefined) {
+          monthly[entry.monthKey].projected += entry.amount;
+        }
+      }
+
+      const total = monthKeys.reduce((sum, monthKey) => sum + monthly[monthKey].actual, 0);
+      const projectedTotal = monthKeys.reduce((sum, monthKey) => sum + monthly[monthKey].projected, 0);
       const paid = paymentsBySource.get(source.id) ?? 0;
 
       return {
@@ -283,11 +352,148 @@ function buildMonthlyCommissionRows(
         total,
         paid,
         due: Math.max(0, total - paid),
+        projectedTotal,
         monthly
       };
     })
-    .filter((row) => row.total > 0 || row.paid > 0)
+    .filter((row) => row.total > 0 || row.paid > 0 || row.projectedTotal > 0)
     .sort((a, b) => b.due - a.due || a.source.name.localeCompare(b.source.name, "it"));
+}
+
+function isHomeCommissionOffer(offer?: string) {
+  return (offer ?? "").toUpperCase().startsWith("HOME");
+}
+
+function isBusinessCommissionOffer(offer?: string) {
+  const normalized = (offer ?? "").toUpperCase();
+  return normalized.startsWith("BUSINESS") || normalized.includes("CONDOMINI STANDARD") || normalized.includes("COND. STANDARD");
+}
+
+function projectedFixedHomeAmount(offer?: string) {
+  const normalized = (offer ?? "").toUpperCase();
+  if (normalized.includes("HOME FAMILY")) return 15;
+  if (normalized.includes("HOME FIDELITY")) return 20;
+  return 25;
+}
+
+function projectedFrontlineBusinessAmount(agencyAmount: number) {
+  if (agencyAmount >= 0 && agencyAmount <= 150) return 25;
+  if (agencyAmount > 150 && agencyAmount <= 500) return 30;
+  if (agencyAmount > 500 && agencyAmount <= 1000) return 50;
+  if (agencyAmount > 1000) return 100;
+  return 0;
+}
+
+function roundCurrency(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function simulateFutureCommissions(input: {
+  records: AgencyMarginRecord[];
+  customers: StoreData["customers"];
+  sources: Source[];
+  cutoffMonthKey: string;
+  projectionEndMonthKey: string;
+}) {
+  const sourceById = new Map(input.sources.map((source) => [source.id, source]));
+  const customerByPod = new Map(input.customers.map((customer) => [customer.podPdrNorm, customer]));
+  const recordsByPod = new Map<string, AgencyMarginRecord[]>();
+
+  for (const record of input.records) {
+    if (!record.podPdrNorm || !isFullMonthKey(record.monthKey)) {
+      continue;
+    }
+
+    const group = recordsByPod.get(record.podPdrNorm) ?? [];
+    group.push(record);
+    recordsByPod.set(record.podPdrNorm, group);
+  }
+
+  const latestImportedMonthKey = latestFullMonthValue(input.records.map((record) => record.monthKey));
+  const activeThresholdMonthKey = latestImportedMonthKey ? addMonthsToMonthKey(latestImportedMonthKey, -2) : "";
+  const futureMonths = monthRange(addMonthsToMonthKey(input.cutoffMonthKey, 1), input.projectionEndMonthKey);
+  const projections: ProjectedCommission[] = [];
+
+  for (const [podPdrNorm, records] of recordsByPod.entries()) {
+    const sorted = records.slice().sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+    const firstMonthKey = sorted[0]?.monthKey;
+    const lastRecord = sorted.at(-1);
+    const lastMonthKey = lastRecord?.monthKey;
+    const customer = customerByPod.get(podPdrNorm);
+    const source = sourceById.get(customer?.sourceId ?? lastRecord?.matchedSourceId ?? "");
+    const offer = lastRecord?.offerEasy ?? lastRecord?.offer ?? customer?.offer;
+
+    if (!firstMonthKey || !lastMonthKey || !lastRecord || !source || source.kind === "sede") {
+      continue;
+    }
+
+    const isStillActive = customer?.status !== "cessato" && (!activeThresholdMonthKey || lastMonthKey >= activeThresholdMonthKey);
+    const firstFixedDueMonthKey = addMonthsToMonthKey(firstMonthKey, 10);
+    const closedBeforeMaturity = !isStillActive && monthDistance(firstMonthKey, lastMonthKey) < 10;
+
+    if (closedBeforeMaturity) {
+      continue;
+    }
+
+    if (source.kind === "collaboratore" && isBusinessCommissionOffer(offer)) {
+      if (!isStillActive) {
+        continue;
+      }
+
+      const latestGenerated = sorted
+        .filter((record) => record.commissionKind === "business_coll_monthly" && record.commissionAmount !== undefined)
+        .sort((a, b) => b.monthKey.localeCompare(a.monthKey))[0];
+      const amount = latestGenerated?.commissionAmount ?? roundCurrency(lastRecord.marginAmount * 0.5);
+
+      if (amount > 0) {
+        for (const monthKey of futureMonths) {
+          projections.push({ sourceId: source.id, monthKey, amount });
+        }
+      }
+
+      continue;
+    }
+
+    if (!isHomeCommissionOffer(offer) && !(source.kind === "frontline" && isBusinessCommissionOffer(offer))) {
+      continue;
+    }
+
+    if (!isStillActive && lastMonthKey < firstFixedDueMonthKey) {
+      continue;
+    }
+
+    const amount = isHomeCommissionOffer(offer)
+      ? projectedFixedHomeAmount(offer)
+      : projectedFrontlineBusinessAmount(lastRecord.marginAmount);
+
+    if (amount <= 0) {
+      continue;
+    }
+
+    const generatedFixedMonths = sorted
+      .filter(
+        (record) =>
+          record.commissionStatus === "generata" &&
+          (record.commissionKind === "home_once" || record.commissionKind === "business_fl_once")
+      )
+      .map((record) => record.monthKey)
+      .sort((a, b) => b.localeCompare(a));
+    let nextDueMonthKey = generatedFixedMonths[0] ? addMonthsToMonthKey(generatedFixedMonths[0], 12) : firstFixedDueMonthKey;
+
+    while (nextDueMonthKey <= input.cutoffMonthKey) {
+      nextDueMonthKey = addMonthsToMonthKey(nextDueMonthKey, 12);
+    }
+
+    while (nextDueMonthKey <= input.projectionEndMonthKey) {
+      if (isStillActive || nextDueMonthKey <= lastMonthKey) {
+        projections.push({ sourceId: source.id, monthKey: nextDueMonthKey, amount });
+      }
+
+      nextDueMonthKey = addMonthsToMonthKey(nextDueMonthKey, 12);
+    }
+  }
+
+  return projections;
 }
 
 function formatNumber(value: number, digits = 2) {
@@ -672,7 +878,8 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
     );
   }
 
-  const view = activeView === "login" ? "dashboard" : activeView;
+  const requestedView = activeView === "login" ? "dashboard" : activeView;
+  const view = canUseView(sessionUser, requestedView) ? requestedView : firstViewForUser(sessionUser);
 
   return (
     <AppChrome user={sessionUser} view={view} flash={flash} onLogout={handleLogout} onNavigate={navigateToView}>
@@ -822,7 +1029,7 @@ function AppChrome({
       </header>
       <nav className="nav-grid">
         {navItems
-          .filter((item) => !item.adminOnly || user.role === "admin")
+          .filter((item) => canUseNavItem(user, item))
           .map((item) => (
             <a
               className={`nav-button ${item.view === view ? "active" : ""}`}
@@ -845,7 +1052,7 @@ function AppChrome({
               }}
             >
               {item.icon}
-              {item.label}
+              {navLabel(item, user)}
             </a>
           ))}
       </nav>
@@ -1350,16 +1557,76 @@ function NewCustomerView({ store, user, mutateStore }: ViewProps) {
 }
 
 function CustomersView({ store, user, mutateStore }: ViewProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortKey, setSortKey] = useState<"name" | "source" | "value">("name");
   const customers = visibleCustomers(user, store);
   const sources = activeSourcesForUser(user, store.sources).sort((a, b) => a.name.localeCompare(b.name, "it"));
   const sourceById = new Map(store.sources.map((source) => [source.id, source]));
+  const valueByPod = new Map<string, number>();
+
+  for (const record of visibleAgencyMarginRecords(user, store)) {
+    valueByPod.set(record.podPdrNorm, (valueByPod.get(record.podPdrNorm) ?? 0) + record.marginAmount);
+  }
+
+  const searchNeedle = searchTerm.trim().toLowerCase();
+  const rows = customers
+    .map((customer) => {
+      const source = sourceById.get(customer.sourceId);
+      return {
+        customer,
+        source,
+        value: valueByPod.get(customer.podPdrNorm) ?? 0
+      };
+    })
+    .filter(({ customer, source }) => {
+      if (!searchNeedle) {
+        return true;
+      }
+
+      return [customer.name, customer.podPdr, customer.offer, source?.name]
+        .filter(Boolean)
+        .some((value) => value?.toLowerCase().includes(searchNeedle));
+    })
+    .sort((a, b) => {
+      if (sortKey === "source") {
+        return (
+          (a.source?.name ?? "").localeCompare(b.source?.name ?? "", "it") ||
+          a.customer.name.localeCompare(b.customer.name, "it")
+        );
+      }
+
+      if (sortKey === "value") {
+        return b.value - a.value || a.customer.name.localeCompare(b.customer.name, "it");
+      }
+
+      return a.customer.name.localeCompare(b.customer.name, "it");
+    });
 
   return (
     <section className="table-section no-margin">
       <div className="section-heading">
         <div>
           <p className="eyebrow">Clienti</p>
-          <h2>Associazioni POD/PDR</h2>
+          <h2>Clienti e fonti</h2>
+          <p className="muted-text">Cerca un cliente, cambia fonte e controlla il valore generato dai margini agenzia.</p>
+        </div>
+        <div className="section-actions">
+          <label className="table-filter-control">
+            Ricerca
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Nome, POD/PDR o fonte"
+            />
+          </label>
+          <label className="table-filter-control">
+            Ordina
+            <select value={sortKey} onChange={(event) => setSortKey(event.target.value as typeof sortKey)}>
+              <option value="name">Nome / cognome</option>
+              <option value="source">Fonte</option>
+              <option value="value">Valore cliente</option>
+            </select>
+          </label>
         </div>
       </div>
       <div className="table-wrap">
@@ -1370,12 +1637,13 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
               <th>POD/PDR</th>
               <th>Tipologia</th>
               <th>Fonte</th>
+              <th>Valore cliente</th>
               <th>Stato</th>
               <th>Creato</th>
             </tr>
           </thead>
           <tbody>
-            {customers.map((customer) => (
+            {rows.map(({ customer, source, value }) => (
               <tr key={customer.id}>
                 <td>
                   <strong>{customer.name}</strong>
@@ -1401,7 +1669,11 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
                       </option>
                     ))}
                   </select>
-                  <small>{sourceById.get(customer.sourceId)?.kind}</small>
+                  <small>{source?.kind}</small>
+                </td>
+                <td>
+                  <strong>{formatEuro(value)}</strong>
+                  <small>Provvigioni agenzia</small>
                 </td>
                 <td>
                   <select
@@ -1421,9 +1693,9 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
                 <td>{formatDateTime(customer.createdAt)}</td>
               </tr>
             ))}
-            {customers.length === 0 && (
+            {rows.length === 0 && (
               <tr>
-                <td className="empty-state" colSpan={6}>
+                <td className="empty-state" colSpan={7}>
                   Nessun cliente presente.
                 </td>
               </tr>
@@ -1436,7 +1708,7 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
 }
 
 function SourcesView({ store, user, mutateStore }: ViewProps) {
-  if (user.role !== "admin" && user.role !== "frontline") {
+  if (user.role !== "admin" && user.role !== "frontline" && user.role !== "operativo") {
     return <LockedPanel />;
   }
 
@@ -1535,7 +1807,7 @@ function UsersView({ store, user, mutateStore }: ViewProps) {
         email: textValue(data, "email"),
         name: textValue(data, "name"),
         role,
-        sourceId: role === "admin" ? undefined : textValue(data, "sourceId")
+        sourceId: role === "admin" || role === "operativo" ? undefined : textValue(data, "sourceId")
       });
     }, "Utente gestionale aggiunto.");
   }
@@ -1564,6 +1836,7 @@ function UsersView({ store, user, mutateStore }: ViewProps) {
             <select name="role" defaultValue="agent">
               <option value="agent">Agente</option>
               <option value="frontline">Frontline</option>
+              <option value="operativo">Operativo</option>
               <option value="admin">Admin</option>
             </select>
           </label>
@@ -1685,7 +1958,6 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
         record: AgencyMarginRecord;
         months: Set<string>;
         rowCount: number;
-        totalMargin: number;
       }
     >();
 
@@ -1700,15 +1972,13 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
         rowsByPod.set(record.podPdrNorm, {
           record,
           months: new Set([record.monthKey]),
-          rowCount: 1,
-          totalMargin: record.marginAmount
+          rowCount: 1
         });
         continue;
       }
 
       current.months.add(record.monthKey);
       current.rowCount += 1;
-      current.totalMargin += record.marginAmount;
 
       if (
         record.monthKey > current.record.monthKey ||
@@ -1748,32 +2018,18 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
           createdBy: user.id
         });
       }
-
-      const rowsByUpload = new Map<string, AgencyMarginRecord[]>();
-      for (const row of draft.agencyMarginRecords.filter((item) => item.podPdrNorm === record.podPdrNorm)) {
-        const group = rowsByUpload.get(row.uploadedFileId) ?? [];
-        group.push(row);
-        rowsByUpload.set(row.uploadedFileId, group);
-      }
-
-      for (const [uploadedFileId, rows] of rowsByUpload.entries()) {
-        importAgencyMarginRecordsToStore(draft, {
-          uploadedFileId,
-          rows,
-          totalRows: rows.length,
-          skippedRows: 0
-        });
-      }
     }, "Contratto abbinato alla fonte.");
   }
 
   return (
     <>
-      <section className="stats-grid three">
-        <StatCard icon={<ClipboardList size={24} />} label="Caricamenti" value={loadingRecords.length} />
-        <StatCard icon={<ReceiptText size={24} />} label="Righe provvigioni agenzia" value={agencyRecords.length} />
-        <StatCard icon={<Database size={24} />} label="File importati" value={store.uploadedFiles.length} />
-      </section>
+      {user.role !== "operativo" && (
+        <section className="stats-grid three">
+          <StatCard icon={<ClipboardList size={24} />} label="Caricamenti" value={loadingRecords.length} />
+          <StatCard icon={<ReceiptText size={24} />} label="Righe provvigioni agenzia" value={agencyRecords.length} />
+          <StatCard icon={<Database size={24} />} label="File importati" value={store.uploadedFiles.length} />
+        </section>
+      )}
       <section className="table-section no-margin">
         <div className="section-heading">
           <div>
@@ -1790,20 +2046,18 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
                 <th>POD/PDR</th>
                 <th>Offerta</th>
                 <th>Mesi</th>
-                <th>Margine totale</th>
                 <th>Fonte</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {unmatchedCustomerRows.map(({ record, months, rowCount, totalMargin }) => (
+              {unmatchedCustomerRows.map(({ record, months, rowCount }) => (
                 <tr key={record.podPdrNorm}>
                   <td>{formatMonthKey(record.monthKey)}</td>
                   <td>{record.customerName}</td>
                   <td>{record.podPdr}</td>
                   <td>{record.offerEasy ?? record.offer ?? "-"}</td>
                   <td>{months.size} mesi / {rowCount} righe</td>
-                  <td>{formatEuro(totalMargin)}</td>
                   <td>
                     <select
                       aria-label={`Fonte per ${record.customerName}`}
@@ -1832,96 +2086,100 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
               ))}
               {unmatchedCustomerRows.length === 0 && (
                 <tr>
-                  <td className="empty-state" colSpan={8}>Nessun contratto da abbinare.</td>
+                  <td className="empty-state" colSpan={7}>Nessun contratto da abbinare.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       </section>
-      <section className="table-section no-margin">
-        <div className="section-heading">
-          <h2>Ultimi caricamenti</h2>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>POD/PDR</th>
-                <th>Offerta</th>
-                <th>Tipo</th>
-                <th>Fonte</th>
-                <th>Data firma</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loadingRecords.slice(0, 80).map((record) => (
-                <tr key={record.id}>
-                  <td>{record.customerName}</td>
-                  <td>{record.podPdr}</td>
-                  <td>{record.offer ?? "-"}</td>
-                  <td>{commodityLabels[record.commodity]}</td>
-                  <td>{store.sources.find((source) => source.id === record.matchedSourceId)?.name ?? "Da abbinare"}</td>
-                  <td>{record.signedAt ? formatDate(record.signedAt) : "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section className="table-section">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Storico</p>
-            <h2>Provvigioni agenzia importate</h2>
-          </div>
-          <label className="table-filter-control">
-            Mese
-            <select value={agencyMonthFilter} onChange={(event) => setAgencyMonthFilter(event.target.value)}>
-              <option value="tutti">Tutti i mesi</option>
-              {agencyMonthOptions.map((monthKey) => (
-                <option key={monthKey} value={monthKey}>
-                  {formatMonthKey(monthKey)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Mese</th>
-                <th>Cliente</th>
-                <th>POD/PDR</th>
-                <th>Tipo</th>
-                <th>Margine agenzia</th>
-                <th>Provvigione fonte</th>
-                <th>Stato</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAgencyRecords.map((record) => (
-                <tr key={record.id}>
-                  <td>{formatMonthKey(record.monthKey)}</td>
-                  <td>{record.customerName}</td>
-                  <td>{record.podPdr}</td>
-                  <td>{commodityLabels[record.commodity]}</td>
-                  <td>{formatEuro(record.marginAmount)}</td>
-                  <td>{record.commissionAmount !== undefined ? formatEuro(record.commissionAmount) : "-"}</td>
-                  <td>{record.commissionStatus}</td>
-                </tr>
-              ))}
-              {filteredAgencyRecords.length === 0 && (
-                <tr>
-                  <td className="empty-state" colSpan={7}>Nessuna provvigione agenzia per questo mese.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {user.role !== "operativo" && (
+        <>
+          <section className="table-section no-margin">
+            <div className="section-heading">
+              <h2>Ultimi caricamenti</h2>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th>POD/PDR</th>
+                    <th>Offerta</th>
+                    <th>Tipo</th>
+                    <th>Fonte</th>
+                    <th>Data firma</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingRecords.slice(0, 80).map((record) => (
+                    <tr key={record.id}>
+                      <td>{record.customerName}</td>
+                      <td>{record.podPdr}</td>
+                      <td>{record.offer ?? "-"}</td>
+                      <td>{commodityLabels[record.commodity]}</td>
+                      <td>{store.sources.find((source) => source.id === record.matchedSourceId)?.name ?? "Da abbinare"}</td>
+                      <td>{record.signedAt ? formatDate(record.signedAt) : "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <section className="table-section">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Storico</p>
+                <h2>Provvigioni agenzia importate</h2>
+              </div>
+              <label className="table-filter-control">
+                Mese
+                <select value={agencyMonthFilter} onChange={(event) => setAgencyMonthFilter(event.target.value)}>
+                  <option value="tutti">Tutti i mesi</option>
+                  {agencyMonthOptions.map((monthKey) => (
+                    <option key={monthKey} value={monthKey}>
+                      {formatMonthKey(monthKey)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mese</th>
+                    <th>Cliente</th>
+                    <th>POD/PDR</th>
+                    <th>Tipo</th>
+                    <th>Margine agenzia</th>
+                    <th>Provvigione fonte</th>
+                    <th>Stato</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAgencyRecords.map((record) => (
+                    <tr key={record.id}>
+                      <td>{formatMonthKey(record.monthKey)}</td>
+                      <td>{record.customerName}</td>
+                      <td>{record.podPdr}</td>
+                      <td>{commodityLabels[record.commodity]}</td>
+                      <td>{formatEuro(record.marginAmount)}</td>
+                      <td>{record.commissionAmount !== undefined ? formatEuro(record.commissionAmount) : "-"}</td>
+                      <td>{record.commissionStatus}</td>
+                    </tr>
+                  ))}
+                  {filteredAgencyRecords.length === 0 && (
+                    <tr>
+                      <td className="empty-state" colSpan={7}>Nessuna provvigione agenzia per questo mese.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
     </>
   );
 }
@@ -1935,10 +2193,20 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
   const maturedEntries = maturedCommissionEntries(commissionEntries, maturityCutoffMonthKey);
   const latestMaturedMonthKey = latestFullMonthKey(maturedEntries);
   const uncalendarizedEntries = commissionEntries.filter((entry) => !isFullMonthKey(entry.dueMonth));
-  const agencyMonthKeys = visibleAgencyMarginRecords(user, store).map((record) => record.monthKey);
-  const monthlyColumns = buildCommissionMonthColumns(maturedEntries, maturityCutoffMonthKey, agencyMonthKeys);
-  const monthlyRows = buildMonthlyCommissionRows(maturedEntries, commissionPayments, sources, monthlyColumns);
+  const agencyRecords = visibleAgencyMarginRecords(user, store);
+  const agencyMonthKeys = agencyRecords.map((record) => record.monthKey);
+  const projectionEndMonthKey = addMonthsToMonthKey(maturityCutoffMonthKey, 12);
+  const projectedEntries = simulateFutureCommissions({
+    records: agencyRecords,
+    customers: store.customers,
+    sources: store.sources,
+    cutoffMonthKey: maturityCutoffMonthKey,
+    projectionEndMonthKey
+  });
+  const monthlyColumns = buildCommissionMonthColumns(maturedEntries, projectionEndMonthKey, agencyMonthKeys);
+  const monthlyRows = buildMonthlyCommissionRows(maturedEntries, commissionPayments, sources, monthlyColumns, projectedEntries);
   const [commissionMonthFilter, setCommissionMonthFilter] = useState("tutti");
+  const [showCommissionList, setShowCommissionList] = useState(false);
   const commissionMonthOptions = [...new Set(commissionEntries.map((entry) => entry.dueMonth))]
     .filter(Boolean)
     .sort((a, b) => b.localeCompare(a));
@@ -1951,6 +2219,8 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
     commissionPayments,
     sources
   );
+  const totalMatured = rows.reduce((sum, row) => sum + row.total, 0);
+  const totalProjected = monthlyRows.reduce((sum, row) => sum + row.projectedTotal, 0);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     const data = formData(event);
@@ -2014,58 +2284,25 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Provvigioni</p>
-            <h2>Totali per fonte</h2>
+            <h2>Provvigioni maturate per mese</h2>
             <p className="muted-text">
-              Calcolate fino a {formatMonthKey(maturityCutoffMonthKey)} ({formatDate(cutoffDate)}).
+              Totali maturati fino a {formatMonthKey(maturityCutoffMonthKey)} ({formatDate(cutoffDate)}).
               {" "}
               {latestMaturedMonthKey
                 ? `Ultimo mese presente nei dati: ${formatMonthKey(latestMaturedMonthKey)}.`
                 : "Nessun mese calendarizzato presente."}
+              {" "}
+              Simulazione fino a {formatMonthKey(projectionEndMonthKey)}.
             </p>
-            {uncalendarizedEntries.length > 0 && (
-              <p className="muted-text">
-                Escluse dal maturato {uncalendarizedEntries.length} provvigioni storiche senza mese completo.
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="table-wrap">
-          <table className="compact-table">
-            <thead>
-              <tr>
-                <th>Fonte</th>
-                <th>Totale</th>
-                <th>Pagato</th>
-                <th>Da pagare</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.source.id}>
-                  <td>{row.source.name}</td>
-                  <td>{formatEuro(row.total)}</td>
-                  <td>{formatEuro(row.paid)}</td>
-                  <td>
-                    <strong>{formatEuro(row.due)}</strong>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section className="table-section">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Vista mensile</p>
-            <h2>Provvigioni maturate per mese</h2>
             <p className="muted-text">
-              Stessa base dei totali: solo provvigioni con mese completo e maturate entro {formatMonthKey(maturityCutoffMonthKey)}.
-              La tabella parte dal primo mese trovato nei dati importati.
+              Maturato: {formatEuro(totalMatured)}. Simulato futuro: {formatEuro(totalProjected)}.
+              {uncalendarizedEntries.length > 0
+                ? ` Escluse dal maturato ${uncalendarizedEntries.length} provvigioni storiche senza mese completo.`
+                : ""}
             </p>
           </div>
         </div>
-        <div className="table-wrap">
+        <div className="table-wrap sticky-commission-wrap">
           <table className="commission-monthly-table">
             <thead>
               <tr>
@@ -2088,10 +2325,16 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
                     <strong>{formatEuro(row.due)}</strong>
                   </td>
                   {monthlyColumns.map((monthKey) => {
-                    const amount = row.monthly[monthKey] ?? 0;
+                    const cell = row.monthly[monthKey] ?? { actual: 0, projected: 0 };
+                    const amount = cell.actual + cell.projected;
+                    const isProjected = cell.projected > 0 && cell.actual === 0;
 
                     return (
-                      <td key={monthKey} className={amount === 0 ? "muted-cell" : undefined}>
+                      <td
+                        key={monthKey}
+                        className={amount === 0 ? "muted-cell" : isProjected ? "projected-cell" : undefined}
+                        title={isProjected ? "Simulazione provvigione futura" : undefined}
+                      >
                         {amount === 0 ? "-" : formatEuro(amount)}
                       </td>
                     );
@@ -2114,48 +2357,56 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
           <div>
             <p className="eyebrow">Storico</p>
             <h2>Provvigioni generate</h2>
+            <p className="muted-text">Apri elenco solo quando ti serve consultare il dettaglio riga per riga.</p>
           </div>
-          <label className="table-filter-control">
-            Mese
-            <select value={commissionMonthFilter} onChange={(event) => setCommissionMonthFilter(event.target.value)}>
-              <option value="tutti">Tutti i mesi</option>
-              {commissionMonthOptions.map((monthKey) => (
-                <option key={monthKey} value={monthKey}>
-                  {formatMonthKey(monthKey)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="section-actions">
+            <label className="table-filter-control">
+              Mese
+              <select value={commissionMonthFilter} onChange={(event) => setCommissionMonthFilter(event.target.value)}>
+                <option value="tutti">Tutti i mesi</option>
+                {commissionMonthOptions.map((monthKey) => (
+                  <option key={monthKey} value={monthKey}>
+                    {formatMonthKey(monthKey)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="secondary-button" type="button" onClick={() => setShowCommissionList((value) => !value)}>
+              {showCommissionList ? "Nascondi elenco" : "Mostra elenco"}
+            </button>
+          </div>
         </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Mese</th>
-                <th>Fonte</th>
-                <th>Cliente</th>
-                <th>POD/PDR</th>
-                <th>Importo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredCommissionEntries.map((entry) => (
-                <tr key={entry.id}>
-                  <td>{entry.dueMonth}</td>
-                  <td>{store.sources.find((source) => source.id === entry.sourceId)?.name ?? "-"}</td>
-                  <td>{[entry.customerName, entry.customerSurname].filter(Boolean).join(" ") || "-"}</td>
-                  <td>{entry.pod ?? "-"}</td>
-                  <td>{formatEuro(entry.amount)}</td>
-                </tr>
-              ))}
-              {filteredCommissionEntries.length === 0 && (
+        {showCommissionList && (
+          <div className="table-wrap">
+            <table>
+              <thead>
                 <tr>
-                  <td className="empty-state" colSpan={5}>Nessuna provvigione generata per questo mese.</td>
+                  <th>Mese</th>
+                  <th>Fonte</th>
+                  <th>Cliente</th>
+                  <th>POD/PDR</th>
+                  <th>Importo</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredCommissionEntries.map((entry) => (
+                  <tr key={entry.id}>
+                    <td>{entry.dueMonth}</td>
+                    <td>{store.sources.find((source) => source.id === entry.sourceId)?.name ?? "-"}</td>
+                    <td>{[entry.customerName, entry.customerSurname].filter(Boolean).join(" ") || "-"}</td>
+                    <td>{entry.pod ?? "-"}</td>
+                    <td>{formatEuro(entry.amount)}</td>
+                  </tr>
+                ))}
+                {filteredCommissionEntries.length === 0 && (
+                  <tr>
+                    <td className="empty-state" colSpan={5}>Nessuna provvigione generata per questo mese.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </>
   );

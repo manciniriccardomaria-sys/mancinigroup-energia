@@ -561,6 +561,14 @@ textarea:focus {
   padding: 7px 10px;
 }
 
+.section-actions {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .performance-heading {
   display: grid;
   grid-template-columns: 1fr;
@@ -799,6 +807,10 @@ table {
   min-width: 1280px;
 }
 
+.sticky-commission-wrap {
+  max-height: 72vh;
+}
+
 .commission-monthly-table th,
 .commission-monthly-table td {
   white-space: nowrap;
@@ -820,8 +832,59 @@ table {
   font-weight: 850;
 }
 
+.commission-monthly-table .projected-cell {
+  background: #eef6ff;
+  color: #235a97;
+  font-weight: 850;
+}
+
 .commission-monthly-table .muted-cell {
   color: #a0acb6;
+}
+
+.commission-monthly-table th:nth-child(1),
+.commission-monthly-table td:nth-child(1),
+.commission-monthly-table th:nth-child(2),
+.commission-monthly-table td:nth-child(2),
+.commission-monthly-table th:nth-child(3),
+.commission-monthly-table td:nth-child(3),
+.commission-monthly-table th:nth-child(4),
+.commission-monthly-table td:nth-child(4) {
+  position: sticky;
+  z-index: 4;
+  box-shadow: 1px 0 0 var(--line);
+}
+
+.commission-monthly-table th:nth-child(1),
+.commission-monthly-table td:nth-child(1) {
+  left: 0;
+  min-width: 180px;
+}
+
+.commission-monthly-table th:nth-child(2),
+.commission-monthly-table td:nth-child(2) {
+  left: 180px;
+  min-width: 128px;
+}
+
+.commission-monthly-table th:nth-child(3),
+.commission-monthly-table td:nth-child(3) {
+  left: 308px;
+  min-width: 128px;
+}
+
+.commission-monthly-table th:nth-child(4),
+.commission-monthly-table td:nth-child(4) {
+  left: 436px;
+  min-width: 136px;
+}
+
+.commission-monthly-table th:nth-child(-n + 4) {
+  z-index: 6;
+}
+
+.commission-monthly-table td:nth-child(1) {
+  background: #fff;
 }
 
 th,

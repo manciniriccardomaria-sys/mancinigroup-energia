@@ -60,7 +60,7 @@ function isUploadCategory(value: string): value is UploadCategory {
 }
 
 function isUserRole(value: string): value is UserRole {
-  return value === "admin" || value === "frontline" || value === "agent";
+  return value === "admin" || value === "frontline" || value === "agent" || value === "operativo";
 }
 
 function isMonthKey(value: string) {
@@ -216,7 +216,7 @@ export async function logoutAction() {
 }
 
 export async function createSourceAction(formData: FormData) {
-  await requireUser(["admin"]);
+  await requireUser(["admin", "operativo"]);
 
   const name = asString(formData, "name");
   const kind = asString(formData, "kind");
@@ -261,7 +261,7 @@ export async function createUserAction(formData: FormData) {
       name,
       role,
       password,
-      sourceId: role === "admin" ? undefined : sourceId
+      sourceId: role === "admin" || role === "operativo" ? undefined : sourceId
     });
   } catch (error) {
     messageRedirect("/users", "error", error instanceof Error ? error.message : "Utente non creato.");
@@ -272,7 +272,7 @@ export async function createUserAction(formData: FormData) {
 }
 
 export async function toggleSourceAction(formData: FormData) {
-  await requireUser(["admin"]);
+  await requireUser(["admin", "operativo"]);
 
   const sourceId = asString(formData, "sourceId");
   const active = asString(formData, "active") === "true";
@@ -324,7 +324,7 @@ export async function createCustomerAction(formData: FormData) {
 }
 
 export async function reassignCustomerAction(formData: FormData) {
-  await requireUser(["admin", "frontline"]);
+  await requireUser(["admin", "frontline", "operativo"]);
 
   const customerId = asString(formData, "customerId");
   const sourceId = asString(formData, "sourceId");

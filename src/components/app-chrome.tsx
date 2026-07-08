@@ -17,15 +17,15 @@ import { userRoleLabels } from "@/lib/labels";
 import type { SessionUser } from "@/lib/types";
 
 const navItems = [
-  { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/customers/new", label: "Pre-associa", icon: FilePlus2 },
-  { href: "/customers", label: "Associazioni", icon: UsersRound },
-  { href: "/caricamenti", label: "Caricamenti", icon: ClipboardList },
+  { href: "/dashboard", label: "Home", icon: Home, roles: ["admin", "frontline", "agent"] },
+  { href: "/customers/new", label: "Pre-associa", icon: FilePlus2, roles: ["admin", "frontline", "agent"] },
+  { href: "/customers", label: "Clienti", icon: UsersRound, roles: ["admin", "frontline", "agent"] },
+  { href: "/caricamenti", label: "Caricamenti", operationalLabel: "Abbinamenti", icon: ClipboardList, roles: ["admin", "frontline", "operativo"] },
   { href: "/offers", label: "Offerte", icon: Tags },
-  { href: "/sources", label: "Fonti", icon: UserRoundPlus },
+  { href: "/sources", label: "Fonti", icon: UserRoundPlus, roles: ["admin", "frontline", "operativo"] },
   { href: "/users", label: "Utenti", icon: UserCog, adminOnly: true },
-  { href: "/commissions", label: "Provvigioni", icon: BarChart3 },
-  { href: "/commission-rules", label: "Regole", icon: Settings2 }
+  { href: "/commissions", label: "Provvigioni", icon: BarChart3, roles: ["admin", "frontline", "agent"] },
+  { href: "/commission-rules", label: "Regole", icon: Settings2, roles: ["admin"] }
 ];
 
 export function AppChrome({
@@ -60,13 +60,13 @@ export function AppChrome({
       </header>
 
       <nav className="nav-grid" aria-label="Navigazione principale">
-        {navItems.filter((item) => !item.adminOnly || user.role === "admin").map((item) => {
+        {navItems.filter((item) => (!item.adminOnly || user.role === "admin") && (!item.roles || item.roles.includes(user.role))).map((item) => {
           const Icon = item.icon;
 
           return (
             <Link key={item.href} className="nav-button" href={item.href}>
               <Icon size={18} aria-hidden="true" />
-              {item.label}
+              {user.role === "operativo" && item.operationalLabel ? item.operationalLabel : item.label}
             </Link>
           );
         })}

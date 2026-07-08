@@ -491,6 +491,26 @@ function refreshAgencyMarginMatches(records: AgencyMarginRecord[], podPdrNorm: s
   }
 }
 
+function recalculateAgencyMarginsForPod(store: StoreData, podPdrNorm: string) {
+  const rows = store.agencyMarginRecords.filter((record) => record.podPdrNorm === podPdrNorm);
+  const rowsByUpload = new Map<string, AgencyMarginRecord[]>();
+
+  for (const row of rows) {
+    const group = rowsByUpload.get(row.uploadedFileId) ?? [];
+    group.push(row);
+    rowsByUpload.set(row.uploadedFileId, group);
+  }
+
+  for (const [uploadedFileId, group] of rowsByUpload.entries()) {
+    importAgencyMarginRecordsToStore(store, {
+      uploadedFileId,
+      rows: group,
+      totalRows: group.length,
+      skippedRows: 0
+    });
+  }
+}
+
 export function addSourceToStore(store: StoreData, input: { name: string; kind: SourceKind }) {
   const name = input.name.trim();
   if (!name) throw new Error("Inserisci il nome fonte.");
@@ -518,7 +538,9 @@ export function addUserToStore(
   }
 
   const source = input.sourceId ? store.sources.find((item) => item.id === input.sourceId && item.active) : undefined;
-  if (input.role !== "admin" && !source) throw new Error("Collega l'utente a una fonte attiva.");
+  if (input.role !== "admin" && input.role !== "operativo" && !source) {
+    throw new Error("Collega l'utente a una fonte attiva.");
+  }
 
   store.users.push(
     createUserMetadata({
@@ -564,6 +586,7 @@ export function addCustomerToStore(
   store.customers.unshift(customer);
   refreshLoadingMatches(store.loadingRecords, podPdrNorm, customer.id, source.id, createdAt);
   refreshAgencyMarginMatches(store.agencyMarginRecords, podPdrNorm, customer.id, source.id, createdAt);
+  recalculateAgencyMarginsForPod(store, podPdrNorm);
 }
 
 export function reassignCustomerInStore(store: StoreData, customerId: string, sourceIdValue: string) {
@@ -575,6 +598,7 @@ export function reassignCustomerInStore(store: StoreData, customerId: string, so
   const matchedAt = nowIso();
   refreshLoadingMatches(store.loadingRecords, customer.podPdrNorm, customer.id, source.id, matchedAt);
   refreshAgencyMarginMatches(store.agencyMarginRecords, customer.podPdrNorm, customer.id, source.id, matchedAt);
+  recalculateAgencyMarginsForPod(store, customer.podPdrNorm);
 }
 
 export function setCustomerStatusInStore(store: StoreData, customerId: string, status: CustomerStatus) {
