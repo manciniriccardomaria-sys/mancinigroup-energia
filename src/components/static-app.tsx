@@ -2206,14 +2206,17 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
   const monthlyColumns = buildCommissionMonthColumns(maturedEntries, projectionEndMonthKey, agencyMonthKeys);
   const monthlyRows = buildMonthlyCommissionRows(maturedEntries, commissionPayments, sources, monthlyColumns, projectedEntries);
   const [commissionMonthFilter, setCommissionMonthFilter] = useState("tutti");
+  const [commissionSourceFilter, setCommissionSourceFilter] = useState("tutte");
   const [showCommissionList, setShowCommissionList] = useState(false);
   const commissionMonthOptions = [...new Set(commissionEntries.map((entry) => entry.dueMonth))]
     .filter(Boolean)
     .sort((a, b) => b.localeCompare(a));
-  const filteredCommissionEntries =
-    commissionMonthFilter === "tutti"
-      ? commissionEntries
-      : commissionEntries.filter((entry) => entry.dueMonth === commissionMonthFilter);
+  const filteredCommissionEntries = commissionEntries.filter((entry) => {
+    const matchesMonth = commissionMonthFilter === "tutti" || entry.dueMonth === commissionMonthFilter;
+    const matchesSource = commissionSourceFilter === "tutte" || entry.sourceId === commissionSourceFilter;
+
+    return matchesMonth && matchesSource;
+  });
   const rows = summarizeCommissionRows(
     maturedEntries,
     commissionPayments,
@@ -2367,6 +2370,17 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
                 {commissionMonthOptions.map((monthKey) => (
                   <option key={monthKey} value={monthKey}>
                     {formatMonthKey(monthKey)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="table-filter-control">
+              Fonte
+              <select value={commissionSourceFilter} onChange={(event) => setCommissionSourceFilter(event.target.value)}>
+                <option value="tutte">Tutte le fonti</option>
+                {sources.map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.name}
                   </option>
                 ))}
               </select>
