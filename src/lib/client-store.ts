@@ -718,7 +718,17 @@ export function importAgencyMarginRecordsToStore(
     if (index >= 0) nextEntries.splice(index, 1);
   }
 
-  for (const row of input.rows) {
+  const rows = input.rows
+    .slice()
+    .sort(
+      (a, b) =>
+        a.monthKey.localeCompare(b.monthKey) ||
+        a.podPdrNorm.localeCompare(b.podPdrNorm) ||
+        a.rowNumber - b.rowNumber ||
+        a.importKey.localeCompare(b.importKey)
+    );
+
+  for (const row of rows) {
     const existing = existingByKey.get(row.importKey);
 
     if (hasNegativeAgencyMarginValues(row)) {
@@ -853,7 +863,7 @@ export function importAgencyMarginRecordsToStore(
     updatedRows,
     skippedRows: input.skippedRows + negativeRows,
     matchedRows,
-    unmatchedRows: input.rows.length - negativeRows - matchedRows,
+    unmatchedRows: rows.length - negativeRows - matchedRows,
     generatedCommissionRows,
     anticipatedRows,
     maturingRows,
