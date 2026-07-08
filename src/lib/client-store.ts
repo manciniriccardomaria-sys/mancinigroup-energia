@@ -1,3 +1,4 @@
+import { hasNegativeAgencyMarginValues } from "./agency-margin-records";
 import { getMarketVariableDefinition, marketVariableSeedValues } from "./market-variables";
 import { detectCommodity, normalizePodPdr, slugify } from "./normalize";
 import type {
@@ -676,6 +677,7 @@ export function importAgencyMarginRecordsToStore(
   let maturingRows = 0;
   let missingTariffRows = 0;
   let missingRuleRows = 0;
+  let negativeRows = 0;
   let totalMargin = 0;
   let totalGeneratedCommissions = 0;
 
@@ -686,9 +688,25 @@ export function importAgencyMarginRecordsToStore(
   }
 
   for (const row of input.rows) {
+    const existing = existingByKey.get(row.importKey);
+
+    if (hasNegativeAgencyMarginValues(row)) {
+      negativeRows += 1;
+      removeExistingCommission(existing?.commissionEntryId);
+
+      if (existing) {
+        const index = nextRecords.findIndex((item) => item.id === existing.id);
+        if (index >= 0) {
+          nextRecords.splice(index, 1);
+          updatedRows += 1;
+        }
+      }
+
+      continue;
+    }
+
     const customer = customerByPod.get(row.podPdrNorm);
     const source = customer ? sourceById.get(customer.sourceId) : undefined;
-    const existing = existingByKey.get(row.importKey);
     let commissionStatus: AgencyMarginRecord["commissionStatus"] = customer ? "regola_mancante" : "da_abbinare";
     let commissionAmount: number | undefined;
     let commissionEntryId: string | undefined = existing?.commissionEntryId;
@@ -802,9 +820,9 @@ export function importAgencyMarginRecordsToStore(
     totalRows: input.totalRows,
     importedRows,
     updatedRows,
-    skippedRows: input.skippedRows,
+    skippedRows: input.skippedRows + negativeRows,
     matchedRows,
-    unmatchedRows: input.rows.length - matchedRows,
+    unmatchedRows: input.rows.length - negativeRows - matchedRows,
     generatedCommissionRows,
     anticipatedRows,
     maturingRows,

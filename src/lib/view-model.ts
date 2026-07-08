@@ -9,6 +9,7 @@ import type {
   Source,
   StoreData
 } from "./types";
+import { hasNegativeAgencyMarginValues } from "./agency-margin-records";
 
 export function sourceMap(sources: Source[]) {
   return new Map(sources.map((source) => [source.id, source]));
@@ -31,16 +32,21 @@ export function visibleLoadingRecords(user: SessionUser, store: StoreData) {
 }
 
 export function visibleAgencyMarginRecords(user: SessionUser, store: StoreData) {
-  if (user.role === "agent" && user.sourceId) {
-    return store.agencyMarginRecords.filter((record) => record.matchedSourceId === user.sourceId);
-  }
+  const records =
+    user.role === "agent" && user.sourceId
+      ? store.agencyMarginRecords.filter((record) => record.matchedSourceId === user.sourceId)
+      : store.agencyMarginRecords;
 
-  return store.agencyMarginRecords;
+  return records.filter((record) => !hasNegativeAgencyMarginValues(record));
 }
 
 export function summarizeAgencyMargins(records: AgencyMarginRecord[]) {
   return records.reduce(
     (summary, record) => {
+      if (hasNegativeAgencyMarginValues(record)) {
+        return summary;
+      }
+
       summary.totalMargin += record.marginAmount;
       summary.totalInvoices += record.invoiceTotal;
 
