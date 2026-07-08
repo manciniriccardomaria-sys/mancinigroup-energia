@@ -1585,7 +1585,15 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
   const agencyRecords = visibleAgencyMarginRecords(user, store);
   const sources = activeSourcesForUser(user, store.sources).sort((a, b) => a.name.localeCompare(b.name, "it"));
   const [assignmentSourceByPod, setAssignmentSourceByPod] = useState<Record<string, string>>({});
-  const unmatchedCustomerRows = useMemo(() => {
+  const [agencyMonthFilter, setAgencyMonthFilter] = useState("tutti");
+  const agencyMonthOptions = [...new Set(agencyRecords.map((record) => record.monthKey))]
+    .filter(Boolean)
+    .sort((a, b) => b.localeCompare(a));
+  const filteredAgencyRecords =
+    agencyMonthFilter === "tutti"
+      ? agencyRecords
+      : agencyRecords.filter((record) => record.monthKey === agencyMonthFilter);
+  const unmatchedCustomerRows = (() => {
     const rowsByPod = new Map<
       string,
       {
@@ -1632,7 +1640,7 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
           a.record.customerName.localeCompare(b.record.customerName, "it")
       )
       .slice(0, 80);
-  }, [agencyRecords]);
+  })();
 
   async function assignAgencyRecord(record: AgencyMarginRecord) {
     const sourceId = assignmentSourceByPod[record.podPdrNorm];
@@ -1779,7 +1787,21 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
       </section>
       <section className="table-section">
         <div className="section-heading">
-          <h2>Provvigioni agenzia importate</h2>
+          <div>
+            <p className="eyebrow">Storico</p>
+            <h2>Provvigioni agenzia importate</h2>
+          </div>
+          <label className="table-filter-control">
+            Mese
+            <select value={agencyMonthFilter} onChange={(event) => setAgencyMonthFilter(event.target.value)}>
+              <option value="tutti">Tutti i mesi</option>
+              {agencyMonthOptions.map((monthKey) => (
+                <option key={monthKey} value={monthKey}>
+                  {formatMonthKey(monthKey)}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
         <div className="table-wrap">
           <table>
@@ -1795,7 +1817,7 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
               </tr>
             </thead>
             <tbody>
-              {agencyRecords.slice(0, 80).map((record) => (
+              {filteredAgencyRecords.map((record) => (
                 <tr key={record.id}>
                   <td>{formatMonthKey(record.monthKey)}</td>
                   <td>{record.customerName}</td>
@@ -1806,6 +1828,11 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
                   <td>{record.commissionStatus}</td>
                 </tr>
               ))}
+              {filteredAgencyRecords.length === 0 && (
+                <tr>
+                  <td className="empty-state" colSpan={7}>Nessuna provvigione agenzia per questo mese.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -1816,8 +1843,17 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
 
 function CommissionsView({ store, user, mutateStore }: ViewProps) {
   const sources = visibleSourcesForUser(user, store.sources).sort((a, b) => a.name.localeCompare(b.name, "it"));
+  const commissionEntries = visibleCommissionEntries(user, store);
+  const [commissionMonthFilter, setCommissionMonthFilter] = useState("tutti");
+  const commissionMonthOptions = [...new Set(commissionEntries.map((entry) => entry.dueMonth))]
+    .filter(Boolean)
+    .sort((a, b) => b.localeCompare(a));
+  const filteredCommissionEntries =
+    commissionMonthFilter === "tutti"
+      ? commissionEntries
+      : commissionEntries.filter((entry) => entry.dueMonth === commissionMonthFilter);
   const rows = summarizeCommissionRows(
-    visibleCommissionEntries(user, store),
+    commissionEntries,
     visibleCommissionPayments(user, store),
     sources
   );
@@ -1914,7 +1950,21 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
       </section>
       <section className="table-section">
         <div className="section-heading">
-          <h2>Provvigioni generate</h2>
+          <div>
+            <p className="eyebrow">Storico</p>
+            <h2>Provvigioni generate</h2>
+          </div>
+          <label className="table-filter-control">
+            Mese
+            <select value={commissionMonthFilter} onChange={(event) => setCommissionMonthFilter(event.target.value)}>
+              <option value="tutti">Tutti i mesi</option>
+              {commissionMonthOptions.map((monthKey) => (
+                <option key={monthKey} value={monthKey}>
+                  {formatMonthKey(monthKey)}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
         <div className="table-wrap">
           <table>
@@ -1928,7 +1978,7 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
               </tr>
             </thead>
             <tbody>
-              {visibleCommissionEntries(user, store).slice(0, 120).map((entry) => (
+              {filteredCommissionEntries.map((entry) => (
                 <tr key={entry.id}>
                   <td>{entry.dueMonth}</td>
                   <td>{store.sources.find((source) => source.id === entry.sourceId)?.name ?? "-"}</td>
@@ -1937,6 +1987,11 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
                   <td>{formatEuro(entry.amount)}</td>
                 </tr>
               ))}
+              {filteredCommissionEntries.length === 0 && (
+                <tr>
+                  <td className="empty-state" colSpan={5}>Nessuna provvigione generata per questo mese.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

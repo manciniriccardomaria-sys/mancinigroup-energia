@@ -435,6 +435,8 @@ export function parseAgencyMarginCsv(
       recurringConsumption: headerIndex(headers, ["F", "Colonna F", "Ricorrente Consumo", "Quota spread", "Quota consumo", "Quota consumi"]),
       month: headerIndex(headers, ["Mese", "Competenza", "Mese competenza"])
     };
+    const hasMonthColumn = indexes.month !== undefined;
+    let carriedMonthKey: string | undefined;
 
     for (let index = headerRowIndex + 1; index < matrix.length; index += 1) {
       const row = matrix[index] ?? [];
@@ -466,6 +468,15 @@ export function parseAgencyMarginCsv(
         ? numberAt(row, indexes.recurringConsumption)
         : undefined;
       const importedMonthKey = indexes.month === undefined ? undefined : monthKeyFromCell(row[indexes.month]);
+      if (importedMonthKey) {
+        carriedMonthKey = importedMonthKey;
+      }
+      const rowMonthKey =
+        options.monthKey ??
+        importedMonthKey ??
+        (hasMonthColumn ? carriedMonthKey : undefined) ??
+        monthKeyFromDate(issuedAt) ??
+        fallbackMonthKey;
       const margin = marginFromValues({
         commodity,
         consumption,
@@ -479,7 +490,7 @@ export function parseAgencyMarginCsv(
       rows.push({
         importKey: `invoice:${invoiceNumber || `${fileName}-${index + 1}`}|${podPdrNorm}`,
         rowNumber: index + 1,
-        monthKey: options.monthKey ?? importedMonthKey ?? monthKeyFromDate(issuedAt) ?? fallbackMonthKey,
+        monthKey: rowMonthKey,
         invoiceNumber,
         podPdr,
         podPdrNorm,

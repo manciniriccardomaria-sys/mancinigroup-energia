@@ -552,6 +552,15 @@ textarea:focus {
   padding: 22px 22px 0;
 }
 
+.table-filter-control {
+  min-width: min(240px, 100%);
+}
+
+.table-filter-control select {
+  min-height: 38px;
+  padding: 7px 10px;
+}
+
 .performance-heading {
   display: grid;
   grid-template-columns: 1fr;
