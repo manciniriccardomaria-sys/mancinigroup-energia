@@ -169,8 +169,15 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+let fallbackIdCounter = 0;
+
+function fallbackId() {
+  fallbackIdCounter = (fallbackIdCounter + 1) % Number.MAX_SAFE_INTEGER;
+  return `${Date.now().toString(36)}_${fallbackIdCounter.toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function randomId(prefix: string) {
-  return `${prefix}_${crypto.randomUUID()}`;
+  return `${prefix}_${globalThis.crypto?.randomUUID?.() ?? fallbackId()}`;
 }
 
 function sourceId(name: string) {
