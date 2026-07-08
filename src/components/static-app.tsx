@@ -122,7 +122,7 @@ const navItems: Array<{
   roles?: UserRole[];
 }> = [
   { href: "/dashboard/", view: "dashboard", label: "Home", icon: <Home size={18} />, roles: ["admin", "frontline", "agent"] },
-  { href: "/customers/new/", view: "customers-new", label: "Pre-associa", icon: <FilePlus2 size={18} />, roles: ["admin", "frontline", "agent"] },
+  { href: "/customers/new/", view: "customers-new", label: "Pre-associa", icon: <FilePlus2 size={18} />, roles: ["admin", "frontline", "agent", "operativo"] },
   { href: "/customers/", view: "customers", label: "Clienti", icon: <UsersRound size={18} />, roles: ["admin", "frontline", "agent"] },
   {
     href: "/caricamenti/",
