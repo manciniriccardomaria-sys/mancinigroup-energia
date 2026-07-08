@@ -50,6 +50,7 @@ import {
   type QuoteCustomerType
 } from "@/lib/quote-calculator";
 import type {
+  AgencyMarginRecord,
   Commodity,
   CommissionRule,
   CustomerStatus,
@@ -63,6 +64,7 @@ import {
   activeSourcesForUser,
   monthlyPerformance,
   summarizeAgencyMargins,
+  summarizeCustomerTracking,
   summarizeCommissionRows,
   visibleAgencyMarginRecords,
   visibleCommissionEntries,
@@ -122,6 +124,15 @@ const navItems: Array<{
   { href: "/preventivatore/", view: "preventivatore", label: "Preventivatore", icon: <Calculator size={18} /> },
   { href: "/users/", view: "users", label: "Utenti", icon: <ShieldCheck size={18} />, adminOnly: true }
 ];
+
+function normalizeInitialView(view: StaticView) {
+  return view === "login" ? "dashboard" : view;
+}
+
+function viewFromPath(pathname: string) {
+  const normalizedPath = pathname.endsWith("/") ? pathname : `${pathname}/`;
+  return navItems.find((item) => item.href === normalizedPath)?.view ?? "dashboard";
+}
 
 const uploadCategoryLabels: Record<UploadCategory, string> = {
   caricamenti: "Caricamenti",
@@ -322,7 +333,20 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
   const [flash, setFlash] = useState<Flash | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
-  const [saving, setSaving] = useState(false);
+  const [activeView, setActiveView] = useState<StaticView>(() => normalizeInitialView(initialView));
+
+  useEffect(() => {
+    setActiveView(normalizeInitialView(initialView));
+  }, [initialView]);
+
+  useEffect(() => {
+    function handlePopState() {
+      setActiveView(viewFromPath(window.location.pathname));
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   useEffect(() => {
     if (!useLocalAuth) {
@@ -505,7 +529,6 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
     const nextStore = cloneStore(store);
 
     try {
-      setSaving(true);
       change(nextStore);
 
       if (useLocalAuth) {
@@ -522,10 +545,15 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
         type: "error",
         message: error instanceof Error ? error.message : "Operazione non riuscita."
       });
-    } finally {
-      setSaving(false);
     }
   };
+
+  function navigateToView(view: StaticView, href: string) {
+    setFlash(null);
+    setActiveView(view);
+    window.history.pushState(null, "", href);
+    window.scrollTo({ top: 0 });
+  }
 
   if (initialView === "login" && !sessionUser) {
     return <LoginScreen flash={flash} onLogin={handleLogin} useLocalAuth={useLocalAuth} />;
@@ -564,14 +592,14 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
     );
   }
 
-  const view = initialView === "login" ? "dashboard" : initialView;
+  const view = activeView === "login" ? "dashboard" : activeView;
 
   return (
-    <AppChrome user={sessionUser} view={view} flash={flash} saving={saving} onLogout={handleLogout}>
+    <AppChrome user={sessionUser} view={view} flash={flash} onLogout={handleLogout} onNavigate={navigateToView}>
       {view === "dashboard" && <DashboardView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "customers-new" && <NewCustomerView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "customers" && <CustomersView store={store} user={sessionUser} mutateStore={mutateStore} />}
-      {view === "caricamenti" && <CaricamentiView store={store} user={sessionUser} />}
+      {view === "caricamenti" && <CaricamentiView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "offers" && <OffersView />}
       {view === "sources" && <SourcesView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "users" && <UsersView store={store} user={sessionUser} mutateStore={mutateStore} />}
@@ -640,23 +668,7 @@ function LoginScreen({
 }
 
 function LoadingScreen() {
-  return (
-    <main className="login-shell">
-      <section className="login-panel">
-        <div className="brand-block">
-          <div className="brand-mark">MG</div>
-          <div>
-            <p className="eyebrow">Mancini Group</p>
-            <h1>Caricamento</h1>
-          </div>
-        </div>
-        <div className="loading-state" aria-live="polite">
-          <span className="loading-spinner" aria-hidden="true" />
-          <p className="muted-text">Apertura gestionale in corso.</p>
-        </div>
-      </section>
-    </main>
-  );
+  return null;
 }
 
 function LoadErrorScreen({
@@ -695,15 +707,15 @@ function LoadErrorScreen({
 function AppChrome({
   children,
   flash,
+  onNavigate,
   onLogout,
-  saving,
   user,
   view
 }: {
   children: ReactNode;
   flash: Flash | null;
+  onNavigate: (view: StaticView, href: string) => void;
   onLogout: () => Promise<void>;
-  saving: boolean;
   user: SessionUser;
   view: StaticView;
 }) {
@@ -732,13 +744,31 @@ function AppChrome({
         {navItems
           .filter((item) => !item.adminOnly || user.role === "admin")
           .map((item) => (
-            <a className={`nav-button ${item.view === view ? "active" : ""}`} href={item.href} key={item.view}>
+            <a
+              className={`nav-button ${item.view === view ? "active" : ""}`}
+              href={item.href}
+              key={item.view}
+              onClick={(event) => {
+                if (
+                  event.defaultPrevented ||
+                  event.metaKey ||
+                  event.ctrlKey ||
+                  event.shiftKey ||
+                  event.altKey ||
+                  event.button !== 0
+                ) {
+                  return;
+                }
+
+                event.preventDefault();
+                onNavigate(item.view, item.href);
+              }}
+            >
               {item.icon}
               {item.label}
             </a>
           ))}
       </nav>
-      {saving && <div className="alert success">Salvataggio in corso...</div>}
       {flash && <div className={`alert ${flash.type}`}>{flash.message}</div>}
       {children}
     </main>
@@ -754,6 +784,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   const loadingRecords = visibleLoadingRecords(user, store);
   const agencyMarginRecords = visibleAgencyMarginRecords(user, store);
   const agencySummary = summarizeAgencyMargins(agencyMarginRecords);
+  const customerTracking = summarizeCustomerTracking(agencyMarginRecords);
   const sources = [...visibleSourcesForUser(user, store.sources)].sort((a, b) => a.name.localeCompare(b.name, "it"));
   const commissionRows = summarizeCommissionRows(
     visibleCommissionEntries(user, store),
@@ -764,7 +795,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   const paidCommissions = commissionRows.reduce((sum, row) => sum + row.paid, 0);
   const matchedLoading = loadingRecords.filter((record) => record.matchedSourceId).length;
   const unmatchedLoading = Math.max(0, loadingRecords.length - matchedLoading);
-  const exitedCustomers = customers.filter((customer) => customer.status === "cessato").length;
+  const exitedCustomers = customerTracking.closedCount;
   const commissionsDue = Math.max(0, totalCommissions - paidCommissions);
   const monthlyRows = monthlyPerformance(
     customers,
@@ -801,7 +832,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
       .filter((item): item is File => item instanceof File && item.size > 0);
     const category = textValue(data, "category") as UploadCategory;
     const referenceMonth = textValue(data, "referenceMonth") || undefined;
-    const commodity = textValue(data, "commodity") as Exclude<Commodity, "non_definito">;
+    const commodity = textValue(data, "commodity") as Commodity;
 
     if (files.length === 0) {
       throw new Error("Seleziona almeno un file.");
@@ -816,7 +847,10 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
         }
 
         if (category === "margini_agenzia") {
-          if (!referenceMonth || (commodity !== "luce" && commodity !== "gas")) {
+          const isCsv = file.name.toLowerCase().endsWith(".csv");
+          const marginCommodity = commodity === "luce" || commodity === "gas" ? commodity : undefined;
+
+          if (isCsv && (!referenceMonth || !marginCommodity)) {
             throw new Error("Per le provvigioni agenzia servono mese, anno e tipologia.");
           }
 
@@ -825,7 +859,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
             file,
             margin: parseAgencyMarginCsv(buffer, file.name, {
               monthKey: referenceMonth,
-              commodity
+              commodity: marginCommodity
             })
           };
         }
@@ -846,7 +880,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
           size: item.file.size,
           uploadedBy: user.id,
           referenceMonth,
-          commodity: category === "margini_agenzia" ? commodity : undefined
+          commodity: category === "margini_agenzia" && (commodity === "luce" || commodity === "gas") ? commodity : undefined
         });
 
         if (item.kind === "loading") {
@@ -1031,6 +1065,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
                 <label>
                   Tipologia
                   <select name="commodity" defaultValue="luce">
+                    <option value="non_definito">Auto da POD/PDR</option>
                     <option value="luce">Luce</option>
                     <option value="gas">Gas</option>
                   </select>
@@ -1545,9 +1580,54 @@ function OffersView() {
   );
 }
 
-function CaricamentiView({ store, user }: Omit<ViewProps, "mutateStore">) {
+function CaricamentiView({ store, user, mutateStore }: ViewProps) {
   const loadingRecords = visibleLoadingRecords(user, store);
   const agencyRecords = visibleAgencyMarginRecords(user, store);
+  const sources = activeSourcesForUser(user, store.sources).sort((a, b) => a.name.localeCompare(b.name, "it"));
+  const [assignmentSourceByRecord, setAssignmentSourceByRecord] = useState<Record<string, string>>({});
+  const unmatchedAgencyRecords = agencyRecords
+    .filter((record) => record.commissionStatus === "da_abbinare" || !record.matchedSourceId)
+    .slice(0, 80);
+
+  async function assignAgencyRecord(record: AgencyMarginRecord) {
+    const sourceId = assignmentSourceByRecord[record.id];
+
+    if (!sourceId) {
+      throw new Error("Seleziona una fonte.");
+    }
+
+    await mutateStore((draft) => {
+      const existingCustomer = draft.customers.find((customer) => customer.podPdrNorm === record.podPdrNorm);
+
+      if (existingCustomer) {
+        reassignCustomerInStore(draft, existingCustomer.id, sourceId);
+      } else {
+        addCustomerToStore(draft, {
+          podPdr: record.podPdr,
+          name: record.customerName,
+          sourceId,
+          offer: record.offerEasy ?? record.offer,
+          createdBy: user.id
+        });
+      }
+
+      const rowsByUpload = new Map<string, AgencyMarginRecord[]>();
+      for (const row of draft.agencyMarginRecords.filter((item) => item.podPdrNorm === record.podPdrNorm)) {
+        const group = rowsByUpload.get(row.uploadedFileId) ?? [];
+        group.push(row);
+        rowsByUpload.set(row.uploadedFileId, group);
+      }
+
+      for (const [uploadedFileId, rows] of rowsByUpload.entries()) {
+        importAgencyMarginRecordsToStore(draft, {
+          uploadedFileId,
+          rows,
+          totalRows: rows.length,
+          skippedRows: 0
+        });
+      }
+    }, "Contratto abbinato alla fonte.");
+  }
 
   return (
     <>
@@ -1555,6 +1635,69 @@ function CaricamentiView({ store, user }: Omit<ViewProps, "mutateStore">) {
         <StatCard icon={<ClipboardList size={24} />} label="Caricamenti" value={loadingRecords.length} />
         <StatCard icon={<ReceiptText size={24} />} label="Righe provvigioni agenzia" value={agencyRecords.length} />
         <StatCard icon={<Database size={24} />} label="File importati" value={store.uploadedFiles.length} />
+      </section>
+      <section className="table-section no-margin">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Abbinamenti</p>
+            <h2>Contratti da collegare a fonte</h2>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table className="compact-table assignment-table">
+            <thead>
+              <tr>
+                <th>Mese</th>
+                <th>Cliente</th>
+                <th>POD/PDR</th>
+                <th>Offerta</th>
+                <th>Margine</th>
+                <th>Fonte</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {unmatchedAgencyRecords.map((record) => (
+                <tr key={record.id}>
+                  <td>{formatMonthKey(record.monthKey)}</td>
+                  <td>{record.customerName}</td>
+                  <td>{record.podPdr}</td>
+                  <td>{record.offerEasy ?? record.offer ?? "-"}</td>
+                  <td>{formatEuro(record.marginAmount)}</td>
+                  <td>
+                    <select
+                      aria-label={`Fonte per ${record.customerName}`}
+                      value={assignmentSourceByRecord[record.id] ?? ""}
+                      onChange={(event) =>
+                        setAssignmentSourceByRecord((current) => ({
+                          ...current,
+                          [record.id]: event.target.value
+                        }))
+                      }
+                    >
+                      <option value="">Seleziona</option>
+                      {sources.map((source) => (
+                        <option key={source.id} value={source.id}>
+                          {source.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <button className="secondary-button table-action-button" type="button" onClick={() => void assignAgencyRecord(record)}>
+                      Abbina
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {unmatchedAgencyRecords.length === 0 && (
+                <tr>
+                  <td className="empty-state" colSpan={7}>Nessun contratto da abbinare.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
       <section className="table-section no-margin">
         <div className="section-heading">
@@ -1899,6 +2042,7 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
     [quoteInput, store.marketVariables]
   );
   const offerChoices = calculation.offers.filter((offer) => offer.customerType === quoteInput.customerType);
+  const comparisonOffers = [...offerChoices].sort((a, b) => b.annualSaving - a.annualSaving);
   const selectedOffer = calculation.selectedOffer;
   const dynamicMonthOptions = previousQuoteMonthOptions(quoteInput.quoteDate);
 
@@ -2220,12 +2364,6 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
               <small>{selectedOffer && selectedOffer.annualSaving < 0 ? "Offerta piu costosa dell'attuale" : "Confronto su base annua"}</small>
             </div>
 
-            {calculation.warnings.map((warning) => (
-              <div className="quote-warning" key={warning}>
-                {warning}
-              </div>
-            ))}
-
             <div className="quote-mini-list">
               <div>
                 <span>Consumo periodo</span>
@@ -2252,6 +2390,59 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
               </button>
             </div>
           </aside>
+        </div>
+      </section>
+      <section className="table-section quote-table-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Confronto</p>
+            <h2>Risparmio per offerta</h2>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table className="quote-offers-table">
+            <thead>
+              <tr>
+                <th>Offerta</th>
+                <th>Cliente</th>
+                <th>PCV</th>
+                <th>Spread</th>
+                <th>Quota consumi</th>
+                <th>Differenza annua</th>
+                <th>Risparmio annuo</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonOffers.map((offer) => (
+                <tr className={offer.code === selectedOffer?.code ? "selected-row" : ""} key={offer.code}>
+                  <td>{offer.offerName}</td>
+                  <td>{offer.customerType}</td>
+                  <td>{formatEuro(offer.pcv)}</td>
+                  <td>{formatSpread(offer.spread, 3)} €</td>
+                  <td>{formatEuro(offer.quotaConsumi)}</td>
+                  <td>{formatEuro(offer.annualDifference)}</td>
+                  <td className={offer.annualSaving >= 0 ? "saving-cell" : "extra-cost-cell"}>
+                    {formatEuro(offer.annualSaving)}
+                  </td>
+                  <td>
+                    <button
+                      className="secondary-button table-action-button"
+                      type="button"
+                      onClick={() => updateQuote("selectedOfferCode", offer.code)}
+                    >
+                      Scegli
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {comparisonOffers.length === 0 && (
+                <tr>
+                  <td className="empty-state" colSpan={8}>Nessuna offerta disponibile per questa tipologia.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
       <MarketVariablesPanel store={store} user={user} mutateStore={mutateStore} />

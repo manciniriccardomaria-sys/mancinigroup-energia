@@ -1442,6 +1442,18 @@ td small {
   background: #f2faf6;
 }
 
+.assignment-table select {
+  min-width: 190px;
+  min-height: 38px;
+  padding: 7px 9px;
+}
+
+.table-action-button {
+  min-height: 38px;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+
 .saving-cell {
   background: #b7e2cf;
   color: var(--green-dark);
@@ -1449,8 +1461,8 @@ td small {
 }
 
 .extra-cost-cell {
-  background: #e56565;
-  color: #280b0b;
+  background: #fff1dc;
+  color: #934700;
   font-weight: 850;
 }
 

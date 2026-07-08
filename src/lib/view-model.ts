@@ -87,6 +87,112 @@ export function summarizeAgencyMargins(records: AgencyMarginRecord[]) {
   );
 }
 
+function compareMonthKeys(a: string, b: string) {
+  if (!a && !b) return 0;
+  if (!a) return -1;
+  if (!b) return 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function addMonthsToMonthKey(monthKey: string, months: number) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, 1));
+  date.setUTCMonth(date.getUTCMonth() + months);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export function summarizeCustomerTracking(records: AgencyMarginRecord[], activityWindowMonths = 1) {
+  const byPod = new Map<
+    string,
+    {
+      podPdr: string;
+      customerName: string;
+      offer?: string;
+      firstMonthKey: string;
+      lastMonthKey: string;
+      months: Set<string>;
+    }
+  >();
+  const podCountByMonth = new Map<string, Set<string>>();
+  let maxMonthKey = "";
+
+  for (const record of records) {
+    if (hasNegativeAgencyMarginValues(record) || !record.podPdrNorm || !record.monthKey) {
+      continue;
+    }
+
+    if (compareMonthKeys(record.monthKey, maxMonthKey) > 0) {
+      maxMonthKey = record.monthKey;
+    }
+
+    const monthPods = podCountByMonth.get(record.monthKey) ?? new Set<string>();
+    monthPods.add(record.podPdrNorm);
+    podCountByMonth.set(record.monthKey, monthPods);
+
+    const existing = byPod.get(record.podPdrNorm);
+
+    if (!existing) {
+      byPod.set(record.podPdrNorm, {
+        podPdr: record.podPdr,
+        customerName: record.customerName,
+        offer: record.offerEasy ?? record.offer,
+        firstMonthKey: record.monthKey,
+        lastMonthKey: record.monthKey,
+        months: new Set([record.monthKey])
+      });
+      continue;
+    }
+
+    existing.months.add(record.monthKey);
+
+    if (compareMonthKeys(record.monthKey, existing.firstMonthKey) < 0) {
+      existing.firstMonthKey = record.monthKey;
+    }
+
+    if (compareMonthKeys(record.monthKey, existing.lastMonthKey) >= 0) {
+      existing.lastMonthKey = record.monthKey;
+      existing.podPdr = record.podPdr || existing.podPdr;
+      existing.customerName = record.customerName || existing.customerName;
+      existing.offer = record.offerEasy ?? record.offer ?? existing.offer;
+    }
+  }
+
+  const peakPodCount = Math.max(...[...podCountByMonth.values()].map((pods) => pods.size), 0);
+  const minimumCompleteMonthPods = Math.max(10, Math.floor(peakPodCount * 0.5));
+  const referenceMonthKey =
+    [...podCountByMonth.entries()]
+      .filter(([, pods]) => pods.size >= minimumCompleteMonthPods)
+      .map(([monthKey]) => monthKey)
+      .sort(compareMonthKeys)
+      .at(-1) ?? maxMonthKey;
+  const thresholdMonthKey = referenceMonthKey
+    ? addMonthsToMonthKey(referenceMonthKey, -(activityWindowMonths - 1))
+    : "";
+  const rows = [...byPod.values()]
+    .map((row) => {
+      const active = [...row.months].some((monthKey) => compareMonthKeys(monthKey, thresholdMonthKey) >= 0);
+
+      return {
+        podPdr: row.podPdr,
+        customerName: row.customerName,
+        offer: row.offer,
+        firstMonthKey: row.firstMonthKey,
+        lastMonthKey: row.lastMonthKey,
+        status: active ? ("attivo" as const) : ("chiuso" as const),
+        closedMonthKey: active ? undefined : row.lastMonthKey
+      };
+    })
+    .sort((a, b) => a.status.localeCompare(b.status) || a.podPdr.localeCompare(b.podPdr));
+
+  return {
+    maxMonthKey: referenceMonthKey,
+    latestImportedMonthKey: maxMonthKey,
+    activeCount: rows.filter((row) => row.status === "attivo").length,
+    closedCount: rows.filter((row) => row.status === "chiuso").length,
+    rows
+  };
+}
+
 export function customerSource(customer: Customer, sources: Source[]) {
   return sourceMap(sources).get(customer.sourceId) ?? null;
 }

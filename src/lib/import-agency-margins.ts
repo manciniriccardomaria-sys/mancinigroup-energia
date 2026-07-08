@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { AGENCY_SHARE_RATE, agencyBaseSpread } from "./agency-margin-calculation";
 import { detectCommodity, normalizePodPdr } from "./normalize";
+import { findOfferByCode } from "./offers";
 import type { AgencyMarginImportRow, Commodity } from "./types";
 
 type MarginCommodity = Exclude<Commodity, "non_definito">;
@@ -183,7 +184,7 @@ function findHeaderRow(matrix: unknown[][]) {
     const headers = buildHeaderMap(row);
     return (
       headerIndex(headers, ["Fornitura", "POD", "PDR", "POD/PDR"]) !== undefined &&
-      headerIndex(headers, ["Consumo", "Consumi"]) !== undefined
+      headerIndex(headers, ["Consumo", "Consumi", "Ricorrente Consumo QTA", "Ricorrente Consumo"]) !== undefined
     );
   });
 }
@@ -192,9 +193,24 @@ function emptyToUndefined(value: string) {
   return value || undefined;
 }
 
+function isDataPodPdr(input: { podPdr: string; commodity: Commodity; customerName: string; offer: string }) {
+  const headerLike = normalizeHeader(input.podPdr);
+
+  if (!input.podPdr || ["pod", "pdr", "pod pdr", "fornitura"].includes(headerLike)) {
+    return false;
+  }
+
+  if (headerLike === "totale" || headerLike === "subagente") {
+    return false;
+  }
+
+  return input.commodity !== "non_definito" || Boolean(input.customerName || input.offer);
+}
+
 function marginFromValues(input: {
   commodity: Commodity;
   consumption: number;
+  offer?: string;
   gross?: number;
   pcv?: number;
   spread?: number;
@@ -238,6 +254,31 @@ function marginFromValues(input: {
     };
   }
 
+  if (input.offer && input.commodity !== "non_definito") {
+    const offer = findOfferByCode(input.offer, input.commodity);
+
+    if (offer) {
+      const recurringConsumption = input.consumption * (offer.spread - agencyBaseSpread(input.commodity));
+      const grossMarginAmount = offer.pcv + recurringConsumption;
+
+      return {
+        recurringPoint: round4(offer.pcv),
+        recurringConsumption: round4(recurringConsumption),
+        grossMarginAmount: round4(grossMarginAmount),
+        marginAmount: roundCurrency(grossMarginAmount * AGENCY_SHARE_RATE),
+        tariffNote: undefined
+      };
+    }
+
+    return {
+      recurringPoint: 0,
+      recurringConsumption: 0,
+      grossMarginAmount: 0,
+      marginAmount: 0,
+      tariffNote: `Offerta non trovata nel catalogo: ${input.offer}.`
+    };
+  }
+
   return {
     recurringPoint: 0,
     recurringConsumption: 0,
@@ -259,6 +300,49 @@ function parseItalianDate(value: string) {
 
 function monthKeyFromDate(value?: string) {
   return value?.slice(0, 7);
+}
+
+function monthKeyFromCell(value: unknown) {
+  if (!value) {
+    return undefined;
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const parsed = XLSX.SSF.parse_date_code(value);
+
+    if (parsed?.y && parsed?.m) {
+      return `${parsed.y}-${String(parsed.m).padStart(2, "0")}`;
+    }
+  }
+
+  const normalized = normalizeHeader(value);
+  const iso = normalized.match(/\b(20\d{2})\s*(\d{1,2})\b/) ?? normalized.match(/\b(20\d{2})[-/](\d{1,2})\b/);
+  if (iso) {
+    return `${iso[1]}-${iso[2].padStart(2, "0")}`;
+  }
+
+  const compact = normalized.match(/\b(\d{1,2})\s+(\d{2}|\d{4})\b/);
+  if (compact) {
+    const year = compact[2].length === 2 ? `20${compact[2]}` : compact[2];
+    return `${year}-${compact[1].padStart(2, "0")}`;
+  }
+
+  for (const [name, month] of Object.entries(monthNames)) {
+    if (!normalized.includes(name)) {
+      continue;
+    }
+
+    const year = normalized.match(/\b(20\d{2}|\d{4})\b/)?.[1];
+    if (year) {
+      return `${year}-${month}`;
+    }
+  }
+
+  return undefined;
 }
 
 function monthKeyFromFilename(fileName: string) {
@@ -304,7 +388,8 @@ export function parseAgencyMarginCsv(
     type: workbookReadType(buffer),
     raw: true
   });
-  const sheetName = workbook.SheetNames[0];
+  const sheetName =
+    workbook.SheetNames.find((name) => normalizeHeader(name) === "margine agenzia") ?? workbook.SheetNames[0];
 
   if (!sheetName) {
     return {
@@ -340,22 +425,32 @@ export function parseAgencyMarginCsv(
       invoiceTotal: headerIndex(headers, ["Totale", "Totale fattura"]),
       paid: headerIndex(headers, ["Pagato"]),
       balance: headerIndex(headers, ["Saldo"]),
-      consumption: headerIndex(headers, ["Consumo", "Consumi"]),
+      consumption: headerIndex(headers, ["Consumo", "Consumi", "Ricorrente Consumo QTA", "Ricorrente Consumo"]),
       agent: headerIndex(headers, ["Agente", "Subagente"]),
       offer: headerIndex(headers, ["Offerta", "Nome offerta"]),
       cmor: headerIndex(headers, ["CMOR"]),
-      gross: headerIndex(headers, ["D", "Colonna D", "Margine 100", "Margine agenzia 100", "Provvigione agenzia 100", "Totale provvigione"]),
-      pcv: headerIndex(headers, ["PCV", "PCV mensile", "Pcv"]),
+      gross: headerIndex(headers, ["D", "Colonna D", "Importo", "Margine 100", "Margine agenzia 100", "Provvigione agenzia 100", "Totale provvigione"]),
+      pcv: headerIndex(headers, ["PCV", "PCV mensile", "Pcv", "Ricorrente Punto"]),
       spread: headerIndex(headers, ["Spread"]),
-      recurringConsumption: headerIndex(headers, ["F", "Colonna F", "Quota spread", "Quota consumo", "Quota consumi"])
+      recurringConsumption: headerIndex(headers, ["F", "Colonna F", "Ricorrente Consumo", "Quota spread", "Quota consumo", "Quota consumi"]),
+      month: headerIndex(headers, ["Mese", "Competenza", "Mese competenza"])
     };
 
     for (let index = headerRowIndex + 1; index < matrix.length; index += 1) {
       const row = matrix[index] ?? [];
       const podPdr = valueAt(row, indexes.podPdr);
       const podPdrNorm = normalizePodPdr(podPdr);
+      const customerName = valueAt(row, indexes.customerName);
+      const offer = valueAt(row, indexes.offer);
+      const commodity = options.commodity ?? commodityFromFile(fileName, podPdr);
+      const agent = valueAt(row, indexes.agent);
 
-      if (!podPdrNorm) {
+      if (!podPdrNorm || !isDataPodPdr({ podPdr, commodity, customerName, offer })) {
+        skippedRows += 1;
+        continue;
+      }
+
+      if (agent && normalizeHeader(agent) !== "mancini group") {
         skippedRows += 1;
         continue;
       }
@@ -363,8 +458,6 @@ export function parseAgencyMarginCsv(
       const invoiceNumber = valueAt(row, indexes.invoiceNumber);
       const issuedAt = parseItalianDate(valueAt(row, indexes.issuedAt));
       const dueAt = parseItalianDate(valueAt(row, indexes.dueAt));
-      const offer = valueAt(row, indexes.offer);
-      const commodity = options.commodity ?? commodityFromFile(fileName, podPdr);
       const consumption = numberAt(row, indexes.consumption);
       const gross = hasValueAt(row, indexes.gross) ? numberAt(row, indexes.gross) : undefined;
       const pcv = hasValueAt(row, indexes.pcv) ? numberAt(row, indexes.pcv) : undefined;
@@ -372,9 +465,11 @@ export function parseAgencyMarginCsv(
       const recurringConsumption = hasValueAt(row, indexes.recurringConsumption)
         ? numberAt(row, indexes.recurringConsumption)
         : undefined;
+      const importedMonthKey = indexes.month === undefined ? undefined : monthKeyFromCell(row[indexes.month]);
       const margin = marginFromValues({
         commodity,
         consumption,
+        offer,
         gross,
         pcv,
         spread,
@@ -384,11 +479,11 @@ export function parseAgencyMarginCsv(
       rows.push({
         importKey: `invoice:${invoiceNumber || `${fileName}-${index + 1}`}|${podPdrNorm}`,
         rowNumber: index + 1,
-        monthKey: options.monthKey ?? monthKeyFromDate(issuedAt) ?? fallbackMonthKey,
+        monthKey: options.monthKey ?? importedMonthKey ?? monthKeyFromDate(issuedAt) ?? fallbackMonthKey,
         invoiceNumber,
         podPdr,
         podPdrNorm,
-        customerName: valueAt(row, indexes.customerName) || "Cliente senza nome",
+        customerName: customerName || "Cliente senza nome",
         representative: emptyToUndefined(valueAt(row, indexes.representative)),
         paymentType: emptyToUndefined(valueAt(row, indexes.paymentType)),
         vat: emptyToUndefined(valueAt(row, indexes.vat)),
@@ -399,7 +494,7 @@ export function parseAgencyMarginCsv(
         paid: numberAt(row, indexes.paid),
         balance: numberAt(row, indexes.balance),
         consumption,
-        agent: emptyToUndefined(valueAt(row, indexes.agent)),
+        agent: emptyToUndefined(agent),
         offer: emptyToUndefined(offer),
         offerEasy: offerEasyFromName(offer),
         customerType: customerTypeFromOffer(offer),
@@ -432,6 +527,7 @@ export function parseAgencyMarginCsv(
       const margin = marginFromValues({
         commodity,
         consumption,
+        offer,
         gross,
         pcv,
         recurringConsumption
