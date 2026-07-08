@@ -52,9 +52,12 @@ import {
 import type {
   AgencyMarginRecord,
   Commodity,
+  CommissionEntry,
+  CommissionPayment,
   CommissionRule,
   CustomerStatus,
   SessionUser,
+  Source,
   SourceKind,
   StoreData,
   UploadCategory,
@@ -62,6 +65,9 @@ import type {
 } from "@/lib/types";
 import {
   activeSourcesForUser,
+  commissionPaymentsUpTo,
+  isFullMonthKey,
+  maturedCommissionEntries,
   monthlyPerformance,
   summarizeAgencyMargins,
   summarizeCustomerTracking,
@@ -208,6 +214,80 @@ function formatShortMonthKey(value: string) {
   })
     .format(new Date(Date.UTC(year, month - 1, 1)))
     .replace(/\s+/g, " ");
+}
+
+function monthRange(startMonthKey: string, endMonthKey: string) {
+  if (!isFullMonthKey(startMonthKey) || !isFullMonthKey(endMonthKey) || startMonthKey > endMonthKey) {
+    return [];
+  }
+
+  const [startYear, startMonth] = startMonthKey.split("-").map(Number);
+  const [endYear, endMonth] = endMonthKey.split("-").map(Number);
+  const months: string[] = [];
+  const cursor = new Date(Date.UTC(startYear, startMonth - 1, 1));
+  const end = new Date(Date.UTC(endYear, endMonth - 1, 1));
+
+  while (cursor <= end) {
+    months.push(`${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, "0")}`);
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+
+  return months;
+}
+
+function latestFullMonthKey(entries: CommissionEntry[]) {
+  return entries
+    .map((entry) => entry.dueMonth)
+    .filter(isFullMonthKey)
+    .sort((a, b) => b.localeCompare(a))[0];
+}
+
+function buildCommissionMonthColumns(entries: CommissionEntry[], cutoffMonthKey: string, startMonthCandidates: string[] = []) {
+  const firstMonthKey = [
+    ...entries.map((entry) => entry.dueMonth),
+    ...startMonthCandidates
+  ]
+    .filter(isFullMonthKey)
+    .sort((a, b) => a.localeCompare(b))[0];
+
+  return firstMonthKey ? monthRange(firstMonthKey, cutoffMonthKey) : [];
+}
+
+function buildMonthlyCommissionRows(
+  entries: CommissionEntry[],
+  payments: CommissionPayment[],
+  sources: Source[],
+  monthKeys: string[]
+) {
+  const paymentsBySource = new Map<string, number>();
+
+  for (const payment of payments) {
+    paymentsBySource.set(payment.sourceId, (paymentsBySource.get(payment.sourceId) ?? 0) + payment.amount);
+  }
+
+  return sources
+    .map((source) => {
+      const monthly = Object.fromEntries(monthKeys.map((monthKey) => [monthKey, 0])) as Record<string, number>;
+
+      for (const entry of entries) {
+        if (entry.sourceId === source.id && monthly[entry.dueMonth] !== undefined) {
+          monthly[entry.dueMonth] += entry.amount;
+        }
+      }
+
+      const total = monthKeys.reduce((sum, monthKey) => sum + monthly[monthKey], 0);
+      const paid = paymentsBySource.get(source.id) ?? 0;
+
+      return {
+        source,
+        total,
+        paid,
+        due: Math.max(0, total - paid),
+        monthly
+      };
+    })
+    .filter((row) => row.total > 0 || row.paid > 0)
+    .sort((a, b) => b.due - a.due || a.source.name.localeCompare(b.source.name, "it"));
 }
 
 function formatNumber(value: number, digits = 2) {
@@ -786,9 +866,14 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   const agencySummary = summarizeAgencyMargins(agencyMarginRecords);
   const customerTracking = summarizeCustomerTracking(agencyMarginRecords);
   const sources = [...visibleSourcesForUser(user, store.sources)].sort((a, b) => a.name.localeCompare(b.name, "it"));
+  const cutoffDate = today();
+  const maturityCutoffMonthKey = currentMonthKey();
+  const commissionEntries = visibleCommissionEntries(user, store);
+  const maturedEntries = maturedCommissionEntries(commissionEntries, maturityCutoffMonthKey);
+  const commissionPayments = commissionPaymentsUpTo(visibleCommissionPayments(user, store), cutoffDate);
   const commissionRows = summarizeCommissionRows(
-    visibleCommissionEntries(user, store),
-    visibleCommissionPayments(user, store),
+    maturedEntries,
+    commissionPayments,
     sources
   );
   const totalCommissions = commissionRows.reduce((sum, row) => sum + row.total, 0);
@@ -799,7 +884,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   const commissionsDue = Math.max(0, totalCommissions - paidCommissions);
   const monthlyRows = monthlyPerformance(
     customers,
-    visibleCommissionEntries(user, store),
+    maturedEntries,
     store.productionMetrics,
     loadingRecords
   );
@@ -1842,8 +1927,17 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
 }
 
 function CommissionsView({ store, user, mutateStore }: ViewProps) {
-  const sources = visibleSourcesForUser(user, store.sources).sort((a, b) => a.name.localeCompare(b.name, "it"));
+  const sources = [...visibleSourcesForUser(user, store.sources)].sort((a, b) => a.name.localeCompare(b.name, "it"));
   const commissionEntries = visibleCommissionEntries(user, store);
+  const cutoffDate = today();
+  const maturityCutoffMonthKey = currentMonthKey();
+  const commissionPayments = commissionPaymentsUpTo(visibleCommissionPayments(user, store), cutoffDate);
+  const maturedEntries = maturedCommissionEntries(commissionEntries, maturityCutoffMonthKey);
+  const latestMaturedMonthKey = latestFullMonthKey(maturedEntries);
+  const uncalendarizedEntries = commissionEntries.filter((entry) => !isFullMonthKey(entry.dueMonth));
+  const agencyMonthKeys = visibleAgencyMarginRecords(user, store).map((record) => record.monthKey);
+  const monthlyColumns = buildCommissionMonthColumns(maturedEntries, maturityCutoffMonthKey, agencyMonthKeys);
+  const monthlyRows = buildMonthlyCommissionRows(maturedEntries, commissionPayments, sources, monthlyColumns);
   const [commissionMonthFilter, setCommissionMonthFilter] = useState("tutti");
   const commissionMonthOptions = [...new Set(commissionEntries.map((entry) => entry.dueMonth))]
     .filter(Boolean)
@@ -1853,8 +1947,8 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
       ? commissionEntries
       : commissionEntries.filter((entry) => entry.dueMonth === commissionMonthFilter);
   const rows = summarizeCommissionRows(
-    commissionEntries,
-    visibleCommissionPayments(user, store),
+    maturedEntries,
+    commissionPayments,
     sources
   );
 
@@ -1921,6 +2015,18 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
           <div>
             <p className="eyebrow">Provvigioni</p>
             <h2>Totali per fonte</h2>
+            <p className="muted-text">
+              Calcolate fino a {formatMonthKey(maturityCutoffMonthKey)} ({formatDate(cutoffDate)}).
+              {" "}
+              {latestMaturedMonthKey
+                ? `Ultimo mese presente nei dati: ${formatMonthKey(latestMaturedMonthKey)}.`
+                : "Nessun mese calendarizzato presente."}
+            </p>
+            {uncalendarizedEntries.length > 0 && (
+              <p className="muted-text">
+                Escluse dal maturato {uncalendarizedEntries.length} provvigioni storiche senza mese completo.
+              </p>
+            )}
           </div>
         </div>
         <div className="table-wrap">
@@ -1944,6 +2050,61 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section className="table-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Vista mensile</p>
+            <h2>Provvigioni maturate per mese</h2>
+            <p className="muted-text">
+              Stessa base dei totali: solo provvigioni con mese completo e maturate entro {formatMonthKey(maturityCutoffMonthKey)}.
+              La tabella parte dal primo mese trovato nei dati importati.
+            </p>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table className="commission-monthly-table">
+            <thead>
+              <tr>
+                <th>Fonte</th>
+                <th>Totali</th>
+                <th>Pagate</th>
+                <th>Da pagare</th>
+                {monthlyColumns.map((monthKey) => (
+                  <th key={monthKey}>{formatShortMonthKey(monthKey)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {monthlyRows.map((row) => (
+                <tr key={row.source.id}>
+                  <td>{row.source.name}</td>
+                  <td className="summary-col">{formatEuro(row.total)}</td>
+                  <td className="summary-col">{formatEuro(row.paid)}</td>
+                  <td className="summary-col">
+                    <strong>{formatEuro(row.due)}</strong>
+                  </td>
+                  {monthlyColumns.map((monthKey) => {
+                    const amount = row.monthly[monthKey] ?? 0;
+
+                    return (
+                      <td key={monthKey} className={amount === 0 ? "muted-cell" : undefined}>
+                        {amount === 0 ? "-" : formatEuro(amount)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+              {monthlyRows.length === 0 && (
+                <tr>
+                  <td className="empty-state" colSpan={4 + monthlyColumns.length}>
+                    Nessuna provvigione maturata da mostrare.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

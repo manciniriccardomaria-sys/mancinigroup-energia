@@ -231,6 +231,18 @@ export function visibleCommissionPayments(user: SessionUser, store: StoreData) {
   return store.commissionPayments;
 }
 
+export function isFullMonthKey(value?: string) {
+  return /^\d{4}-\d{2}$/.test(value ?? "");
+}
+
+export function maturedCommissionEntries(entries: CommissionEntry[], cutoffMonthKey: string) {
+  return entries.filter((entry) => isFullMonthKey(entry.dueMonth) && entry.dueMonth <= cutoffMonthKey);
+}
+
+export function commissionPaymentsUpTo(payments: CommissionPayment[], cutoffDate: string) {
+  return payments.filter((payment) => !payment.paidAt || payment.paidAt <= cutoffDate);
+}
+
 export function summarizeCommissionRows(
   entries: CommissionEntry[],
   payments: CommissionPayment[],
