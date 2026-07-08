@@ -1584,13 +1584,58 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
   const loadingRecords = visibleLoadingRecords(user, store);
   const agencyRecords = visibleAgencyMarginRecords(user, store);
   const sources = activeSourcesForUser(user, store.sources).sort((a, b) => a.name.localeCompare(b.name, "it"));
-  const [assignmentSourceByRecord, setAssignmentSourceByRecord] = useState<Record<string, string>>({});
-  const unmatchedAgencyRecords = agencyRecords
-    .filter((record) => record.commissionStatus === "da_abbinare" || !record.matchedSourceId)
-    .slice(0, 80);
+  const [assignmentSourceByPod, setAssignmentSourceByPod] = useState<Record<string, string>>({});
+  const unmatchedCustomerRows = useMemo(() => {
+    const rowsByPod = new Map<
+      string,
+      {
+        record: AgencyMarginRecord;
+        months: Set<string>;
+        rowCount: number;
+        totalMargin: number;
+      }
+    >();
+
+    for (const record of agencyRecords.filter((item) => item.commissionStatus === "da_abbinare" || !item.matchedSourceId)) {
+      if (!record.podPdrNorm) {
+        continue;
+      }
+
+      const current = rowsByPod.get(record.podPdrNorm);
+
+      if (!current) {
+        rowsByPod.set(record.podPdrNorm, {
+          record,
+          months: new Set([record.monthKey]),
+          rowCount: 1,
+          totalMargin: record.marginAmount
+        });
+        continue;
+      }
+
+      current.months.add(record.monthKey);
+      current.rowCount += 1;
+      current.totalMargin += record.marginAmount;
+
+      if (
+        record.monthKey > current.record.monthKey ||
+        (record.monthKey === current.record.monthKey && record.importedAt > current.record.importedAt)
+      ) {
+        current.record = record;
+      }
+    }
+
+    return [...rowsByPod.values()]
+      .sort(
+        (a, b) =>
+          b.record.monthKey.localeCompare(a.record.monthKey) ||
+          a.record.customerName.localeCompare(b.record.customerName, "it")
+      )
+      .slice(0, 80);
+  }, [agencyRecords]);
 
   async function assignAgencyRecord(record: AgencyMarginRecord) {
-    const sourceId = assignmentSourceByRecord[record.id];
+    const sourceId = assignmentSourceByPod[record.podPdrNorm];
 
     if (!sourceId) {
       throw new Error("Seleziona una fonte.");
@@ -1647,31 +1692,33 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
           <table className="compact-table assignment-table">
             <thead>
               <tr>
-                <th>Mese</th>
+                <th>Ultimo mese</th>
                 <th>Cliente</th>
                 <th>POD/PDR</th>
                 <th>Offerta</th>
-                <th>Margine</th>
+                <th>Mesi</th>
+                <th>Margine totale</th>
                 <th>Fonte</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {unmatchedAgencyRecords.map((record) => (
-                <tr key={record.id}>
+              {unmatchedCustomerRows.map(({ record, months, rowCount, totalMargin }) => (
+                <tr key={record.podPdrNorm}>
                   <td>{formatMonthKey(record.monthKey)}</td>
                   <td>{record.customerName}</td>
                   <td>{record.podPdr}</td>
                   <td>{record.offerEasy ?? record.offer ?? "-"}</td>
-                  <td>{formatEuro(record.marginAmount)}</td>
+                  <td>{months.size} mesi / {rowCount} righe</td>
+                  <td>{formatEuro(totalMargin)}</td>
                   <td>
                     <select
                       aria-label={`Fonte per ${record.customerName}`}
-                      value={assignmentSourceByRecord[record.id] ?? ""}
+                      value={assignmentSourceByPod[record.podPdrNorm] ?? ""}
                       onChange={(event) =>
-                        setAssignmentSourceByRecord((current) => ({
+                        setAssignmentSourceByPod((current) => ({
                           ...current,
-                          [record.id]: event.target.value
+                          [record.podPdrNorm]: event.target.value
                         }))
                       }
                     >
@@ -1690,9 +1737,9 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
                   </td>
                 </tr>
               ))}
-              {unmatchedAgencyRecords.length === 0 && (
+              {unmatchedCustomerRows.length === 0 && (
                 <tr>
-                  <td className="empty-state" colSpan={7}>Nessun contratto da abbinare.</td>
+                  <td className="empty-state" colSpan={8}>Nessun contratto da abbinare.</td>
                 </tr>
               )}
             </tbody>
