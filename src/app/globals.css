@@ -254,6 +254,12 @@ textarea:focus {
   color: var(--blue);
 }
 
+.secondary-button:disabled {
+  cursor: not-allowed;
+  background: #edf2f7;
+  color: #9aa9b6;
+}
+
 .split-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1102,7 +1108,7 @@ td small {
 
 .quote-workbench-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-items: end;
   padding: 22px 24px;
@@ -1151,7 +1157,8 @@ td small {
 
 .quote-command-bar {
   display: grid;
-  grid-template-columns: auto auto minmax(260px, 1fr);
+  grid-template-columns: repeat(2, auto);
+  justify-content: start;
   gap: 12px;
   align-items: end;
   padding: 12px;
@@ -1437,11 +1444,13 @@ td small {
   line-height: 0.95;
 }
 
+.quote-saving-box.loss,
 .quote-saving-box.negative {
   border-color: #efc58f;
   background: #fff5e8;
 }
 
+.quote-saving-box.loss strong,
 .quote-saving-box.negative strong {
   color: #9a4b00;
 }
@@ -1449,6 +1458,51 @@ td small {
 .quote-saving-box small {
   color: #63737f;
   font-weight: 760;
+}
+
+.quote-metric-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.quote-metric-row {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.quote-metric-row span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 780;
+}
+
+.quote-metric-row strong {
+  text-align: right;
+  font-weight: 920;
+}
+
+.quote-metric-row.current {
+  border-color: #f0cd9e;
+  background: #fff7e8;
+}
+
+.quote-metric-row.current strong {
+  color: #8a4b00;
+}
+
+.quote-metric-row.proposed {
+  border-color: #b8d2fb;
+  background: #edf5ff;
+}
+
+.quote-metric-row.proposed strong {
+  color: #2454a6;
 }
 
 .quote-mini-list {

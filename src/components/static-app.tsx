@@ -514,6 +514,44 @@ function formatInputNumber(value: number) {
   return value ? String(value).replace(".", ",") : "";
 }
 
+type QuoteNumberField =
+  | "currentAveragePrice"
+  | "currentPcv"
+  | "gasAnnualConsumption"
+  | "consumptionMonth1"
+  | "consumptionMonth2"
+  | "f1Month1"
+  | "f2Month1"
+  | "f3Month1"
+  | "f1Month2"
+  | "f2Month2"
+  | "f3Month2";
+
+function createDefaultQuoteInput(useGasFallback = true) {
+  const monthOptions = previousQuoteMonthOptions(today());
+
+  return defaultEnergyQuoteInput({
+    quoteDate: today(),
+    commodity: "luce",
+    customerType: "RES",
+    monthKey: monthOptions[1] ?? "",
+    secondMonthKey: monthOptions[0] ?? "",
+    gasAnnualConsumption: useGasFallback ? 300 : 0
+  });
+}
+
+function formatSavingImpact(value: number) {
+  if (value > 0) {
+    return formatEuro(-Math.abs(value));
+  }
+
+  if (value < 0) {
+    return `+${formatEuro(Math.abs(value))}`;
+  }
+
+  return formatEuro(0);
+}
+
 function parseQuoteDate(value: string) {
   const match = value.match(/^(\d{4})-(\d{2})-\d{2}$/);
 
@@ -2554,17 +2592,8 @@ function RulesView({ store, user, mutateStore }: ViewProps) {
 }
 
 function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
-  const monthOptions = previousQuoteMonthOptions(today());
-  const [quoteInput, setQuoteInput] = useState<EnergyQuoteInput>(() =>
-    defaultEnergyQuoteInput({
-      quoteDate: today(),
-      commodity: "luce",
-      customerType: "RES",
-      monthKey: monthOptions[1] ?? "",
-      secondMonthKey: monthOptions[0] ?? "",
-      gasAnnualConsumption: 300
-    })
-  );
+  const [quoteInput, setQuoteInput] = useState<EnergyQuoteInput>(() => createDefaultQuoteInput());
+  const [quoteNumberInputs, setQuoteNumberInputs] = useState<Partial<Record<QuoteNumberField, string>>>({});
   const calculation = useMemo(
     () => calculateEnergyQuote(quoteInput, store.marketVariables),
     [quoteInput, store.marketVariables]
@@ -2573,14 +2602,34 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
   const comparisonOffers = [...offerChoices].sort((a, b) => b.annualSaving - a.annualSaving);
   const selectedOffer = calculation.selectedOffer;
   const dynamicMonthOptions = previousQuoteMonthOptions(quoteInput.quoteDate);
+  const hasRequiredQuoteData =
+    quoteInput.currentAveragePrice > 0 &&
+    quoteInput.currentPcv > 0 &&
+    calculation.source.totalConsumption > 0 &&
+    (quoteInput.commodity === "luce" || quoteInput.gasAnnualConsumption > 0);
+  const quoteReady = Boolean(selectedOffer) && calculation.ready && hasRequiredQuoteData;
+  const selectedAnnualSaving = quoteReady && selectedOffer ? selectedOffer.annualSaving : undefined;
 
   function updateQuote<K extends keyof EnergyQuoteInput>(key: K, value: EnergyQuoteInput[K]) {
     setQuoteInput((current) => ({ ...current, [key]: value }));
   }
 
+  function quoteNumberValue(key: QuoteNumberField) {
+    return quoteNumberInputs[key] ?? formatInputNumber(quoteInput[key]);
+  }
+
+  function updateQuoteNumber(key: QuoteNumberField, value: string) {
+    setQuoteNumberInputs((current) => ({ ...current, [key]: value }));
+    updateQuote(key, parseEuro(value));
+  }
+
+  function resultValue(value: string) {
+    return quoteReady ? value : "-";
+  }
+
   async function saveQuote() {
-    if (!selectedOffer) {
-      throw new Error("Seleziona una tariffa.");
+    if (!selectedOffer || !quoteReady) {
+      return;
     }
 
     await mutateStore((draft) => {
@@ -2611,6 +2660,8 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
         createdBy: user.id
       });
     }, "Preventivo salvato.");
+    setQuoteInput(createDefaultQuoteInput(false));
+    setQuoteNumberInputs({});
   }
 
   return (
@@ -2620,10 +2671,6 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
           <div>
             <p className="eyebrow">Preventivatore</p>
             <h2>Confronto offerte {quoteInput.commodity === "luce" ? "luce" : "gas"}</h2>
-          </div>
-          <div className={`quote-header-result ${selectedOffer && selectedOffer.annualSaving < 0 ? "negative" : ""}`}>
-            <span>Risparmio annuo</span>
-            <strong>{selectedOffer ? formatEuro(selectedOffer.annualSaving) : "-"}</strong>
           </div>
         </div>
 
@@ -2664,19 +2711,6 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
             </button>
           </div>
 
-          <label className="quote-offer-select">
-            Tariffa
-            <select
-              value={selectedOffer?.code ?? ""}
-              onChange={(event) => updateQuote("selectedOfferCode", event.target.value)}
-            >
-              {offerChoices.map((offer) => (
-                <option key={offer.code} value={offer.code}>
-                  {offer.offerName} - {offer.customerType}
-                </option>
-              ))}
-            </select>
-          </label>
         </div>
 
         <div className="quote-workbench-grid">
@@ -2728,7 +2762,7 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
 
             <div className="quote-band">
               <div className="quote-band-title">Bolletta attuale</div>
-              <div className="quote-line-grid four">
+              <div className="quote-line-grid five">
                 <label>
                   Mese 1
                   <select value={quoteInput.monthKey} onChange={(event) => updateQuote("monthKey", event.target.value)}>
@@ -2753,19 +2787,32 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                   </select>
                 </label>
                 <label>
+                  Tariffa preventivata
+                  <select
+                    value={selectedOffer?.code ?? ""}
+                    onChange={(event) => updateQuote("selectedOfferCode", event.target.value)}
+                  >
+                    {offerChoices.map((offer) => (
+                      <option key={offer.code} value={offer.code}>
+                        {offer.offerName} - {offer.customerType}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
                   PCV attuale
                   <input
                     inputMode="decimal"
-                    value={formatInputNumber(quoteInput.currentPcv)}
-                    onChange={(event) => updateQuote("currentPcv", parseEuro(event.target.value))}
+                    value={quoteNumberValue("currentPcv")}
+                    onChange={(event) => updateQuoteNumber("currentPcv", event.target.value)}
                   />
                 </label>
                 <label>
                   Prezzo medio {quoteInput.commodity === "luce" ? "kWh" : "Smc"}
                   <input
                     inputMode="decimal"
-                    value={formatInputNumber(quoteInput.currentAveragePrice)}
-                    onChange={(event) => updateQuote("currentAveragePrice", parseEuro(event.target.value))}
+                    value={quoteNumberValue("currentAveragePrice")}
+                    onChange={(event) => updateQuoteNumber("currentAveragePrice", event.target.value)}
                   />
                 </label>
               </div>
@@ -2806,8 +2853,8 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                     </span>
                     <input
                       inputMode="decimal"
-                      value={formatInputNumber(quoteInput.gasAnnualConsumption)}
-                      onChange={(event) => updateQuote("gasAnnualConsumption", parseEuro(event.target.value))}
+                      value={quoteNumberValue("gasAnnualConsumption")}
+                      onChange={(event) => updateQuoteNumber("gasAnnualConsumption", event.target.value)}
                     />
                   </label>
                 )}
@@ -2820,8 +2867,8 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                       {key.replace("Month", " mese ")}
                       <input
                         inputMode="decimal"
-                        value={formatInputNumber(quoteInput[key])}
-                        onChange={(event) => updateQuote(key, parseEuro(event.target.value))}
+                        value={quoteNumberValue(key)}
+                        onChange={(event) => updateQuoteNumber(key, event.target.value)}
                       />
                     </label>
                   ))}
@@ -2832,48 +2879,22 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                     Consumo mese 1
                     <input
                       inputMode="decimal"
-                      value={formatInputNumber(quoteInput.consumptionMonth1)}
-                      onChange={(event) => updateQuote("consumptionMonth1", parseEuro(event.target.value))}
+                      value={quoteNumberValue("consumptionMonth1")}
+                      onChange={(event) => updateQuoteNumber("consumptionMonth1", event.target.value)}
                     />
                   </label>
                   <label>
                     Consumo mese 2
                     <input
                       inputMode="decimal"
-                      value={formatInputNumber(quoteInput.consumptionMonth2)}
-                      onChange={(event) => updateQuote("consumptionMonth2", parseEuro(event.target.value))}
+                      value={quoteNumberValue("consumptionMonth2")}
+                      onChange={(event) => updateQuoteNumber("consumptionMonth2", event.target.value)}
                     />
                   </label>
                 </div>
               )}
             </div>
 
-            <div className="quote-comparison-strip">
-              <div className="quote-comparison-cell current">
-                <span>Quota consumi attuale</span>
-                <strong>{formatEuro(calculation.source.currentSpend)}</strong>
-              </div>
-              <div className="quote-comparison-cell current">
-                <span>Spread attuale</span>
-                <strong>{formatSpread(calculation.source.currentSpread, 3)} €</strong>
-              </div>
-              <div className="quote-comparison-cell current">
-                <span>PCV attuale</span>
-                <strong>{formatEuro(calculation.source.currentPcv)}</strong>
-              </div>
-              <div className="quote-comparison-cell proposed">
-                <span>Quota proposta</span>
-                <strong>{selectedOffer ? formatEuro(selectedOffer.quotaConsumi) : "-"}</strong>
-              </div>
-              <div className="quote-comparison-cell proposed">
-                <span>Spread proposto</span>
-                <strong>{selectedOffer ? `${formatSpread(selectedOffer.spread, 3)} €` : "-"}</strong>
-              </div>
-              <div className="quote-comparison-cell proposed">
-                <span>PCV proposto</span>
-                <strong>{selectedOffer ? formatEuro(selectedOffer.pcv) : "-"}</strong>
-              </div>
-            </div>
           </div>
 
           <aside className="quote-summary-card">
@@ -2886,33 +2907,56 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
               <span className={`status-badge ${quoteInput.customerType.toLowerCase()}`}>{quoteInput.customerType}</span>
             </div>
 
-            <div className={`quote-saving-box ${selectedOffer && selectedOffer.annualSaving < 0 ? "negative" : ""}`}>
+            <div className={`quote-saving-box ${selectedAnnualSaving !== undefined && selectedAnnualSaving < 0 ? "loss" : "saving"}`}>
               <span>Risparmio annuo stimato</span>
-              <strong>{selectedOffer ? formatEuro(selectedOffer.annualSaving) : "-"}</strong>
-              <small>{selectedOffer && selectedOffer.annualSaving < 0 ? "Offerta piu costosa dell'attuale" : "Confronto su base annua"}</small>
+              <strong>{selectedAnnualSaving !== undefined ? formatSavingImpact(selectedAnnualSaving) : "-"}</strong>
+              <small>{selectedAnnualSaving !== undefined && selectedAnnualSaving < 0 ? "Maggior costo su base annua" : "Confronto su base annua"}</small>
+            </div>
+
+            <div className="quote-metric-grid">
+              <div className="quote-metric-row current">
+                <span>Quota consumi attuale</span>
+                <strong>{resultValue(formatEuro(calculation.source.currentSpend))}</strong>
+              </div>
+              <div className="quote-metric-row current">
+                <span>Spread attuale</span>
+                <strong>{resultValue(`${formatSpread(calculation.source.currentSpread, 3)} €`)}</strong>
+              </div>
+              <div className="quote-metric-row current">
+                <span>PCV attuale</span>
+                <strong>{resultValue(formatEuro(calculation.source.currentPcv))}</strong>
+              </div>
+              <div className="quote-metric-row proposed">
+                <span>Quota proposta</span>
+                <strong>{resultValue(selectedOffer ? formatEuro(selectedOffer.quotaConsumi) : "-")}</strong>
+              </div>
+              <div className="quote-metric-row proposed">
+                <span>Spread proposto</span>
+                <strong>{resultValue(selectedOffer ? `${formatSpread(selectedOffer.spread, 3)} €` : "-")}</strong>
+              </div>
+              <div className="quote-metric-row proposed">
+                <span>PCV proposto</span>
+                <strong>{resultValue(selectedOffer ? formatEuro(selectedOffer.pcv) : "-")}</strong>
+              </div>
             </div>
 
             <div className="quote-mini-list">
               <div>
                 <span>Consumo periodo</span>
-                <strong>{formatNumber(calculation.source.totalConsumption)} {quoteInput.commodity === "luce" ? "kWh" : "Smc"}</strong>
+                <strong>{resultValue(`${formatNumber(calculation.source.totalConsumption)} ${quoteInput.commodity === "luce" ? "kWh" : "Smc"}`)}</strong>
               </div>
               <div>
                 <span>Consumo annuo</span>
-                <strong>{formatNumber(calculation.source.annualConsumption)} {quoteInput.commodity === "luce" ? "kWh" : "Smc"}</strong>
-              </div>
-              <div>
-                <span>Differenza annua</span>
-                <strong>{selectedOffer ? formatEuro(selectedOffer.annualDifference) : "-"}</strong>
+                <strong>{resultValue(`${formatNumber(calculation.source.annualConsumption)} ${quoteInput.commodity === "luce" ? "kWh" : "Smc"}`)}</strong>
               </div>
             </div>
 
             <div className="quote-actions">
-              <button className="secondary-button" type="button" onClick={() => void saveQuote()}>
+              <button className="secondary-button" type="button" disabled={!quoteReady} onClick={() => void saveQuote()}>
                 <Save size={18} />
                 Salva
               </button>
-              <button className="print-button" type="button" onClick={() => window.print()}>
+              <button className="print-button" type="button" disabled={!quoteReady} onClick={() => window.print()}>
                 <Upload size={18} />
                 Stampa
               </button>
@@ -2936,7 +2980,6 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                 <th>PCV</th>
                 <th>Spread</th>
                 <th>Quota consumi</th>
-                <th>Differenza annua</th>
                 <th>Risparmio annuo</th>
                 <th />
               </tr>
@@ -2948,10 +2991,9 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                   <td>{offer.customerType}</td>
                   <td>{formatEuro(offer.pcv)}</td>
                   <td>{formatSpread(offer.spread, 3)} €</td>
-                  <td>{formatEuro(offer.quotaConsumi)}</td>
-                  <td>{formatEuro(offer.annualDifference)}</td>
+                  <td>{resultValue(formatEuro(offer.quotaConsumi))}</td>
                   <td className={offer.annualSaving >= 0 ? "saving-cell" : "extra-cost-cell"}>
-                    {formatEuro(offer.annualSaving)}
+                    {quoteReady ? formatSavingImpact(offer.annualSaving) : "-"}
                   </td>
                   <td>
                     <button
@@ -2966,7 +3008,7 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
               ))}
               {comparisonOffers.length === 0 && (
                 <tr>
-                  <td className="empty-state" colSpan={8}>Nessuna offerta disponibile per questa tipologia.</td>
+                  <td className="empty-state" colSpan={7}>Nessuna offerta disponibile per questa tipologia.</td>
                 </tr>
               )}
             </tbody>
@@ -2984,6 +3026,7 @@ function MarketVariablesPanel({ store, user, mutateStore }: ViewProps) {
   const latestVariables = [...store.marketVariables].sort((a, b) => b.monthKey.localeCompare(a.monthKey) || a.label.localeCompare(b.label, "it")).slice(0, 24);
 
   async function saveVariables(event: FormEvent<HTMLFormElement>, commodity: Exclude<Commodity, "non_definito">) {
+    const form = event.currentTarget;
     const data = formData(event);
     await mutateStore((draft) => {
       for (const definition of marketVariableDefinitions.filter((item) => item.commodity === commodity)) {
@@ -2996,6 +3039,9 @@ function MarketVariablesPanel({ store, user, mutateStore }: ViewProps) {
         });
       }
     }, commodity === "luce" ? "Variabili luce aggiornate." : "PSV aggiornato.");
+    for (const input of Array.from(form.querySelectorAll("input"))) {
+      input.value = "";
+    }
   }
 
   function existingValue(key: string) {
@@ -3139,7 +3185,7 @@ function QuotePrintPage({
         </article>
         <article className={`print-saving-panel ${printSavingClass(saving)}`}>
           <span>Risparmio annuo stimato</span>
-          <strong>{selectedOffer ? formatEuro(saving) : "-"}</strong>
+          <strong>{selectedOffer ? formatSavingImpact(saving) : "-"}</strong>
           <small>{selectedOffer?.offerName ?? "Offerta selezionata"}</small>
         </article>
       </div>
@@ -3203,10 +3249,6 @@ function QuotePrintPage({
             <li>
               <span>Cliente</span>
               <strong>{customerTypeLabel(input.customerType)}</strong>
-            </li>
-            <li>
-              <span>Differenza annua</span>
-              <strong>{selectedOffer ? formatEuro(selectedOffer.annualDifference) : "-"}</strong>
             </li>
           </ul>
         </article>
