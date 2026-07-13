@@ -535,7 +535,7 @@ function createDefaultQuoteInput(useGasFallback = true) {
     commodity: "luce",
     customerType: "RES",
     monthKey: monthOptions[1] ?? "",
-    secondMonthKey: monthOptions[0] ?? "",
+    secondMonthKey: "",
     gasAnnualConsumption: useGasFallback ? 300 : 0
   });
 }
@@ -2623,6 +2623,32 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
     updateQuote(key, parseEuro(value));
   }
 
+  function updateSecondMonthKey(value: string) {
+    setQuoteInput((current) => ({
+      ...current,
+      secondMonthKey: value,
+      ...(value
+        ? {}
+        : {
+            consumptionMonth2: 0,
+            f1Month2: 0,
+            f2Month2: 0,
+            f3Month2: 0
+          })
+    }));
+
+    if (!value) {
+      setQuoteNumberInputs((current) => {
+        const rest = { ...current };
+        delete rest.consumptionMonth2;
+        delete rest.f1Month2;
+        delete rest.f2Month2;
+        delete rest.f3Month2;
+        return rest;
+      });
+    }
+  }
+
   function resultValue(value: string) {
     return quoteReady ? value : "-";
   }
@@ -2774,11 +2800,12 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                   </select>
                 </label>
                 <label>
-                  Mese 2
+                  Mese 2 opzionale
                   <select
                     value={quoteInput.secondMonthKey ?? ""}
-                    onChange={(event) => updateQuote("secondMonthKey", event.target.value)}
+                    onChange={(event) => updateSecondMonthKey(event.target.value)}
                   >
+                    <option value="">Nessun mese 2</option>
                     {dynamicMonthOptions.map((monthKey) => (
                       <option key={monthKey} value={monthKey}>
                         {formatMonthKey(monthKey)}
@@ -2867,6 +2894,7 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                       {key.replace("Month", " mese ")}
                       <input
                         inputMode="decimal"
+                        disabled={key.endsWith("Month2") && !quoteInput.secondMonthKey}
                         value={quoteNumberValue(key)}
                         onChange={(event) => updateQuoteNumber(key, event.target.value)}
                       />
@@ -2884,9 +2912,10 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                     />
                   </label>
                   <label>
-                    Consumo mese 2
+                    Consumo mese 2 opzionale
                     <input
                       inputMode="decimal"
+                      disabled={!quoteInput.secondMonthKey}
                       value={quoteNumberValue("consumptionMonth2")}
                       onChange={(event) => updateQuoteNumber("consumptionMonth2", event.target.value)}
                     />
