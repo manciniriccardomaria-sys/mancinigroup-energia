@@ -566,6 +566,55 @@ function customerLifeStatus(
   return "attivo";
 }
 
+function earliestIsoDate(values: Array<string | undefined>) {
+  return values
+    .filter((value): value is string => Boolean(value && /^\d{4}-\d{2}-\d{2}/.test(value)))
+    .sort()[0];
+}
+
+function isUsableLoadingForEntryDate(record: StoreData["loadingRecords"][number]) {
+  const statusText = `${record.status ?? ""} ${record.loadedStatus ?? ""}`.toLowerCase();
+  return !statusText.includes("annull") && !statusText.includes("non caricato");
+}
+
+function customerEntryInfo(
+  customer: StoreData["customers"][number],
+  tracking: CustomerTrackingRow | undefined,
+  loadingRecords: StoreData["loadingRecords"]
+) {
+  const usableStartDate = earliestIsoDate(
+    loadingRecords.filter(isUsableLoadingForEntryDate).map((record) => record.startDate)
+  );
+
+  if (usableStartDate) {
+    return {
+      label: formatDate(usableStartDate),
+      detail: "Data inizio"
+    };
+  }
+
+  const anyStartDate = earliestIsoDate(loadingRecords.map((record) => record.startDate));
+
+  if (anyStartDate) {
+    return {
+      label: formatDate(anyStartDate),
+      detail: "Data inizio non confermata"
+    };
+  }
+
+  if (tracking?.firstMonthKey) {
+    return {
+      label: formatMonthKey(tracking.firstMonthKey),
+      detail: "Primo margine"
+    };
+  }
+
+  return {
+    label: formatDate(customer.createdAt),
+    detail: "Pre-associazione"
+  };
+}
+
 function parseQuoteDate(value: string) {
   const match = value.match(/^(\d{4})-(\d{2})-\d{2}$/);
 
@@ -1623,21 +1672,34 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
   const customerAgencyMarginRecords = visibleAgencyMarginRecords(user, store);
   const customerTracking = summarizeCustomerTracking(customerAgencyMarginRecords);
   const trackingByPod = new Map(customerTracking.rows.map((row) => [row.podPdrNorm, row]));
+  const loadingRecordsByPod = new Map<string, StoreData["loadingRecords"]>();
 
   for (const record of customerAgencyMarginRecords) {
     valueByPod.set(record.podPdrNorm, (valueByPod.get(record.podPdrNorm) ?? 0) + record.marginAmount);
+  }
+
+  for (const record of visibleLoadingRecords(user, store)) {
+    if (!record.podPdrNorm) {
+      continue;
+    }
+
+    const rows = loadingRecordsByPod.get(record.podPdrNorm) ?? [];
+    rows.push(record);
+    loadingRecordsByPod.set(record.podPdrNorm, rows);
   }
 
   const customerRows = customers.map((customer) => {
     const source = sourceById.get(customer.sourceId);
     const tracking = trackingByPod.get(customer.podPdrNorm);
     const lifeStatus = customerLifeStatus(customer, tracking);
+    const loadingRecords = loadingRecordsByPod.get(customer.podPdrNorm) ?? [];
 
     return {
       customer,
       source,
       tracking,
       lifeStatus,
+      entryInfo: customerEntryInfo(customer, tracking, loadingRecords),
       value: valueByPod.get(customer.podPdrNorm) ?? 0
     };
   });
@@ -1735,11 +1797,12 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
               <th>Fonte</th>
               <th>Valore cliente</th>
               <th>Stato</th>
+              <th>Data entrata</th>
               <th>Creato</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ customer, source, tracking, lifeStatus, value }) => (
+            {rows.map(({ customer, source, tracking, lifeStatus, entryInfo, value }) => (
               <tr key={customer.id}>
                 <td>
                   <div className="customer-name-cell">
@@ -1801,12 +1864,16 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
                     <option value="cessato">Cessato</option>
                   </select>
                 </td>
+                <td>
+                  <strong>{entryInfo.label}</strong>
+                  <small>{entryInfo.detail}</small>
+                </td>
                 <td>{formatDateTime(customer.createdAt)}</td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td className="empty-state" colSpan={7}>
+                <td className="empty-state" colSpan={8}>
                   Nessun cliente presente.
                 </td>
               </tr>
