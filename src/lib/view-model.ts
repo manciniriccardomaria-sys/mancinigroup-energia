@@ -101,11 +101,12 @@ function addMonthsToMonthKey(monthKey: string, months: number) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-export function summarizeCustomerTracking(records: AgencyMarginRecord[], activityWindowMonths = 1) {
+export function summarizeCustomerTracking(records: AgencyMarginRecord[], activityWindowMonths = 2) {
   const byPod = new Map<
     string,
     {
       podPdr: string;
+      podPdrNorm: string;
       customerName: string;
       offer?: string;
       firstMonthKey: string;
@@ -134,6 +135,7 @@ export function summarizeCustomerTracking(records: AgencyMarginRecord[], activit
     if (!existing) {
       byPod.set(record.podPdrNorm, {
         podPdr: record.podPdr,
+        podPdrNorm: record.podPdrNorm,
         customerName: record.customerName,
         offer: record.offerEasy ?? record.offer,
         firstMonthKey: record.monthKey,
@@ -174,6 +176,7 @@ export function summarizeCustomerTracking(records: AgencyMarginRecord[], activit
 
       return {
         podPdr: row.podPdr,
+        podPdrNorm: row.podPdrNorm,
         customerName: row.customerName,
         offer: row.offer,
         firstMonthKey: row.firstMonthKey,

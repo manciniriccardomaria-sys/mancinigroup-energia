@@ -575,6 +575,33 @@ textarea:focus {
   flex-wrap: wrap;
 }
 
+.checkbox-filter-group {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.checkbox-filter {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.checkbox-filter input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--green);
+}
+
 .performance-heading {
   display: grid;
   grid-template-columns: 1fr;
@@ -923,6 +950,62 @@ td small {
 
 .source-name {
   font-weight: 800;
+}
+
+.customer-name-cell {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.customer-name-cell > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.status-dot {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+  margin-top: 4px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(99, 115, 127, 0.08);
+}
+
+.status-dot.attivo {
+  background: var(--green);
+  box-shadow: 0 0 0 3px rgba(22, 122, 91, 0.14);
+}
+
+.status-dot.uscito {
+  background: var(--red);
+  box-shadow: 0 0 0 3px rgba(196, 57, 43, 0.14);
+}
+
+.customer-life-state {
+  display: grid;
+  gap: 7px;
+}
+
+.life-status-badge {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.life-status-badge.attivo {
+  color: var(--green-dark);
+  background: #e6f5ee;
+}
+
+.life-status-badge.uscito {
+  color: var(--red);
+  background: #fff0ed;
 }
 
 .capitalize {

@@ -552,6 +552,20 @@ function formatSavingImpact(value: number) {
   return formatEuro(0);
 }
 
+type CustomerTrackingRow = ReturnType<typeof summarizeCustomerTracking>["rows"][number];
+type CustomerLifeStatus = "attivo" | "uscito";
+
+function customerLifeStatus(
+  customer: StoreData["customers"][number],
+  tracking?: CustomerTrackingRow
+): CustomerLifeStatus {
+  if (customer.status === "cessato" || tracking?.status === "chiuso") {
+    return "uscito";
+  }
+
+  return "attivo";
+}
+
 function parseQuoteDate(value: string) {
   const match = value.match(/^(\d{4})-(\d{2})-\d{2}$/);
 
@@ -1110,6 +1124,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   const agencyMarginRecords = visibleAgencyMarginRecords(user, store);
   const agencySummary = summarizeAgencyMargins(agencyMarginRecords);
   const customerTracking = summarizeCustomerTracking(agencyMarginRecords);
+  const customerTrackingByPod = new Map(customerTracking.rows.map((row) => [row.podPdrNorm, row]));
   const sources = [...visibleSourcesForUser(user, store.sources)].sort((a, b) => a.name.localeCompare(b.name, "it"));
   const cutoffDate = today();
   const maturityCutoffMonthKey = currentMonthKey();
@@ -1125,7 +1140,9 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   const paidCommissions = commissionRows.reduce((sum, row) => sum + row.paid, 0);
   const matchedLoading = loadingRecords.filter((record) => record.matchedSourceId).length;
   const unmatchedLoading = Math.max(0, loadingRecords.length - matchedLoading);
-  const exitedCustomers = customerTracking.closedCount;
+  const exitedCustomers = customers.filter(
+    (customer) => customerLifeStatus(customer, customerTrackingByPod.get(customer.podPdrNorm)) === "uscito"
+  ).length;
   const commissionsDue = Math.max(0, totalCommissions - paidCommissions);
   const monthlyRows = monthlyPerformance(
     customers,
@@ -1597,26 +1614,47 @@ function NewCustomerView({ store, user, mutateStore }: ViewProps) {
 function CustomersView({ store, user, mutateStore }: ViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortKey, setSortKey] = useState<"name" | "source" | "value">("name");
+  const [showActiveCustomers, setShowActiveCustomers] = useState(true);
+  const [showExitedCustomers, setShowExitedCustomers] = useState(true);
   const customers = visibleCustomers(user, store);
   const sources = activeSourcesForUser(user, store.sources).sort((a, b) => a.name.localeCompare(b.name, "it"));
   const sourceById = new Map(store.sources.map((source) => [source.id, source]));
   const valueByPod = new Map<string, number>();
+  const customerAgencyMarginRecords = visibleAgencyMarginRecords(user, store);
+  const customerTracking = summarizeCustomerTracking(customerAgencyMarginRecords);
+  const trackingByPod = new Map(customerTracking.rows.map((row) => [row.podPdrNorm, row]));
 
-  for (const record of visibleAgencyMarginRecords(user, store)) {
+  for (const record of customerAgencyMarginRecords) {
     valueByPod.set(record.podPdrNorm, (valueByPod.get(record.podPdrNorm) ?? 0) + record.marginAmount);
   }
 
+  const customerRows = customers.map((customer) => {
+    const source = sourceById.get(customer.sourceId);
+    const tracking = trackingByPod.get(customer.podPdrNorm);
+    const lifeStatus = customerLifeStatus(customer, tracking);
+
+    return {
+      customer,
+      source,
+      tracking,
+      lifeStatus,
+      value: valueByPod.get(customer.podPdrNorm) ?? 0
+    };
+  });
+  const activeCustomersCount = customerRows.filter((row) => row.lifeStatus === "attivo").length;
+  const exitedCustomersCount = customerRows.filter((row) => row.lifeStatus === "uscito").length;
+
   const searchNeedle = searchTerm.trim().toLowerCase();
-  const rows = customers
-    .map((customer) => {
-      const source = sourceById.get(customer.sourceId);
-      return {
-        customer,
-        source,
-        value: valueByPod.get(customer.podPdrNorm) ?? 0
-      };
-    })
-    .filter(({ customer, source }) => {
+  const rows = customerRows
+    .filter(({ customer, source, lifeStatus }) => {
+      if (lifeStatus === "attivo" && !showActiveCustomers) {
+        return false;
+      }
+
+      if (lifeStatus === "uscito" && !showExitedCustomers) {
+        return false;
+      }
+
       if (!searchNeedle) {
         return true;
       }
@@ -1646,9 +1684,29 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
         <div>
           <p className="eyebrow">Clienti</p>
           <h2>Clienti e fonti</h2>
-          <p className="muted-text">Cerca un cliente, cambia fonte e controlla il valore generato dai margini agenzia.</p>
+          <p className="muted-text">
+            Tracking sugli ultimi 2 mesi disponibili: {activeCustomersCount} attivi e {exitedCustomersCount} usciti.
+          </p>
         </div>
         <div className="section-actions">
+          <div className="checkbox-filter-group" aria-label="Filtro stato clienti">
+            <label className="checkbox-filter">
+              <input
+                checked={showActiveCustomers}
+                onChange={(event) => setShowActiveCustomers(event.target.checked)}
+                type="checkbox"
+              />
+              Attivi
+            </label>
+            <label className="checkbox-filter">
+              <input
+                checked={showExitedCustomers}
+                onChange={(event) => setShowExitedCustomers(event.target.checked)}
+                type="checkbox"
+              />
+              Usciti
+            </label>
+          </div>
           <label className="table-filter-control">
             Ricerca
             <input
@@ -1681,11 +1739,16 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ customer, source, value }) => (
+            {rows.map(({ customer, source, tracking, lifeStatus, value }) => (
               <tr key={customer.id}>
                 <td>
-                  <strong>{customer.name}</strong>
-                  {customer.offer && <small>{customer.offer}</small>}
+                  <div className="customer-name-cell">
+                    <span className={`status-dot ${lifeStatus}`} title={lifeStatus === "attivo" ? "Cliente attivo" : "Cliente uscito"} />
+                    <span>
+                      <strong>{customer.name}</strong>
+                      {customer.offer && <small>{customer.offer}</small>}
+                    </span>
+                  </div>
                 </td>
                 <td>{customer.podPdr}</td>
                 <td>
@@ -1714,6 +1777,16 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
                   <small>Provvigioni agenzia</small>
                 </td>
                 <td>
+                  <div className="customer-life-state">
+                    <span className={`life-status-badge ${lifeStatus}`}>{lifeStatus === "attivo" ? "Attivo" : "Uscito"}</span>
+                    <small>
+                      {tracking
+                        ? `Ultimo margine: ${formatMonthKey(tracking.lastMonthKey)}`
+                        : customer.status === "cessato"
+                          ? "Chiuso manualmente"
+                          : "Non ancora nei margini"}
+                    </small>
+                  </div>
                   <select
                     value={customer.status}
                     onChange={(event) =>
