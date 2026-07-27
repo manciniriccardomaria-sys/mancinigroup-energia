@@ -3322,7 +3322,7 @@ function QuotePrintPage({
   return (
     <section className="quote-print-page">
       <header className="quote-print-header">
-        <div className="print-brand-block">
+        <div className="print-header-top">
           <Image
             className="print-service-logo"
             src="/mancini-luce-gas-logo.svg"
@@ -3331,15 +3331,13 @@ function QuotePrintPage({
             height={144}
             priority
           />
-          <h2>{printCommodityTitle(input.commodity)}</h2>
-        </div>
-        <div className="print-header-side">
           <div className="print-whatsapp-contact">
             <MessageCircle />
             <span>Servizio clienti WhatsApp</span>
             <strong>3489068756</strong>
           </div>
         </div>
+        <h2>{printCommodityTitle(input.commodity)}</h2>
       </header>
       <div className="quote-print-hero">
         <article className="print-client-block">
@@ -3375,10 +3373,6 @@ function QuotePrintPage({
           <span>Costo dell&apos;offerta attuale</span>
           <strong>{formatEuro(currentOfferCost)}</strong>
           <div>
-            <small>N. mesi</small>
-            <b>{periodCount}</b>
-          </div>
-          <div>
             <small>Spread</small>
             <b>{formatSpread(calculation.source.currentSpread, 3)} €</b>
           </div>
@@ -3390,10 +3384,6 @@ function QuotePrintPage({
         <article className="print-comparison-card proposed">
           <span>Costo dell&apos;offerta Mancini Service Luce&amp;Gas</span>
           <strong>{selectedOffer ? formatEuro(proposedOfferCost) : "-"}</strong>
-          <div>
-            <small>N. mesi</small>
-            <b>{periodCount}</b>
-          </div>
           <div>
             <small>Spread</small>
             <b>{selectedOffer ? `${formatSpread(selectedOffer.spread, 3)} €` : "-"}</b>

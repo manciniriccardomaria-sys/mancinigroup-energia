@@ -2018,14 +2018,15 @@ td small {
   }
 
   .quote-print-header {
-    min-height: 26mm;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10mm;
-    padding: 7mm 8mm;
+    min-height: 40mm;
+    display: grid;
+    align-content: space-between;
+    gap: 7mm;
+    padding: 7mm 8.5mm 8mm;
     border-radius: 5mm;
-    background: #145b45;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 46%),
+      #145b45;
     color: #fff;
   }
 
@@ -2036,42 +2037,43 @@ td small {
     margin: 0;
   }
 
-  .print-brand-block {
-    display: grid;
-    gap: 2.2mm;
-    justify-items: start;
-    min-width: 0;
-  }
-
   .print-service-logo {
     display: block;
-    width: 58mm;
-    height: auto;
+    width: 62mm;
+    height: 15mm;
+    object-fit: contain;
+    object-position: left center;
+  }
+
+  .print-header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8mm;
   }
 
   .quote-print-header h2 {
     margin: 0;
-    font-size: 25pt;
+    max-width: 100%;
+    font-size: 23pt;
+    line-height: 1;
     letter-spacing: 0;
-  }
-
-  .print-header-side {
-    display: grid;
-    justify-items: end;
-    gap: 2.5mm;
-    flex: 0 0 auto;
+    white-space: nowrap;
   }
 
   .print-whatsapp-contact {
     display: inline-flex;
     align-items: center;
-    gap: 1.8mm;
-    padding: 1.8mm 2.4mm;
+    justify-content: center;
+    gap: 1.6mm;
+    margin-top: 3mm;
+    padding: 1.9mm 2.6mm;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.16);
     color: #fff;
     font-size: 8pt;
     font-weight: 800;
+    white-space: nowrap;
   }
 
   .print-whatsapp-contact svg {
