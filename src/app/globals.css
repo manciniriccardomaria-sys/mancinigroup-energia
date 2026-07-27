@@ -2029,7 +2029,6 @@ td small {
     color: #fff;
   }
 
-  .quote-print-header p,
   .print-kicker,
   .quote-print-footer span,
   .print-comparison-card span,
@@ -2037,26 +2036,23 @@ td small {
     margin: 0;
   }
 
-  .quote-print-header p {
-    font-size: 10pt;
-    font-weight: 800;
-    text-transform: uppercase;
+  .print-brand-block {
+    display: grid;
+    gap: 2.2mm;
+    justify-items: start;
+    min-width: 0;
+  }
+
+  .print-service-logo {
+    display: block;
+    width: 58mm;
+    height: auto;
   }
 
   .quote-print-header h2 {
-    margin: 1.5mm 0 0;
+    margin: 0;
     font-size: 25pt;
     letter-spacing: 0;
-  }
-
-  .print-logo-mark {
-    width: 48mm;
-    height: 15mm;
-    background-image: url("/mancini-luce-gas-logo.svg");
-    background-repeat: no-repeat;
-    background-position: center right;
-    background-size: contain;
-    flex: 0 0 auto;
   }
 
   .print-header-side {
@@ -2294,11 +2290,5 @@ td small {
     color: #72808a;
     text-align: center;
     font-size: 7.4pt;
-  }
-
-  .quote-print-footer strong {
-    color: #145b45;
-    font-size: 13pt;
-    text-transform: uppercase;
   }
 }

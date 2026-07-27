@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   BadgeEuro,
   BarChart3,
@@ -3312,16 +3313,27 @@ function QuotePrintPage({
 }) {
   const saving = selectedOffer?.annualSaving ?? 0;
   const unit = input.commodity === "luce" ? "kWh" : "Smc";
+  const periodCount = Math.max(1, calculation.source.periodCount);
+  const currentOfferCost = roundCurrency(calculation.source.currentPcv * periodCount + calculation.source.currentSpend);
+  const proposedOfferCost = selectedOffer
+    ? roundCurrency(selectedOffer.pcv * periodCount + selectedOffer.quotaConsumi)
+    : 0;
 
   return (
     <section className="quote-print-page">
       <header className="quote-print-header">
-        <div>
-          <p>Mancini Service</p>
+        <div className="print-brand-block">
+          <Image
+            className="print-service-logo"
+            src="/mancini-luce-gas-logo.svg"
+            alt="Mancini Service Luce e Gas"
+            width={252}
+            height={144}
+            priority
+          />
           <h2>{printCommodityTitle(input.commodity)}</h2>
         </div>
         <div className="print-header-side">
-          <div className="print-logo-mark" />
           <div className="print-whatsapp-contact">
             <MessageCircle />
             <span>Servizio clienti WhatsApp</span>
@@ -3360,8 +3372,12 @@ function QuotePrintPage({
       </div>
       <div className="print-comparison-grid">
         <article className="print-comparison-card current">
-          <span>Situazione attuale</span>
-          <strong>{formatEuro(calculation.source.currentSpend)}</strong>
+          <span>Costo dell&apos;offerta attuale</span>
+          <strong>{formatEuro(currentOfferCost)}</strong>
+          <div>
+            <small>N. mesi</small>
+            <b>{periodCount}</b>
+          </div>
           <div>
             <small>Spread</small>
             <b>{formatSpread(calculation.source.currentSpread, 3)} €</b>
@@ -3372,8 +3388,12 @@ function QuotePrintPage({
           </div>
         </article>
         <article className="print-comparison-card proposed">
-          <span>Proposta Mancini Service</span>
-          <strong>{selectedOffer ? formatEuro(selectedOffer.quotaConsumi) : "-"}</strong>
+          <span>Costo dell&apos;offerta Mancini Service Luce&amp;Gas</span>
+          <strong>{selectedOffer ? formatEuro(proposedOfferCost) : "-"}</strong>
+          <div>
+            <small>N. mesi</small>
+            <b>{periodCount}</b>
+          </div>
           <div>
             <small>Spread</small>
             <b>{selectedOffer ? `${formatSpread(selectedOffer.spread, 3)} €` : "-"}</b>
@@ -3423,7 +3443,6 @@ function QuotePrintPage({
         </article>
       </div>
       <footer className="quote-print-footer">
-        <strong>Mancini Service</strong>
         <span>Stima indicativa basata sui dati inseriti e sui valori di mercato disponibili al momento del preventivo.</span>
       </footer>
     </section>
