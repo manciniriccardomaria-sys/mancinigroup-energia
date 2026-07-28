@@ -2083,8 +2083,8 @@ td small {
   .print-service-logo {
     position: relative;
     display: block;
-    width: 62mm;
-    height: 11mm;
+    width: 78mm;
+    height: 17mm;
     object-fit: contain;
     object-position: left center;
   }
@@ -2184,19 +2184,21 @@ td small {
   }
 
   .print-watermark {
+    display: block;
     pointer-events: none;
     user-select: none;
-    font-family: Georgia, "Times New Roman", serif;
-    font-weight: 900;
-    line-height: 0.8;
+    background: currentColor;
+    -webkit-mask: url("/mancini-m-mark.svg") center / contain no-repeat;
+    mask: url("/mancini-m-mark.svg") center / contain no-repeat;
   }
 
   .print-saving-hero > .print-watermark {
     position: absolute;
     right: -8mm;
-    bottom: -24mm;
+    bottom: -12mm;
+    width: 67mm;
+    height: 67mm;
     color: #19d385;
-    font-size: 88mm;
     opacity: 0.09;
   }
 
@@ -2299,10 +2301,11 @@ td small {
 
   .print-offer-card.new .print-watermark {
     position: absolute;
-    right: -10mm;
-    bottom: -15mm;
+    right: -9mm;
+    bottom: -10mm;
+    width: 50mm;
+    height: 50mm;
     color: #ffffff;
-    font-size: 64mm;
     opacity: 0.07;
   }
 
@@ -2537,10 +2540,11 @@ td small {
 
   .quote-print-footer > .print-watermark {
     position: absolute;
-    right: -16mm;
-    bottom: -22mm;
+    right: -14mm;
+    bottom: -18mm;
+    width: 76mm;
+    height: 76mm;
     color: #003383;
-    font-size: 92mm;
     opacity: 0.05;
   }
 

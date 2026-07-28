@@ -3370,8 +3370,8 @@ function QuotePrintPage({
           className="print-service-logo"
           src="/mancini-luce-gas-logo.svg"
           alt="Mancini Service Luce e Gas"
-          width={252}
-          height={144}
+          width={336}
+          height={192}
           priority
         />
         <div className="print-title-block">
@@ -3403,7 +3403,7 @@ function QuotePrintPage({
       </section>
 
       <section className={`print-saving-hero ${impactClass}`}>
-        <div className="print-watermark">M</div>
+        <div className="print-watermark" aria-hidden="true" />
         <div>
           <p className="print-eyebrow green">{saving >= 0 ? "Risparmio annuo stimato" : "Maggior costo annuo stimato"}</p>
           <strong>{selectedOffer ? formatPrintMainImpact(saving) : "-"}</strong>
@@ -3442,7 +3442,7 @@ function QuotePrintPage({
         </article>
 
         <article className="print-offer-card new">
-          <div className="print-watermark">M</div>
+          <div className="print-watermark" aria-hidden="true" />
           <div className="print-new-card-head">
             <p className="print-card-kicker">Mancini Service<br />Luce &amp; Gas</p>
             <span>La tua nuova offerta</span>
@@ -3512,7 +3512,7 @@ function QuotePrintPage({
       </section>
 
       <footer className="quote-print-footer">
-        <div className="print-watermark">M</div>
+        <div className="print-watermark" aria-hidden="true" />
         <div className="print-whatsapp-bar">
           <span className="print-whatsapp-icon">
             <MessageCircle />
