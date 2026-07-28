@@ -2006,291 +2006,615 @@ td small {
   }
 
   .quote-print-page {
+    position: relative;
     width: 210mm;
     height: 297mm;
     display: flex !important;
     flex-direction: column;
-    gap: 4.5mm;
-    padding: 10mm 11mm;
+    gap: 0;
+    padding: 0;
     overflow: hidden;
     background: #ffffff;
-    color: #14212a;
+    color: #16181e;
+    font-family: Inter, "Helvetica Neue", Arial, sans-serif;
   }
 
-  .quote-print-header {
-    min-height: 40mm;
-    display: grid;
-    align-content: space-between;
-    gap: 7mm;
-    padding: 7mm 8.5mm 8mm;
-    border-radius: 5mm;
-    background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 46%),
-      #145b45;
-    color: #fff;
-  }
-
-  .print-kicker,
-  .quote-print-footer span,
-  .print-comparison-card span,
-  .print-comparison-card small {
+  .quote-print-page h1,
+  .quote-print-page h2,
+  .quote-print-page h3,
+  .quote-print-page p,
+  .quote-print-page dl,
+  .quote-print-page dd {
     margin: 0;
   }
 
+  .quote-print-page h1,
+  .quote-print-page h2,
+  .quote-print-page h3,
+  .print-saving-hero > div:not(.print-watermark) > strong,
+  .print-saving-hero aside strong,
+  .print-offer-cost,
+  .print-consumption-strip strong,
+  .print-whatsapp-bar strong {
+    font-family: Georgia, "Times New Roman", serif;
+  }
+
+  .print-eyebrow {
+    font-size: 7.4pt;
+    font-weight: 800;
+    letter-spacing: 0.19em;
+    text-transform: uppercase;
+  }
+
+  .print-eyebrow.sky,
+  .print-title-block span,
+  .print-card-kicker,
+  .print-whatsapp-bar p {
+    color: #19abfe;
+  }
+
+  .print-eyebrow.green {
+    color: #0f9d63;
+  }
+
+  .print-eyebrow.muted {
+    color: #5b6472;
+  }
+
+  .quote-print-header {
+    position: relative;
+    height: 31mm;
+    min-height: 31mm;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14mm;
+    overflow: hidden;
+    background: #003383;
+    color: #ffffff;
+  }
+
+  .print-header-stripes {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7mm);
+  }
+
   .print-service-logo {
+    position: relative;
     display: block;
     width: 62mm;
-    height: 15mm;
+    height: 11mm;
     object-fit: contain;
     object-position: left center;
   }
 
-  .print-header-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 8mm;
-  }
-
-  .quote-print-header h2 {
-    margin: 0;
-    max-width: 100%;
-    font-size: 23pt;
-    line-height: 1;
-    letter-spacing: 0;
-    white-space: nowrap;
-  }
-
-  .print-whatsapp-contact {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1.6mm;
-    margin-top: 3mm;
-    padding: 1.9mm 2.6mm;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.16);
-    color: #fff;
-    font-size: 8pt;
-    font-weight: 800;
-    white-space: nowrap;
-  }
-
-  .print-whatsapp-contact svg {
-    width: 4mm;
-    height: 4mm;
-    flex: 0 0 auto;
-  }
-
-  .print-whatsapp-contact strong {
-    font-size: 9pt;
-  }
-
-  .quote-print-hero {
+  .print-title-block {
+    position: relative;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 5mm;
-    align-items: stretch;
-  }
-
-  .print-client-block,
-  .print-saving-panel,
-  .print-comparison-card,
-  .print-detail-grid article {
-    border: 0.35mm solid #d8e3e8;
-    border-radius: 4mm;
-    background: #fff;
-  }
-
-  .print-client-block {
-    padding: 6mm;
-  }
-
-  .print-kicker {
-    color: #0d5d45;
-    font-size: 8.5pt;
-    font-weight: 900;
-    text-transform: uppercase;
-  }
-
-  .print-client-block h3,
-  .print-detail-grid h3 {
-    margin: 1mm 0 4mm;
-    font-size: 15pt;
-    line-height: 1.05;
-  }
-
-  .print-client-block dl {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 3mm 5mm;
-    margin: 0;
-  }
-
-  .print-client-block div {
-    display: grid;
-    gap: 0.8mm;
-  }
-
-  .print-client-block dt {
-    color: #657583;
-    font-size: 8pt;
-    font-weight: 800;
-  }
-
-  .print-client-block dd {
-    margin: 0;
-    font-size: 10pt;
-    font-weight: 850;
-  }
-
-  .print-saving-panel {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 7mm;
-    color: #fff;
-    background: #1c64d1;
-    border-color: #1c64d1;
-  }
-
-  .print-saving-panel.negative {
-    background: #9b2f1f;
-    border-color: #9b2f1f;
-  }
-
-  .print-saving-panel span {
-    font-size: 10pt;
-    font-weight: 850;
-    text-transform: uppercase;
-  }
-
-  .print-saving-panel strong {
-    margin-top: 2mm;
-    font-size: 34pt;
-    line-height: 1;
-  }
-
-  .print-saving-panel small {
-    margin-top: 2mm;
-    font-size: 10pt;
-    font-weight: 800;
-  }
-
-  .print-comparison-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 5mm;
-  }
-
-  .print-comparison-card {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 3mm;
-    padding: 5mm;
-  }
-
-  .print-comparison-card.current {
-    background: #fff7e8;
-    border-color: #f0c879;
-  }
-
-  .print-comparison-card.proposed {
-    background: #edf5ff;
-    border-color: #9fc1fb;
-  }
-
-  .print-comparison-card span,
-  .print-comparison-card strong {
-    grid-column: 1 / -1;
-  }
-
-  .print-comparison-card span {
-    color: #657583;
-    font-size: 9pt;
-    font-weight: 850;
-  }
-
-  .print-comparison-card strong {
-    font-size: 23pt;
-    line-height: 1;
-  }
-
-  .print-comparison-card div {
-    display: grid;
-    gap: 1mm;
-  }
-
-  .print-comparison-card small {
-    color: #657583;
-    font-size: 7.5pt;
-    font-weight: 800;
-  }
-
-  .print-comparison-card b {
-    font-size: 10.5pt;
-  }
-
-  .print-detail-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 5mm;
-  }
-
-  .print-detail-grid article {
-    padding: 5mm;
-  }
-
-  .print-pill-row {
-    display: flex;
-    gap: 2mm;
-    flex-wrap: wrap;
-    margin-bottom: 4mm;
-  }
-
-  .print-pill-row span {
-    padding: 1.5mm 2.4mm;
-    border-radius: 99px;
-    background: #e9f7f1;
-    color: #0d5d45;
-    font-size: 8pt;
-    font-weight: 850;
-  }
-
-  .print-detail-grid ul {
-    display: grid;
-    gap: 2.4mm;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .print-detail-grid li {
-    display: flex;
-    justify-content: space-between;
-    gap: 5mm;
-    padding-top: 2.2mm;
-    border-top: 0.25mm solid #e6edf0;
-    font-size: 9pt;
-  }
-
-  .print-detail-grid li span {
-    color: #657583;
-    font-weight: 760;
-  }
-
-  .print-detail-grid li strong {
+    gap: 1.2mm;
+    justify-items: end;
     text-align: right;
   }
 
-  .quote-print-footer {
-    margin-top: auto;
-    display: grid;
-    gap: 1.2mm;
-    padding-top: 3mm;
-    border-top: 0.3mm solid #d8e3e8;
-    color: #72808a;
-    text-align: center;
+  .print-title-block span {
     font-size: 7.4pt;
+    font-weight: 800;
+    letter-spacing: 0.19em;
+    text-transform: uppercase;
+  }
+
+  .print-title-block h2 {
+    color: #ffffff;
+    font-size: 15pt;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .print-title-block p {
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 8pt;
+    font-weight: 700;
+  }
+
+  .print-client-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8mm;
+    padding: 7mm 14mm 5.5mm;
+  }
+
+  .print-client-row h1 {
+    max-width: 108mm;
+    color: #003383;
+    font-size: 19pt;
+    font-weight: 900;
+    line-height: 1.02;
+  }
+
+  .print-client-row .print-eyebrow {
+    margin-bottom: 2mm;
+  }
+
+  .print-client-meta {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 7mm;
+  }
+
+  .print-client-meta div {
+    display: grid;
+    gap: 1mm;
+    text-align: right;
+  }
+
+  .print-client-meta span {
+    color: #5b6472;
+    font-size: 7pt;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+  }
+
+  .print-client-meta strong {
+    color: #003383;
+    font-size: 10pt;
+    font-weight: 800;
+  }
+
+  .print-saving-hero {
+    position: relative;
+    min-height: 39mm;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6mm;
+    margin: 0 14mm;
+    padding: 6mm 8mm;
+    overflow: hidden;
+    border: 0.5mm solid #cdf0de;
+    border-radius: 4mm;
+    background: linear-gradient(122deg, #f2fdf8 0%, #eafaf3 62%, #e2f7ee 100%);
+  }
+
+  .print-saving-hero.loss {
+    border-color: #f4d6aa;
+    background: linear-gradient(122deg, #fff9ef 0%, #fff3df 100%);
+  }
+
+  .print-watermark {
+    pointer-events: none;
+    user-select: none;
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 900;
+    line-height: 0.8;
+  }
+
+  .print-saving-hero > .print-watermark {
+    position: absolute;
+    right: -8mm;
+    bottom: -24mm;
+    color: #19d385;
+    font-size: 88mm;
+    opacity: 0.09;
+  }
+
+  .print-saving-hero.loss > .print-watermark {
+    color: #c97700;
+  }
+
+  .print-saving-hero > div:not(.print-watermark) {
+    position: relative;
+    min-width: 0;
+  }
+
+  .print-saving-hero > div:not(.print-watermark) > strong {
+    display: block;
+    margin-top: 2.5mm;
+    color: #0f9d63;
+    font-size: 44pt;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    line-height: 0.9;
+  }
+
+  .print-saving-hero.loss > div:not(.print-watermark) > strong {
+    color: #b86500;
+  }
+
+  .print-saving-hero > div:not(.print-watermark) > span {
+    display: block;
+    margin-top: 2.5mm;
+    color: #5b6472;
+    font-size: 9pt;
+    line-height: 1.3;
+  }
+
+  .print-saving-hero b {
+    color: #003383;
+    font-weight: 850;
+  }
+
+  .print-saving-hero aside {
+    position: relative;
+    flex: 0 0 auto;
+    min-width: 43mm;
+    padding-left: 7mm;
+    border-left: 0.4mm solid #cdf0de;
+    text-align: right;
+  }
+
+  .print-saving-hero.loss aside {
+    border-left-color: #f1d2a7;
+  }
+
+  .print-saving-hero aside p {
+    color: #5b6472;
+    font-size: 7pt;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+  }
+
+  .print-saving-hero aside strong {
+    display: block;
+    margin-top: 1.6mm;
+    color: #003383;
+    font-size: 17pt;
+    line-height: 1;
+  }
+
+  .print-saving-hero aside span {
+    display: block;
+    margin-top: 1.4mm;
+    color: #5b6472;
+    font-size: 7.6pt;
+  }
+
+  .print-offer-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5mm;
+    margin: 5mm 14mm 0;
+  }
+
+  .print-offer-card {
+    position: relative;
+    min-height: 61mm;
+    overflow: hidden;
+    border-radius: 4mm;
+    padding: 5.5mm 5.5mm 4.5mm;
+  }
+
+  .print-offer-card.old {
+    border: 0.4mm solid #dee2e9;
+    background: #ffffff;
+  }
+
+  .print-offer-card.new {
+    background: linear-gradient(150deg, #003383 0%, #00265f 100%);
+    color: #ffffff;
+  }
+
+  .print-offer-card.new .print-watermark {
+    position: absolute;
+    right: -10mm;
+    bottom: -15mm;
+    color: #ffffff;
+    font-size: 64mm;
+    opacity: 0.07;
+  }
+
+  .print-card-kicker {
+    position: relative;
+    font-size: 7pt;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .print-offer-card.old .print-card-kicker {
+    color: #5b6472;
+  }
+
+  .print-new-card-head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3mm;
+    min-height: 6.2mm;
+  }
+
+  .print-new-card-head > span {
+    flex: 0 0 auto;
+    padding: 1.5mm 3mm;
+    border-radius: 99mm;
+    background: #19d385;
+    color: #00301c;
+    font-size: 6.6pt;
+    font-weight: 900;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .print-offer-card h3 {
+    position: relative;
+    margin-top: 1.8mm;
+    color: #003383;
+    font-size: 12pt;
+    font-weight: 800;
+    line-height: 1.06;
+  }
+
+  .print-offer-card.new h3 {
+    color: #ffffff;
+  }
+
+  .print-offer-cost {
+    position: relative;
+    margin-top: 3.4mm;
+    color: #003383;
+    font-size: 23pt;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .print-offer-card.new .print-offer-cost {
+    color: #ffffff;
+  }
+
+  .print-offer-cost span {
+    color: #5b6472;
+    font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+    font-size: 7.4pt;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+
+  .print-offer-card.new .print-offer-cost span {
+    color: rgba(255, 255, 255, 0.62);
+  }
+
+  .print-offer-card dl {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    margin-top: 3.6mm;
+  }
+
+  .print-offer-card dl div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 5mm;
+    padding: 1.9mm 0;
+    border-top: 0.3mm solid #dee2e9;
+    font-size: 8.6pt;
+  }
+
+  .print-offer-card.new dl div {
+    border-top-color: rgba(255, 255, 255, 0.16);
+  }
+
+  .print-offer-card dt {
+    color: #5b6472;
+    font-weight: 760;
+  }
+
+  .print-offer-card.new dt {
+    color: rgba(255, 255, 255, 0.74);
+  }
+
+  .print-offer-card dd {
+    color: #003383;
+    font-weight: 900;
+    text-align: right;
+  }
+
+  .print-offer-card.new dd {
+    color: #ffffff;
+  }
+
+  .print-consumption-strip {
+    flex: 0 0 auto;
+    margin: 5mm 14mm 0;
+    padding: 5mm 6mm;
+    border-radius: 4mm;
+    background: #f5f7fa;
+  }
+
+  .print-consumption-strip > .print-eyebrow {
+    margin-bottom: 3.2mm;
+  }
+
+  .print-consumption-strip > div {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .print-consumption-strip article {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 0 4mm;
+    border-left: 0.3mm solid #dee2e9;
+  }
+
+  .print-consumption-strip article:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .print-consumption-strip span {
+    min-height: 6.6mm;
+    color: #5b6472;
+    font-size: 7pt;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    line-height: 1.25;
+    text-transform: uppercase;
+  }
+
+  .print-consumption-strip strong {
+    color: #003383;
+    font-size: 12pt;
+    font-weight: 800;
+    line-height: 1.15;
+  }
+
+  .print-consumption-strip small {
+    color: #5b6472;
+    font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+    font-size: 7.6pt;
+    font-weight: 760;
+  }
+
+  .print-why-section {
+    flex: 0 0 auto;
+    margin: 5mm 14mm 0;
+  }
+
+  .print-why-section > .print-eyebrow {
+    margin-bottom: 3.2mm;
+  }
+
+  .print-why-section > div {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5mm;
+  }
+
+  .print-why-section article {
+    min-height: 37.5mm;
+    padding: 4.4mm 4.4mm 4.2mm;
+    border: 0.4mm solid #dee2e9;
+    border-radius: 3.4mm;
+  }
+
+  .print-why-icon {
+    width: 7.6mm;
+    height: 7.6mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2.8mm;
+    border-radius: 2.2mm;
+    background: #eef4ff;
+    color: #003383;
+  }
+
+  .print-why-section h3 {
+    color: #003383;
+    font-size: 10.5pt;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .print-why-section p {
+    margin-top: 1.8mm;
+    color: #5b6472;
+    font-size: 8pt;
+    line-height: 1.42;
+  }
+
+  .quote-print-footer {
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    margin-top: 5mm;
+    padding: 0 14mm 9mm;
+    overflow: hidden;
+    border: 0;
+    color: #5b6472;
+    text-align: left;
+  }
+
+  .quote-print-footer > .print-watermark {
+    position: absolute;
+    right: -16mm;
+    bottom: -22mm;
+    color: #003383;
+    font-size: 92mm;
+    opacity: 0.05;
+  }
+
+  .print-whatsapp-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4mm;
+    padding: 4.4mm 6mm;
+    border-radius: 4mm;
+    background: #003383;
+    color: #ffffff;
+  }
+
+  .print-whatsapp-icon {
+    width: 9mm;
+    height: 9mm;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2.4mm;
+    background: #19d385;
+    color: #00301c;
+  }
+
+  .print-whatsapp-icon svg {
+    width: 5.4mm;
+    height: 5.4mm;
+  }
+
+  .print-whatsapp-bar p {
+    font-size: 7pt;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .print-whatsapp-bar strong {
+    display: block;
+    margin-top: 1.2mm;
+    color: #ffffff;
+    font-size: 15pt;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .print-whatsapp-bar small {
+    max-width: 66mm;
+    margin-left: auto;
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 8pt;
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: right;
+  }
+
+  .print-disclaimer {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 3mm;
+    margin-top: 4mm;
+    color: #5b6472;
+    font-size: 7.2pt;
+    line-height: 1.45;
+  }
+
+  .print-disclaimer span {
+    width: 2mm;
+    height: 2mm;
+    flex: 0 0 auto;
+    margin-top: 1mm;
+    border-radius: 50%;
+    background: #ffc107;
   }
 }

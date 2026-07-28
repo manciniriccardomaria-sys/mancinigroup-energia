@@ -648,6 +648,50 @@ function printCommodityTitle(value: QuoteCommodity) {
   return value === "luce" ? "Confronto offerte Luce" : "Confronto offerte Gas";
 }
 
+function monthNameOnly(monthKey: string) {
+  const [year, month] = monthKey.split("-").map(Number);
+
+  if (!year || !month) {
+    return monthKey;
+  }
+
+  return new Intl.DateTimeFormat("it-IT", {
+    month: "long",
+    timeZone: "UTC"
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+function formatQuotePeriodLabel(firstMonthKey: string, secondMonthKey?: string) {
+  if (!secondMonthKey) {
+    return formatMonthKey(firstMonthKey);
+  }
+
+  const [firstYear] = firstMonthKey.split("-").map(Number);
+  const [secondYear] = secondMonthKey.split("-").map(Number);
+
+  if (firstYear && firstYear === secondYear) {
+    return `${monthNameOnly(firstMonthKey)} - ${monthNameOnly(secondMonthKey)} ${firstYear}`;
+  }
+
+  return `${formatMonthKey(firstMonthKey)} - ${formatMonthKey(secondMonthKey)}`;
+}
+
+function formatPrintMainImpact(value: number) {
+  return formatEuro(Math.abs(roundCurrency(value)));
+}
+
+function formatPrintBillImpact(value: number) {
+  if (value > 0) {
+    return `-${formatEuro(Math.abs(roundCurrency(value)))}`;
+  }
+
+  if (value < 0) {
+    return `+${formatEuro(Math.abs(roundCurrency(value)))}`;
+  }
+
+  return formatEuro(0);
+}
+
 function localAuthEnabled() {
   return (
     process.env.NODE_ENV !== "production" &&
@@ -686,14 +730,6 @@ function barHeight(value: number, max: number) {
   }
 
   return `${Math.max(8, Math.round((value / Math.max(1, max)) * 100))}%`;
-}
-
-function printSavingClass(value: number) {
-  if (value < 0) {
-    return "negative";
-  }
-
-  return "";
 }
 
 function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string) {
@@ -3313,127 +3349,184 @@ function QuotePrintPage({
 }) {
   const saving = selectedOffer?.annualSaving ?? 0;
   const unit = input.commodity === "luce" ? "kWh" : "Smc";
+  const averageUnit = input.commodity === "luce" ? "€/kWh" : "€/Smc";
+  const commodityLabel = commodityLabels[input.commodity];
+  const profileLabel = customerTypeLabel(input.customerType);
+  const clientName = [input.firstName, input.lastName].filter(Boolean).join(" ") || "Cliente";
+  const periodLabel = formatQuotePeriodLabel(input.monthKey, input.secondMonthKey);
   const periodCount = Math.max(1, calculation.source.periodCount);
   const currentOfferCost = roundCurrency(calculation.source.currentPcv * periodCount + calculation.source.currentSpend);
   const proposedOfferCost = selectedOffer
     ? roundCurrency(selectedOffer.pcv * periodCount + selectedOffer.quotaConsumi)
     : 0;
+  const billImpact = selectedOffer ? currentOfferCost - proposedOfferCost : 0;
+  const impactClass = selectedOffer && saving < 0 ? "loss" : "saving";
 
   return (
     <section className="quote-print-page">
       <header className="quote-print-header">
-        <div className="print-header-top">
-          <Image
-            className="print-service-logo"
-            src="/mancini-luce-gas-logo.svg"
-            alt="Mancini Service Luce e Gas"
-            width={252}
-            height={144}
-            priority
-          />
-          <div className="print-whatsapp-contact">
-            <MessageCircle />
-            <span>Servizio clienti WhatsApp</span>
-            <strong>3489068756</strong>
+        <div className="print-header-stripes" />
+        <Image
+          className="print-service-logo"
+          src="/mancini-luce-gas-logo.svg"
+          alt="Mancini Service Luce e Gas"
+          width={252}
+          height={144}
+          priority
+        />
+        <div className="print-title-block">
+          <span>Preventivo</span>
+          <h2>{printCommodityTitle(input.commodity)}</h2>
+          <p>{input.quoteDate ? formatDate(input.quoteDate) : "-"}</p>
+        </div>
+      </header>
+
+      <section className="print-client-row">
+        <div>
+          <p className="print-eyebrow sky">Cliente</p>
+          <h1>{clientName}</h1>
+        </div>
+        <div className="print-client-meta">
+          <div>
+            <span>Tipologia</span>
+            <strong>{commodityLabel}</strong>
+          </div>
+          <div>
+            <span>Profilo</span>
+            <strong>{profileLabel}</strong>
+          </div>
+          <div>
+            <span>Cellulare</span>
+            <strong>{input.phone || "-"}</strong>
           </div>
         </div>
-        <h2>{printCommodityTitle(input.commodity)}</h2>
-      </header>
-      <div className="quote-print-hero">
-        <article className="print-client-block">
-          <p className="print-kicker">Cliente</p>
-          <h3>{[input.firstName, input.lastName].filter(Boolean).join(" ") || "Cliente"}</h3>
+      </section>
+
+      <section className={`print-saving-hero ${impactClass}`}>
+        <div className="print-watermark">M</div>
+        <div>
+          <p className="print-eyebrow green">{saving >= 0 ? "Risparmio annuo stimato" : "Maggior costo annuo stimato"}</p>
+          <strong>{selectedOffer ? formatPrintMainImpact(saving) : "-"}</strong>
+          <span>
+            passando a <b>Mancini Service Luce &amp; Gas · {selectedOffer?.offerName ?? "Offerta selezionata"}</b>
+          </span>
+        </div>
+        <aside>
+          <p>Su questa bolletta</p>
+          <strong>{selectedOffer ? formatPrintBillImpact(billImpact) : "-"}</strong>
+          <span>{periodLabel}</span>
+        </aside>
+      </section>
+
+      <section className="print-offer-comparison">
+        <article className="print-offer-card old">
+          <p className="print-card-kicker">Offerta attuale</p>
+          <h3>Fornitore in essere</h3>
+          <div className="print-offer-cost">
+            {formatEuro(currentOfferCost)} <span>/ bolletta</span>
+          </div>
           <dl>
             <div>
-              <dt>Data</dt>
-              <dd>{input.quoteDate ? formatDate(input.quoteDate) : "-"}</dd>
+              <dt>Spread</dt>
+              <dd>{formatSpread(calculation.source.currentSpread, 3)} €</dd>
             </div>
             <div>
-              <dt>Tipologia</dt>
-              <dd>{commodityLabels[input.commodity]}</dd>
+              <dt>PCV</dt>
+              <dd>{formatEuro(calculation.source.currentPcv)}</dd>
             </div>
             <div>
-              <dt>Cliente</dt>
-              <dd>{customerTypeLabel(input.customerType)}</dd>
-            </div>
-            <div>
-              <dt>Cellulare</dt>
-              <dd>{input.phone || "-"}</dd>
+              <dt>Prezzo medio</dt>
+              <dd>{formatSpread(calculation.source.currentAveragePrice, 6)} {averageUnit}</dd>
             </div>
           </dl>
         </article>
-        <article className={`print-saving-panel ${printSavingClass(saving)}`}>
-          <span>Risparmio annuo stimato</span>
-          <strong>{selectedOffer ? formatSavingImpact(saving) : "-"}</strong>
-          <small>{selectedOffer?.offerName ?? "Offerta selezionata"}</small>
-        </article>
-      </div>
-      <div className="print-comparison-grid">
-        <article className="print-comparison-card current">
-          <span>Costo dell&apos;offerta attuale</span>
-          <strong>{formatEuro(currentOfferCost)}</strong>
-          <div>
-            <small>Spread</small>
-            <b>{formatSpread(calculation.source.currentSpread, 3)} €</b>
+
+        <article className="print-offer-card new">
+          <div className="print-watermark">M</div>
+          <div className="print-new-card-head">
+            <p className="print-card-kicker">Mancini Service<br />Luce &amp; Gas</p>
+            <span>La tua nuova offerta</span>
           </div>
-          <div>
-            <small>PCV</small>
-            <b>{formatEuro(calculation.source.currentPcv)}</b>
-          </div>
-        </article>
-        <article className="print-comparison-card proposed">
-          <span>Costo dell&apos;offerta Mancini Service Luce&amp;Gas</span>
-          <strong>{selectedOffer ? formatEuro(proposedOfferCost) : "-"}</strong>
-          <div>
-            <small>Spread</small>
-            <b>{selectedOffer ? `${formatSpread(selectedOffer.spread, 3)} €` : "-"}</b>
-          </div>
-          <div>
-            <small>PCV</small>
-            <b>{selectedOffer ? formatEuro(selectedOffer.pcv) : "-"}</b>
-          </div>
-        </article>
-      </div>
-      <div className="print-detail-grid">
-        <article>
-          <p className="print-kicker">Consumi analizzati</p>
-          <h3>Periodo bolletta</h3>
-          <div className="print-pill-row">
-            <span>{formatMonthKey(input.monthKey)}</span>
-            {input.secondMonthKey && <span>{formatMonthKey(input.secondMonthKey)}</span>}
-          </div>
-          <ul>
-            <li>
-              <span>Consumo totale</span>
-              <strong>{formatNumber(calculation.source.totalConsumption)} {unit}</strong>
-            </li>
-            <li>
-              <span>Consumo annuo stimato</span>
-              <strong>{formatNumber(calculation.source.annualConsumption)} {unit}</strong>
-            </li>
-            <li>
-              <span>Prezzo medio attuale</span>
-              <strong>{formatSpread(calculation.source.currentAveragePrice, 6)} €/{unit}</strong>
-            </li>
-          </ul>
-        </article>
-        <article>
-          <p className="print-kicker">Offerta</p>
           <h3>{selectedOffer?.offerName ?? "-"}</h3>
-          <ul>
-            <li>
-              <span>Tipologia</span>
-              <strong>{commodityLabels[input.commodity]}</strong>
-            </li>
-            <li>
-              <span>Cliente</span>
-              <strong>{customerTypeLabel(input.customerType)}</strong>
-            </li>
-          </ul>
+          <div className="print-offer-cost">
+            {selectedOffer ? formatEuro(proposedOfferCost) : "-"} <span>/ bolletta</span>
+          </div>
+          <dl>
+            <div>
+              <dt>Spread</dt>
+              <dd>{selectedOffer ? `${formatSpread(selectedOffer.spread, 3)} €` : "-"}</dd>
+            </div>
+            <div>
+              <dt>PCV</dt>
+              <dd>{selectedOffer ? formatEuro(selectedOffer.pcv) : "-"}</dd>
+            </div>
+            <div>
+              <dt>Profilo</dt>
+              <dd>{commodityLabel} · {profileLabel}</dd>
+            </div>
+          </dl>
         </article>
-      </div>
+      </section>
+
+      <section className="print-consumption-strip">
+        <p className="print-eyebrow muted">Consumi analizzati</p>
+        <div>
+          <article>
+            <span>Periodo bolletta</span>
+            <strong>{periodLabel}</strong>
+          </article>
+          <article>
+            <span>Consumo totale</span>
+            <strong>{formatNumber(calculation.source.totalConsumption)} <small>{unit}</small></strong>
+          </article>
+          <article>
+            <span>Consumo annuo stimato</span>
+            <strong>{formatNumber(calculation.source.annualConsumption)} <small>{unit}</small></strong>
+          </article>
+          <article>
+            <span>Prezzo medio attuale</span>
+            <strong>{formatSpread(calculation.source.currentAveragePrice, 6)} <small>{averageUnit}</small></strong>
+          </article>
+        </div>
+      </section>
+
+      <section className="print-why-section">
+        <p className="print-eyebrow muted">Perché Mancini Service Luce &amp; Gas</p>
+        <div>
+          <article>
+            <span className="print-why-icon"><BarChart3 size={17} /></span>
+            <h3>Prezzo trasparente</h3>
+            <p>Spread e PCV dichiarati in chiaro: sai esattamente cosa paghi, senza sorprese in bolletta.</p>
+          </article>
+          <article>
+            <span className="print-why-icon"><UsersRound size={17} /></span>
+            <h3>Un solo riferimento</h3>
+            <p>Luce, gas e protezioni gestiti dalla stessa squadra che già ti segue, in agenzia.</p>
+          </article>
+          <article>
+            <span className="print-why-icon"><Zap size={17} /></span>
+            <h3>Passaggio senza pensieri</h3>
+            <p>Al cambio fornitore pensiamo noi: nessuna interruzione, nessuna pratica da seguire.</p>
+          </article>
+        </div>
+      </section>
+
       <footer className="quote-print-footer">
-        <span>Stima indicativa basata sui dati inseriti e sui valori di mercato disponibili al momento del preventivo.</span>
+        <div className="print-watermark">M</div>
+        <div className="print-whatsapp-bar">
+          <span className="print-whatsapp-icon">
+            <MessageCircle />
+          </span>
+          <div>
+            <p>Servizio clienti WhatsApp</p>
+            <strong>348 906 8756</strong>
+          </div>
+          <small>Scrivici per attivare l&apos;offerta o per qualsiasi chiarimento: ti ricontattiamo noi.</small>
+        </div>
+        <p className="print-disclaimer">
+          <span />
+          Stima indicativa basata sui dati inseriti e sui valori di mercato disponibili al momento del preventivo. Gli importi non costituiscono proposta contrattuale e possono variare in funzione dei consumi effettivi, degli oneri di sistema e delle condizioni economiche applicate dal fornitore.
+        </p>
       </footer>
     </section>
   );
