@@ -3512,7 +3512,6 @@ function QuotePrintPage({
       </section>
 
       <footer className="quote-print-footer">
-        <div className="print-watermark" aria-hidden="true" />
         <div className="print-whatsapp-bar">
           <span className="print-whatsapp-icon">
             <MessageCircle />

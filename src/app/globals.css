@@ -2083,10 +2083,12 @@ td small {
   .print-service-logo {
     position: relative;
     display: block;
-    width: 78mm;
-    height: 17mm;
+    width: 92mm;
+    height: 23mm;
     object-fit: contain;
     object-position: left center;
+    transform: scale(1.12);
+    transform-origin: left center;
   }
 
   .print-title-block {
@@ -2536,16 +2538,6 @@ td small {
     border: 0;
     color: #5b6472;
     text-align: left;
-  }
-
-  .quote-print-footer > .print-watermark {
-    position: absolute;
-    right: -14mm;
-    bottom: -18mm;
-    width: 76mm;
-    height: 76mm;
-    color: #003383;
-    opacity: 0.05;
   }
 
   .print-whatsapp-bar {
