@@ -732,6 +732,19 @@ function barHeight(value: number, max: number) {
   return `${Math.max(8, Math.round((value / Math.max(1, max)) * 100))}%`;
 }
 
+function currentYear() {
+  return new Date().getFullYear();
+}
+
+const monthAxisLabels = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+
+type AgencyMarginYearSeries = {
+  year: number;
+  months: number[];
+  total: number;
+  lastMonthIndex: number;
+};
+
 function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string) {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -1209,6 +1222,10 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   const loadingRecords = visibleLoadingRecords(user, store);
   const agencyMarginRecords = visibleAgencyMarginRecords(user, store);
   const agencySummary = summarizeAgencyMargins(agencyMarginRecords);
+  const activeAgencyMarginYear = currentYear();
+  const activeAgencyMarginYearTotal = agencyMarginYearTotal(agencyMarginRecords, activeAgencyMarginYear);
+  const agencyMarginYearSeries = buildAgencyMarginYearSeries(agencyMarginRecords, activeAgencyMarginYear);
+  const [showAgencyMarginHistory, setShowAgencyMarginHistory] = useState(false);
   const customerTracking = summarizeCustomerTracking(agencyMarginRecords);
   const customerTrackingByPod = new Map(customerTracking.rows.map((row) => [row.podPdrNorm, row]));
   const sources = [...visibleSourcesForUser(user, store.sources)].sort((a, b) => a.name.localeCompare(b.name, "it"));
@@ -1348,9 +1365,29 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
       <section className="stats-grid">
         <StatCard icon={<UsersRound size={24} />} label="Contratti" value={customers.length} />
         <StatCard icon={<SearchCheck size={24} />} label="Da abbinare" value={unmatchedLoading} />
-        <StatCard icon={<ReceiptText size={24} />} label="Margine agenzia" value={formatEuro(agencySummary.totalMargin)} />
+        <StatCard
+          active={showAgencyMarginHistory}
+          detail={`${activeAgencyMarginYear}: ${formatEuro(activeAgencyMarginYearTotal)} - clicca per storico`}
+          icon={<ReceiptText size={24} />}
+          label="Margine agenzia"
+          onClick={() => setShowAgencyMarginHistory((value) => !value)}
+          value={formatEuro(agencySummary.totalMargin)}
+        />
         <StatCard icon={<BadgeEuro size={24} />} label="Da pagare" value={formatEuro(commissionsDue)} />
       </section>
+
+      {showAgencyMarginHistory && (
+        <section className="table-section agency-margin-history">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Margine agenzia</p>
+              <h2>Storico guadagni mese per mese</h2>
+            </div>
+            <span className="chart-note">Totale {activeAgencyMarginYear}: {formatEuro(activeAgencyMarginYearTotal)}</span>
+          </div>
+          <AgencyMarginLineChart series={agencyMarginYearSeries} />
+        </section>
+      )}
 
       <section className="dashboard-main-grid">
         <div className="dashboard-primary-column">
@@ -1540,6 +1577,154 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   );
 }
 
+function agencyMarginYearTotal(records: ReturnType<typeof visibleAgencyMarginRecords>, year: number) {
+  const yearPrefix = `${year}-`;
+  return records.reduce((sum, record) => (
+    record.monthKey.startsWith(yearPrefix) && record.monthKey <= currentMonthKey() ? sum + record.marginAmount : sum
+  ), 0);
+}
+
+function buildAgencyMarginYearSeries(records: ReturnType<typeof visibleAgencyMarginRecords>, activeYear: number): AgencyMarginYearSeries[] {
+  const validRecords = records.filter((record) => isFullMonthKey(record.monthKey) && record.monthKey <= currentMonthKey());
+  const years = validRecords
+    .map((record) => Number(record.monthKey.slice(0, 4)))
+    .filter((year) => Number.isFinite(year) && year <= activeYear);
+  const firstYear = Math.min(...years);
+  const buckets = new Map<number, AgencyMarginYearSeries>();
+
+  if (!Number.isFinite(firstYear)) {
+    return [];
+  }
+
+  for (let year = firstYear; year <= activeYear; year += 1) {
+    buckets.set(year, {
+      year,
+      months: Array.from({ length: 12 }, () => 0),
+      total: 0,
+      lastMonthIndex: -1
+    });
+  }
+
+  for (const record of validRecords) {
+    const [year, month] = record.monthKey.split("-").map(Number);
+    const bucket = buckets.get(year);
+
+    if (!bucket || !month) {
+      continue;
+    }
+
+    const monthIndex = month - 1;
+    bucket.months[monthIndex] += record.marginAmount;
+    bucket.total += record.marginAmount;
+    bucket.lastMonthIndex = Math.max(bucket.lastMonthIndex, monthIndex);
+  }
+
+  return [...buckets.values()]
+    .filter((row) => row.lastMonthIndex >= 0)
+    .sort((a, b) => a.year - b.year);
+}
+
+function niceChartCeiling(value: number) {
+  if (value <= 0) {
+    return 1;
+  }
+
+  const rawStep = value / 4;
+  const power = 10 ** Math.floor(Math.log10(rawStep));
+  const ratio = rawStep / power;
+  const step = power * (ratio <= 1 ? 1 : ratio <= 2 ? 2 : ratio <= 5 ? 5 : 10);
+  return Math.ceil(value / step) * step;
+}
+
+function AgencyMarginLineChart({ series }: { series: AgencyMarginYearSeries[] }) {
+  const width = 920;
+  const height = 360;
+  const margin = { top: 28, right: 28, bottom: 64, left: 82 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const allValues = series.flatMap((row) => row.months.slice(0, row.lastMonthIndex + 1));
+  const maxValue = niceChartCeiling(Math.max(...allValues, 0));
+  const palette = ["#167a5b", "#2f66d0", "#a86500", "#7c3aed", "#b42318", "#0f766e"];
+  const yTicks = Array.from({ length: 5 }, (_, index) => (maxValue / 4) * index);
+  const xForMonth = (monthIndex: number) => margin.left + (plotWidth / 11) * monthIndex;
+  const yForValue = (value: number) => margin.top + plotHeight - (Math.max(0, value) / maxValue) * plotHeight;
+
+  if (series.length === 0) {
+    return <p className="empty-state">Nessun margine agenzia importato.</p>;
+  }
+
+  return (
+    <div className="agency-line-chart-wrap">
+      <div className="agency-line-chart-legend" aria-label="Anni nel grafico">
+        {series.map((row, index) => (
+          <span key={row.year}>
+            <i style={{ background: palette[index % palette.length] }} />
+            {row.year} · {formatEuro(row.total)}
+          </span>
+        ))}
+      </div>
+      <div className="agency-line-chart-scroll">
+        <svg className="agency-line-chart" role="img" viewBox={`0 0 ${width} ${height}`} aria-label="Margine agenzia per mese e anno">
+          <text className="axis-title y-axis-title" x={22} y={height / 2} transform={`rotate(-90 22 ${height / 2})`}>
+            Importi
+          </text>
+          <text className="axis-title" x={margin.left + plotWidth / 2} y={height - 14} textAnchor="middle">
+            Mesi
+          </text>
+
+          {yTicks.map((tick) => {
+            const y = yForValue(tick);
+            return (
+              <g key={tick}>
+                <line className="chart-grid-line" x1={margin.left} x2={width - margin.right} y1={y} y2={y} />
+                <text className="chart-y-label" x={margin.left - 10} y={y + 4} textAnchor="end">
+                  {formatEuro(tick)}
+                </text>
+              </g>
+            );
+          })}
+
+          {monthAxisLabels.map((label, index) => (
+            <g key={label}>
+              <line className="chart-x-tick" x1={xForMonth(index)} x2={xForMonth(index)} y1={height - margin.bottom} y2={height - margin.bottom + 6} />
+              <text className="chart-x-label" x={xForMonth(index)} y={height - margin.bottom + 24} textAnchor="middle">
+                {label}
+              </text>
+            </g>
+          ))}
+
+          <line className="chart-axis-line" x1={margin.left} x2={width - margin.right} y1={height - margin.bottom} y2={height - margin.bottom} />
+          <line className="chart-axis-line" x1={margin.left} x2={margin.left} y1={margin.top} y2={height - margin.bottom} />
+
+          {series.map((row, index) => {
+            const color = palette[index % palette.length];
+            const points = row.months
+              .slice(0, row.lastMonthIndex + 1)
+              .map((value, monthIndex) => ({
+                monthIndex,
+                value,
+                x: xForMonth(monthIndex),
+                y: yForValue(value)
+              }));
+            const path = points.map((point, pointIndex) => `${pointIndex === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+
+            return (
+              <g key={row.year}>
+                <path className="agency-line-path" d={path} fill="none" stroke={color} />
+                {points.map((point) => (
+                  <circle className="agency-line-point" cx={point.x} cy={point.y} fill={color} key={`${row.year}-${point.monthIndex}`} r={5}>
+                    <title>{row.year} - {monthAxisLabels[point.monthIndex]}: {formatEuro(point.value)}</title>
+                  </circle>
+                ))}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 function trendRowsFromAgency(records: ReturnType<typeof visibleAgencyMarginRecords>) {
   const buckets = new Map<
     string,
@@ -1616,12 +1801,41 @@ function FilterGroup({ children, label }: { children: ReactNode; label: string }
   );
 }
 
-function StatCard({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
-  return (
-    <article className="stat-card">
+function StatCard({
+  active = false,
+  detail,
+  icon,
+  label,
+  onClick,
+  value
+}: {
+  active?: boolean;
+  detail?: ReactNode;
+  icon: ReactNode;
+  label: string;
+  onClick?: () => void;
+  value: ReactNode;
+}) {
+  const content = (
+    <>
       {icon}
       <span>{label}</span>
       <strong>{value}</strong>
+      {detail && <small>{detail}</small>}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button className={`stat-card clickable ${active ? "active" : ""} ${detail ? "has-detail" : ""}`} type="button" onClick={onClick}>
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <article className={`stat-card ${detail ? "has-detail" : ""}`}>
+      {content}
     </article>
   );
 }

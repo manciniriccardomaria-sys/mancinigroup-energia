@@ -434,9 +434,36 @@ textarea:focus {
   padding: 20px;
 }
 
+.stat-card.clickable {
+  width: 100%;
+  border: 1px solid var(--line);
+  color: inherit;
+  text-align: left;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.stat-card.clickable:hover,
+.stat-card.clickable.active {
+  border-color: var(--green);
+  box-shadow: 0 14px 30px rgba(22, 122, 91, 0.12);
+  transform: translateY(-1px);
+}
+
+.stat-card.clickable:focus-visible {
+  outline: 3px solid rgba(22, 122, 91, 0.20);
+  outline-offset: 2px;
+}
+
 .stat-card svg {
   color: var(--green);
   grid-row: span 2;
+}
+
+.stat-card.has-detail svg {
+  grid-row: span 3;
 }
 
 .stat-card span {
@@ -448,6 +475,14 @@ textarea:focus {
 .stat-card strong {
   font-size: clamp(1.45rem, 2.2vw, 2.08rem);
   line-height: 1;
+}
+
+.stat-card small {
+  min-width: 0;
+  color: var(--green-dark);
+  font-size: 0.76rem;
+  font-weight: 850;
+  line-height: 1.2;
 }
 
 .action-grid {
@@ -819,6 +854,113 @@ textarea:focus {
 .expandable-table summary:hover {
   border-color: var(--green);
   color: var(--green-dark);
+}
+
+.agency-margin-history {
+  margin-bottom: 22px;
+}
+
+.chart-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid #bfe5d5;
+  border-radius: 999px;
+  background: #e6f5ee;
+  color: var(--green-dark);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.agency-line-chart-wrap {
+  padding: 0 22px 22px;
+}
+
+.agency-line-chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.agency-line-chart-legend span {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.agency-line-chart-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.agency-line-chart-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f8fbfa 100%);
+}
+
+.agency-line-chart {
+  display: block;
+  width: 100%;
+  min-width: 820px;
+}
+
+.axis-title {
+  fill: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chart-grid-line {
+  stroke: #e4ecef;
+  stroke-width: 1;
+}
+
+.chart-axis-line,
+.chart-x-tick {
+  stroke: #b8c7ce;
+  stroke-width: 1.2;
+}
+
+.chart-y-label,
+.chart-x-label {
+  fill: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.agency-line-path {
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 5px 10px rgba(25, 34, 42, 0.10));
+}
+
+.agency-line-point {
+  r: 5;
+  stroke: #fff;
+  stroke-width: 2.2;
+}
+
+.agency-line-point:hover {
+  r: 7;
 }
 
 .table-wrap {
