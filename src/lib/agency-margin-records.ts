@@ -6,13 +6,16 @@ type AgencyMarginValueRow = Pick<
 >;
 
 export function hasNegativeAgencyMarginValues(row: AgencyMarginValueRow) {
-  return [
+  const hasNegativeValue = [
     row.grossMarginAmount,
     row.marginAmount,
     row.recurringConsumption,
     row.consumption,
-    row.invoiceTotal,
-    row.paid,
     row.balance
   ].some((value) => Number.isFinite(value) && value < 0);
+  const hasUnpaidOrZeroInvoice = [row.invoiceTotal, row.paid].some(
+    (value) => Number.isFinite(value) && value <= 0
+  );
+
+  return hasNegativeValue || hasUnpaidOrZeroInvoice;
 }
