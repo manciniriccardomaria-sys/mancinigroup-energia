@@ -461,6 +461,8 @@ export function parseAgencyMarginCsv(
       const issuedAt = parseItalianDate(valueAt(row, indexes.issuedAt));
       const dueAt = parseItalianDate(valueAt(row, indexes.dueAt));
       const consumption = numberAt(row, indexes.consumption);
+      const invoiceTotalAvailable = hasValueAt(row, indexes.invoiceTotal);
+      const paidAvailable = hasValueAt(row, indexes.paid);
       const gross = hasValueAt(row, indexes.gross) ? numberAt(row, indexes.gross) : undefined;
       const pcv = hasValueAt(row, indexes.pcv) ? numberAt(row, indexes.pcv) : undefined;
       const spread = hasValueAt(row, indexes.spread) ? numberAt(row, indexes.spread) : undefined;
@@ -502,7 +504,9 @@ export function parseAgencyMarginCsv(
         issuedAt,
         dueAt,
         invoiceTotal: numberAt(row, indexes.invoiceTotal),
+        invoiceTotalAvailable,
         paid: numberAt(row, indexes.paid),
+        paidAvailable,
         balance: numberAt(row, indexes.balance),
         consumption,
         agent: emptyToUndefined(agent),

@@ -198,7 +198,9 @@ export type AgencyMarginRecord = {
   issuedAt?: string;
   dueAt?: string;
   invoiceTotal: number;
+  invoiceTotalAvailable?: boolean;
   paid: number;
+  paidAvailable?: boolean;
   balance: number;
   consumption: number;
   agent?: string;

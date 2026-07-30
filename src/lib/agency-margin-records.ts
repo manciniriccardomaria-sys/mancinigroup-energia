@@ -2,7 +2,15 @@ import type { AgencyMarginImportRow, AgencyMarginRecord } from "./types";
 
 type AgencyMarginValueRow = Pick<
   AgencyMarginImportRow | AgencyMarginRecord,
-  "grossMarginAmount" | "marginAmount" | "recurringConsumption" | "consumption" | "invoiceTotal" | "paid" | "balance"
+  | "grossMarginAmount"
+  | "marginAmount"
+  | "recurringConsumption"
+  | "consumption"
+  | "invoiceTotal"
+  | "invoiceTotalAvailable"
+  | "paid"
+  | "paidAvailable"
+  | "balance"
 >;
 
 export function hasNegativeAgencyMarginValues(row: AgencyMarginValueRow) {
@@ -13,8 +21,11 @@ export function hasNegativeAgencyMarginValues(row: AgencyMarginValueRow) {
     row.consumption,
     row.balance
   ].some((value) => Number.isFinite(value) && value < 0);
-  const hasUnpaidOrZeroInvoice = [row.invoiceTotal, row.paid].some(
-    (value) => Number.isFinite(value) && value <= 0
+  const hasUnpaidOrZeroInvoice = [
+    { available: row.invoiceTotalAvailable, value: row.invoiceTotal },
+    { available: row.paidAvailable, value: row.paid }
+  ].some(
+    ({ available, value }) => available === true && Number.isFinite(value) && value <= 0
   );
 
   return hasNegativeValue || hasUnpaidOrZeroInvoice;
