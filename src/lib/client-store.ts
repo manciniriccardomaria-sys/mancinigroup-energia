@@ -326,6 +326,10 @@ function splitCustomerName(value: string) {
   return { customerName: parts.join(" "), customerSurname };
 }
 
+function agencyMarginScopeKey(record: Pick<AgencyMarginImportRow | AgencyMarginRecord, "monthKey" | "commodity">) {
+  return `${record.monthKey}|${record.commodity}`;
+}
+
 function isBusinessOffer(offerEasy?: string) {
   const normalized = offerEasy?.toUpperCase() ?? "";
   return (
@@ -506,7 +510,8 @@ function recalculateAgencyMarginsForPod(store: StoreData, podPdrNorm: string) {
       uploadedFileId,
       rows: group,
       totalRows: group.length,
-      skippedRows: 0
+      skippedRows: 0,
+      replaceMonthlyScopes: false
     });
   }
 }
@@ -692,12 +697,17 @@ export function importLoadingRecordsToStore(
 
 export function importAgencyMarginRecordsToStore(
   store: StoreData,
-  input: { uploadedFileId: string; rows: AgencyMarginImportRow[]; totalRows: number; skippedRows: number }
+  input: {
+    uploadedFileId: string;
+    rows: AgencyMarginImportRow[];
+    totalRows: number;
+    skippedRows: number;
+    replaceMonthlyScopes?: boolean;
+  }
 ): AgencyMarginImportResult {
   const now = nowIso();
   const customerByPod = new Map(store.customers.map((customer) => [customer.podPdrNorm, customer]));
   const sourceById = new Map(store.sources.map((source) => [source.id, source]));
-  const existingByKey = new Map(store.agencyMarginRecords.map((record) => [record.importKey, record]));
   const nextRecords = [...store.agencyMarginRecords];
   const nextEntries = [...store.commissionEntries];
   let importedRows = 0;
@@ -727,6 +737,24 @@ export function importAgencyMarginRecordsToStore(
         a.rowNumber - b.rowNumber ||
         a.importKey.localeCompare(b.importKey)
     );
+
+  if (input.replaceMonthlyScopes !== false) {
+    const replacementScopes = new Set(rows.map((row) => agencyMarginScopeKey(row)));
+
+    for (let index = nextRecords.length - 1; index >= 0; index -= 1) {
+      const record = nextRecords[index];
+
+      if (!replacementScopes.has(agencyMarginScopeKey(record))) {
+        continue;
+      }
+
+      removeExistingCommission(record.commissionEntryId);
+      nextRecords.splice(index, 1);
+      updatedRows += 1;
+    }
+  }
+
+  const existingByKey = new Map(nextRecords.map((record) => [record.importKey, record]));
 
   for (const row of rows) {
     const existing = existingByKey.get(row.importKey);

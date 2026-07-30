@@ -344,6 +344,10 @@ function splitCustomerName(value: string) {
   };
 }
 
+function agencyMarginScopeKey(record: Pick<AgencyMarginImportRow | AgencyMarginRecord, "monthKey" | "commodity">) {
+  return `${record.monthKey}|${record.commodity}`;
+}
+
 function isBusinessOffer(offerEasy?: string) {
   const normalized = offerEasy?.toUpperCase() ?? "";
   return (
@@ -1151,13 +1155,13 @@ export async function importAgencyMarginRecords(input: {
   rows: AgencyMarginImportRow[];
   totalRows: number;
   skippedRows: number;
+  replaceMonthlyScopes?: boolean;
 }): Promise<AgencyMarginImportResult> {
   const store = await readStore();
   const now = new Date().toISOString();
   const uploadedFile = store.uploadedFiles.find((file) => file.id === input.uploadedFileId);
   const customerByPod = new Map(store.customers.map((customer) => [customer.podPdrNorm, customer]));
   const sourceById = new Map(store.sources.map((source) => [source.id, source]));
-  const existingByKey = new Map(store.agencyMarginRecords.map((record) => [record.importKey, record]));
   const nextRecords = [...store.agencyMarginRecords];
   const nextEntries = [...store.commissionEntries];
   let importedRows = 0;
@@ -1192,6 +1196,24 @@ export async function importAgencyMarginRecords(input: {
         a.rowNumber - b.rowNumber ||
         a.importKey.localeCompare(b.importKey)
     );
+
+  if (input.replaceMonthlyScopes !== false) {
+    const replacementScopes = new Set(rows.map((row) => agencyMarginScopeKey(row)));
+
+    for (let index = nextRecords.length - 1; index >= 0; index -= 1) {
+      const record = nextRecords[index];
+
+      if (!replacementScopes.has(agencyMarginScopeKey(record))) {
+        continue;
+      }
+
+      removeExistingCommission(record.commissionEntryId);
+      nextRecords.splice(index, 1);
+      updatedRows += 1;
+    }
+  }
+
+  const existingByKey = new Map(nextRecords.map((record) => [record.importKey, record]));
 
   for (const row of rows) {
     const existing = existingByKey.get(row.importKey);
