@@ -9,7 +9,7 @@ import type {
   Source,
   StoreData
 } from "./types";
-import { hasNegativeAgencyMarginValues } from "./agency-margin-records";
+import { hasNonPositiveAgencyMarginInvoice } from "./agency-margin-records";
 
 export function sourceMap(sources: Source[]) {
   return new Map(sources.map((source) => [source.id, source]));
@@ -37,13 +37,13 @@ export function visibleAgencyMarginRecords(user: SessionUser, store: StoreData) 
       ? store.agencyMarginRecords.filter((record) => record.matchedSourceId === user.sourceId)
       : store.agencyMarginRecords;
 
-  return records.filter((record) => !hasNegativeAgencyMarginValues(record));
+  return records.filter((record) => !hasNonPositiveAgencyMarginInvoice(record));
 }
 
 export function summarizeAgencyMargins(records: AgencyMarginRecord[]) {
   return records.reduce(
     (summary, record) => {
-      if (hasNegativeAgencyMarginValues(record)) {
+      if (hasNonPositiveAgencyMarginInvoice(record)) {
         return summary;
       }
 
@@ -118,7 +118,7 @@ export function summarizeCustomerTracking(records: AgencyMarginRecord[], activit
   let maxMonthKey = "";
 
   for (const record of records) {
-    if (hasNegativeAgencyMarginValues(record) || !record.podPdrNorm || !record.monthKey) {
+    if (hasNonPositiveAgencyMarginInvoice(record) || !record.podPdrNorm || !record.monthKey) {
       continue;
     }
 

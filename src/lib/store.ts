@@ -4,7 +4,7 @@ import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { hashPassword } from "./passwords";
-import { hasNegativeAgencyMarginValues } from "./agency-margin-records";
+import { hasNonPositiveAgencyMarginInvoice } from "./agency-margin-records";
 import { getFirebaseDb, isFirebaseBackendEnabled } from "./firebase-admin";
 import { getMarketVariableDefinition, marketVariableSeedValues } from "./market-variables";
 import { detectCommodity, normalizePodPdr, slugify } from "./normalize";
@@ -1172,7 +1172,7 @@ export async function importAgencyMarginRecords(input: {
   let maturingRows = 0;
   let missingTariffRows = 0;
   let missingRuleRows = 0;
-  let negativeRows = 0;
+  let excludedInvoiceRows = 0;
   let totalMargin = 0;
   let totalGeneratedCommissions = 0;
 
@@ -1218,8 +1218,8 @@ export async function importAgencyMarginRecords(input: {
   for (const row of rows) {
     const existing = existingByKey.get(row.importKey);
 
-    if (hasNegativeAgencyMarginValues(row)) {
-      negativeRows += 1;
+    if (hasNonPositiveAgencyMarginInvoice(row)) {
+      excludedInvoiceRows += 1;
       removeExistingCommission(existing?.commissionEntryId);
 
       if (existing) {
@@ -1372,9 +1372,9 @@ export async function importAgencyMarginRecords(input: {
     totalRows: input.totalRows,
     importedRows,
     updatedRows,
-    skippedRows: input.skippedRows + negativeRows,
+    skippedRows: input.skippedRows + excludedInvoiceRows,
     matchedRows,
-    unmatchedRows: rows.length - negativeRows - matchedRows,
+    unmatchedRows: rows.length - excludedInvoiceRows - matchedRows,
     generatedCommissionRows,
     anticipatedRows,
     maturingRows,
