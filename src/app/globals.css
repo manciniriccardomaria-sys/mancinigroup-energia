@@ -1925,6 +1925,76 @@ td small {
   min-width: 0;
 }
 
+.upload-mode-field {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0;
+  border: 0;
+}
+
+.upload-mode-field legend {
+  grid-column: 1 / -1;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.upload-mode-button {
+  min-height: 72px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.upload-mode-button.active {
+  border-color: var(--green);
+  background: rgba(22, 122, 91, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(22, 122, 91, 0.2);
+}
+
+.upload-mode-button::before {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin-top: 2px;
+  border: 2px solid #b8c8c3;
+  border-radius: 999px;
+  content: "";
+}
+
+.upload-mode-button.active::before {
+  border-color: var(--green);
+  background: radial-gradient(circle at center, var(--green) 0 42%, transparent 45%);
+}
+
+.upload-mode-button span {
+  display: grid;
+  gap: 3px;
+}
+
+.upload-mode-button strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.1;
+}
+
+.upload-mode-button small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+
 .upload-file-field input {
   background: #f8fbfa;
 }

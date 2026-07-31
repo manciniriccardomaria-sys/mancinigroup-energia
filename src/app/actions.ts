@@ -369,6 +369,7 @@ export async function uploadFileAction(formData: FormData) {
   const category = asString(formData, "category");
   const referenceMonth = asString(formData, "referenceMonth");
   const marginCommodity = asString(formData, "marginCommodity");
+  const agencyMarginImportMode = asString(formData, "agencyMarginImportMode") === "overwrite" ? "overwrite" : "update";
   const fileValues = formData.getAll("file").filter((value): value is File => value instanceof File && value.size > 0);
 
   if (!isUploadCategory(category)) {
@@ -457,10 +458,12 @@ export async function uploadFileAction(formData: FormData) {
           uploadedFileId: uploadedFile.id,
           rows: parsed.rows,
           totalRows: parsed.totalRows,
-          skippedRows: parsed.skippedRows
+          skippedRows: parsed.skippedRows,
+          replaceMonthlyScopes: agencyMarginImportMode === "overwrite"
         });
+        const modeLabel = agencyMarginImportMode === "overwrite" ? "sovrascritto" : "aggiornato";
         messages.push(
-          `${fileValue.name}: provvigioni agenzia ${result.totalMargin.toLocaleString("it-IT", {
+          `${fileValue.name}: mese ${modeLabel}, provvigioni agenzia ${result.totalMargin.toLocaleString("it-IT", {
             style: "currency",
             currency: "EUR"
           })}, ${result.generatedCommissionRows} provvigioni generate, ${result.maturingRows} in maturazione, ${result.matchedRows} abbinate.`

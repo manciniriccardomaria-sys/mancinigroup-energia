@@ -162,6 +162,8 @@ const commodityLabels: Record<Commodity, string> = {
   non_definito: "Non definito"
 };
 
+type AgencyMarginImportMode = "update" | "overwrite";
+
 const sourceKindLabels: Record<SourceKind, string> = {
   collaboratore: "Collaboratore",
   frontline: "Frontline",
@@ -1218,6 +1220,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   const [trendMetric, setTrendMetric] = useState<"andamento" | "agenzia">("andamento");
   const [trendPeriod, setTrendPeriod] = useState<3 | 6 | 12>(12);
   const [uploadCategory, setUploadCategory] = useState<UploadCategory>("caricamenti");
+  const [agencyMarginImportMode, setAgencyMarginImportMode] = useState<AgencyMarginImportMode>("update");
   const customers = visibleCustomers(user, store);
   const loadingRecords = visibleLoadingRecords(user, store);
   const agencyMarginRecords = visibleAgencyMarginRecords(user, store);
@@ -1283,6 +1286,8 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
     const category = textValue(data, "category") as UploadCategory;
     const referenceMonth = textValue(data, "referenceMonth") || undefined;
     const commodity = textValue(data, "commodity") as Commodity;
+    const selectedAgencyMarginImportMode: AgencyMarginImportMode =
+      textValue(data, "agencyMarginImportMode") === "overwrite" ? "overwrite" : "update";
 
     if (files.length === 0) {
       throw new Error("Seleziona almeno un file.");
@@ -1346,10 +1351,12 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
             uploadedFileId: uploadRecord.id,
             rows: item.margin.rows,
             totalRows: item.margin.totalRows,
-            skippedRows: item.margin.skippedRows
+            skippedRows: item.margin.skippedRows,
+            replaceMonthlyScopes: selectedAgencyMarginImportMode === "overwrite"
           });
+          const modeLabel = selectedAgencyMarginImportMode === "overwrite" ? "sovrascritto" : "aggiornato";
           summaries.push(
-            `${item.file.name}: ${result.importedRows} nuovi, ${result.generatedCommissionRows} provvigioni generate.`
+            `${item.file.name}: mese ${modeLabel}, ${result.importedRows} nuovi, ${result.updatedRows} aggiornati, ${result.generatedCommissionRows} provvigioni generate.`
           );
         } else {
           summaries.push(`${item.file.name}: metadati salvati.`);
@@ -1540,6 +1547,30 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
                     <option value="gas">Gas</option>
                   </select>
                 </label>
+                <fieldset className="upload-mode-field">
+                  <legend>Modalità import</legend>
+                  <input name="agencyMarginImportMode" type="hidden" value={agencyMarginImportMode} />
+                  <button
+                    className={`upload-mode-button ${agencyMarginImportMode === "update" ? "active" : ""}`}
+                    onClick={() => setAgencyMarginImportMode("update")}
+                    type="button"
+                  >
+                    <span>
+                      <strong>Aggiorna differenze</strong>
+                      <small>Aggiunge o aggiorna le righe trovate nel file.</small>
+                    </span>
+                  </button>
+                  <button
+                    className={`upload-mode-button ${agencyMarginImportMode === "overwrite" ? "active" : ""}`}
+                    onClick={() => setAgencyMarginImportMode("overwrite")}
+                    type="button"
+                  >
+                    <span>
+                      <strong>Sovrascrivi mese</strong>
+                      <small>Cancella prima quel mese luce/gas e poi reimporta.</small>
+                    </span>
+                  </button>
+                </fieldset>
               </>
             )}
             <label className="upload-file-field">
