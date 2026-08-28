@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { clearSessionCookie, requireUser, setSessionCookie } from "@/lib/auth";
 import { parseAgencyMarginCsv } from "@/lib/import-agency-margins";
+import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth } from "@/lib/agency-margin-upload";
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
 import { isMarketVariableKey, marketVariableDefinitions } from "@/lib/market-variables";
 import { parseEuro } from "@/lib/normalize";
@@ -367,7 +368,7 @@ export async function setCustomerStatusAction(formData: FormData) {
 export async function uploadFileAction(formData: FormData) {
   const user = await requireUser();
   const category = asString(formData, "category");
-  const referenceMonth = asString(formData, "referenceMonth");
+  const billingMonth = asString(formData, "referenceMonth");
   const marginCommodity = asString(formData, "marginCommodity");
   const agencyMarginImportMode = asString(formData, "agencyMarginImportMode") === "overwrite" ? "overwrite" : "update";
   const fileValues = formData.getAll("file").filter((value): value is File => value instanceof File && value.size > 0);
@@ -380,8 +381,8 @@ export async function uploadFileAction(formData: FormData) {
     messageRedirect("/dashboard", "error", "Seleziona un file da caricare.");
   }
 
-  if (category === "margini_agenzia" && !isMonthKey(referenceMonth)) {
-    messageRedirect("/dashboard", "error", "Seleziona mese e anno delle provvigioni agenzia.");
+  if (category === "margini_agenzia" && !isMonthKey(billingMonth)) {
+    messageRedirect("/dashboard", "error", "Seleziona mese e anno di fatturazione.");
   }
 
   if (category === "margini_agenzia" && !isMarginCommodity(marginCommodity)) {
@@ -397,6 +398,12 @@ export async function uploadFileAction(formData: FormData) {
   }
 
   for (const fileValue of fileValues) {
+    const consumptionMonth = category === "margini_agenzia"
+      ? consumptionMonthFromBillingMonth(billingMonth)
+      : undefined;
+    const historyName = category === "margini_agenzia" && consumptionMonth && isMarginCommodity(marginCommodity)
+      ? agencyMarginHistoryFileName(fileValue.name, marginCommodity, consumptionMonth)
+      : fileValue.name;
     const safeName = fileValue.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const storedName = `${Date.now()}_${randomUUID()}_${safeName}`;
     const bytes = Buffer.from(await fileValue.arrayBuffer());
@@ -406,11 +413,11 @@ export async function uploadFileAction(formData: FormData) {
     }
 
     const uploadedFile = await addUploadedFile({
-      originalName: fileValue.name,
+      originalName: historyName,
       storedName,
       storageMode,
       category,
-      referenceMonth: category === "margini_agenzia" ? referenceMonth : undefined,
+      referenceMonth: category === "margini_agenzia" ? consumptionMonth : undefined,
       commodity: category === "margini_agenzia" && isMarginCommodity(marginCommodity) ? marginCommodity : undefined,
       mimeType: fileValue.type || "application/octet-stream",
       size: fileValue.size,
@@ -446,7 +453,7 @@ export async function uploadFileAction(formData: FormData) {
     } else if (category === "margini_agenzia") {
       try {
         const parsed = parseAgencyMarginCsv(bytes, fileValue.name, {
-          monthKey: referenceMonth,
+          monthKey: consumptionMonth,
           commodity: isMarginCommodity(marginCommodity) ? marginCommodity : undefined
         });
 
@@ -463,7 +470,7 @@ export async function uploadFileAction(formData: FormData) {
         });
         const modeLabel = agencyMarginImportMode === "overwrite" ? "sovrascritto" : "aggiornato";
         messages.push(
-          `${fileValue.name}: mese ${modeLabel}, provvigioni agenzia ${result.totalMargin.toLocaleString("it-IT", {
+          `${historyName}: mese di consumo ${modeLabel}, provvigioni agenzia ${result.totalMargin.toLocaleString("it-IT", {
             style: "currency",
             currency: "EUR"
           })}, ${result.generatedCommissionRows} provvigioni generate, ${result.maturingRows} in maturazione, ${result.matchedRows} abbinate.`

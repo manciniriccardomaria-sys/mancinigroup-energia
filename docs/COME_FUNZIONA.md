@@ -55,7 +55,11 @@ L'upload `Caricamenti` importa davvero le righe e tenta il match su POD/PDR.
 L'upload `Provvigioni agenzia per calcolo fonti` legge i CSV mensili `PROV_LUCE...` e `PROV_GAS...`.
 Luce e gas si caricano come due pacchetti separati per mese, selezionando la tipologia corretta.
 Non indica un foglio provvigioni collaboratori o frontline: e il dato da cui parte il calcolo.
-Quando si carica un file `Provvigioni agenzia`, il gestionale richiede mese/anno e tipologia `luce` o `gas`: questi due dati vengono salvati sul file caricato e applicati a tutte le righe del pacchetto, senza dipendere dal nome file.
+Quando si carica un file `Provvigioni agenzia`, il gestionale richiede il mese di fatturazione e la tipologia `luce` o `gas`. Il mese di consumo salvato sulle righe e sempre il mese precedente: per esempio, fatturazione agosto 2026 corrisponde a consumo luglio 2026.
+
+Nello storico il nome originale viene sostituito automaticamente con `Luce_Mese Consumo [Mese e anno]` oppure `Gas_Mese Consumo [Mese e anno]`, mantenendo l'estensione del file.
+
+Lo storico iniziale usa il tab Google Sheets `Margine Agenzia` da marzo a dicembre 2025 e il file `MARGINI MANCINI (1).xlsx` da gennaio a giugno 2026. Da questo punto in avanti grafici, margini e provvigioni usano il mese di consumo come mese di competenza.
 
 Le colonne usate sono:
 

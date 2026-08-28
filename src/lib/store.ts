@@ -305,12 +305,6 @@ function sourceRole(kind: SourceKind): CommissionEntry["role"] {
   return "COLL";
 }
 
-function addMonthsToMonthKey(monthKey: string, offset: number) {
-  const [year, month] = monthKey.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1 + offset, 1));
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
 function monthKeyFromDate(value?: string) {
   const match = value?.match(/^(\d{4})-(\d{2})/);
   return match ? `${match[1]}-${match[2]}` : undefined;
@@ -1305,7 +1299,7 @@ export async function importAgencyMarginRecords(input: {
           customerName: names.customerName,
           customerSurname: names.customerSurname,
           type: row.customerType === "non_definito" ? undefined : row.customerType,
-          competenceMonth: addMonthsToMonthKey(row.monthKey, -1),
+          competenceMonth: row.monthKey,
           dueMonth: row.monthKey,
           amount: commissionAmount,
           importedFrom: uploadedFile

@@ -37,6 +37,7 @@ import { addCommissionPaymentToStore, addCommissionRuleToStore, addCustomerToSto
 import { firebaseAuth, firebaseDb, hasFirebaseClientConfig } from "@/lib/firebase-client";
 import { readFirestoreStore, seedFirestoreStore, writeFirestoreStore } from "@/lib/firebase-store-client";
 import { parseAgencyMarginCsv } from "@/lib/import-agency-margins";
+import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth, formatConsumptionMonth } from "@/lib/agency-margin-upload";
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
 import { marketVariableDefinitions } from "@/lib/market-variables";
 import { formatDate, formatDateTime, formatEuro, parseEuro } from "@/lib/normalize";
@@ -1220,6 +1221,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
   const [trendMetric, setTrendMetric] = useState<"andamento" | "agenzia">("andamento");
   const [trendPeriod, setTrendPeriod] = useState<3 | 6 | 12>(12);
   const [uploadCategory, setUploadCategory] = useState<UploadCategory>("caricamenti");
+  const [agencyBillingMonth, setAgencyBillingMonth] = useState(currentMonthKey());
   const [agencyMarginImportMode, setAgencyMarginImportMode] = useState<AgencyMarginImportMode>("update");
   const customers = visibleCustomers(user, store);
   const loadingRecords = visibleLoadingRecords(user, store);
@@ -1284,7 +1286,8 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
       .getAll("files")
       .filter((item): item is File => item instanceof File && item.size > 0);
     const category = textValue(data, "category") as UploadCategory;
-    const referenceMonth = textValue(data, "referenceMonth") || undefined;
+    const billingMonth = textValue(data, "referenceMonth") || undefined;
+    const consumptionMonth = billingMonth ? consumptionMonthFromBillingMonth(billingMonth) : undefined;
     const commodity = textValue(data, "commodity") as Commodity;
     const selectedAgencyMarginImportMode: AgencyMarginImportMode =
       textValue(data, "agencyMarginImportMode") === "overwrite" ? "overwrite" : "update";
@@ -1302,18 +1305,17 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
         }
 
         if (category === "margini_agenzia") {
-          const isCsv = file.name.toLowerCase().endsWith(".csv");
           const marginCommodity = commodity === "luce" || commodity === "gas" ? commodity : undefined;
 
-          if (isCsv && (!referenceMonth || !marginCommodity)) {
-            throw new Error("Per le provvigioni agenzia servono mese, anno e tipologia.");
+          if (!consumptionMonth || !marginCommodity) {
+            throw new Error("Per le provvigioni agenzia servono mese di fatturazione e tipologia.");
           }
 
           return {
             kind: "margin" as const,
             file,
             margin: parseAgencyMarginCsv(buffer, file.name, {
-              monthKey: referenceMonth,
+              monthKey: consumptionMonth,
               commodity: marginCommodity
             })
           };
@@ -1328,13 +1330,17 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
       const summaries: string[] = [];
 
       for (const item of parsed) {
+        const marginCommodity = commodity === "luce" || commodity === "gas" ? commodity : undefined;
+        const historyName = category === "margini_agenzia" && consumptionMonth && marginCommodity
+          ? agencyMarginHistoryFileName(item.file.name, marginCommodity, consumptionMonth)
+          : item.file.name;
         const uploadRecord = addUploadedFileToStore(draft, {
-          originalName: item.file.name,
+          originalName: historyName,
           category,
           mimeType: item.file.type,
           size: item.file.size,
           uploadedBy: user.id,
-          referenceMonth,
+          referenceMonth: category === "margini_agenzia" ? consumptionMonth : undefined,
           commodity: category === "margini_agenzia" && (commodity === "luce" || commodity === "gas") ? commodity : undefined
         });
 
@@ -1356,7 +1362,7 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
           });
           const modeLabel = selectedAgencyMarginImportMode === "overwrite" ? "sovrascritto" : "aggiornato";
           summaries.push(
-            `${item.file.name}: mese ${modeLabel}, ${result.importedRows} nuovi, ${result.updatedRows} aggiornati, ${result.generatedCommissionRows} provvigioni generate.`
+            `${historyName}: mese di consumo ${modeLabel}, ${result.importedRows} nuovi, ${result.updatedRows} aggiornati, ${result.generatedCommissionRows} provvigioni generate.`
           );
         } else {
           summaries.push(`${item.file.name}: metadati salvati.`);
@@ -1536,8 +1542,16 @@ function DashboardView({ store, user, mutateStore }: ViewProps) {
             {uploadCategory === "margini_agenzia" && (
               <>
                 <label>
-                  Mese provvigioni
-                  <input name="referenceMonth" type="month" defaultValue={currentMonthKey()} />
+                  Mese di fatturazione
+                  <input
+                    name="referenceMonth"
+                    type="month"
+                    value={agencyBillingMonth}
+                    onChange={(event) => setAgencyBillingMonth(event.target.value)}
+                  />
+                  <small>
+                    Mese di consumo: {formatConsumptionMonth(consumptionMonthFromBillingMonth(agencyBillingMonth) ?? "")}
+                  </small>
                 </label>
                 <label>
                   Tipologia
