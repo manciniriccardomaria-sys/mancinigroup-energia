@@ -4,7 +4,7 @@ import type { Commodity } from "./types";
 export const AGENCY_SHARE_RATE = 0.6;
 
 const LIGHT_AGENCY_BASE_SPREAD = 0.006;
-const GAS_AGENCY_BASE_SPREAD = 0.05;
+const GAS_AGENCY_BASE_SPREAD = 0.06;
 
 function roundCurrency(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
