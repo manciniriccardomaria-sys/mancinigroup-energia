@@ -370,7 +370,7 @@ function homeCommissionAmount(offerEasy?: string) {
 }
 
 function frontlineBusinessCommissionAmount(agencyAmount: number) {
-  if (agencyAmount >= 0 && agencyAmount <= 150) {
+  if (agencyAmount >= 30 && agencyAmount <= 150) {
     return 25;
   }
 
@@ -499,6 +499,12 @@ function commissionAmountFromAppsScriptRules(input: {
     if (monthsFromFirstPresence < FIXED_COMMISSION_MATURITY_MONTHS) {
       return {
         status: "in_maturazione" as const
+      };
+    }
+
+    if (isBusiness && role === "FL" && input.record.marginAmount < 30) {
+      return {
+        status: "sotto_soglia" as const
       };
     }
 
@@ -1164,6 +1170,7 @@ export async function importAgencyMarginRecords(input: {
   let generatedCommissionRows = 0;
   let anticipatedRows = 0;
   let maturingRows = 0;
+  let belowThresholdRows = 0;
   let missingTariffRows = 0;
   let missingRuleRows = 0;
   let excludedInvoiceRows = 0;
@@ -1286,6 +1293,10 @@ export async function importAgencyMarginRecords(input: {
         maturingRows += 1;
         removeExistingCommission(commissionEntryId);
         commissionEntryId = undefined;
+      } else if (calculation.status === "sotto_soglia") {
+        belowThresholdRows += 1;
+        removeExistingCommission(commissionEntryId);
+        commissionEntryId = undefined;
       } else {
         commissionAmount = calculation.amount ?? 0;
         commissionKind = calculation.kind;
@@ -1372,6 +1383,7 @@ export async function importAgencyMarginRecords(input: {
     generatedCommissionRows,
     anticipatedRows,
     maturingRows,
+    belowThresholdRows,
     missingTariffRows,
     missingRuleRows,
     totalMargin: roundCurrency(totalMargin),

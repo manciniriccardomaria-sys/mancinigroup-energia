@@ -113,7 +113,7 @@ La provvigione fonte viene generata cosi:
 - Home Fidelity: 20 euro per POD dopo 10 mesi di presenza, poi ogni 12 mesi.
 - Home Basic/Home Standard: 25 euro per POD dopo 10 mesi di presenza, poi ogni 12 mesi.
 - Business/Condomini collaboratore: 50% della provvigione agenzia mensile, dal primo mese in `Provvigioni agenzia`.
-- Business/Condomini frontline: gettone dopo 10 mesi, poi ogni 12 mesi, con scaglioni: 25 euro se provvigione agenzia 0-150, 30 euro se 150-500, 50 euro se 500-1000, 100 euro oltre 1000.
+- Business/Condomini frontline: gettone dopo 10 mesi, poi ogni 12 mesi, con scaglioni: nessuna provvigione sotto 30 euro di margine agenzia; 25 euro da 30 a 150 inclusi; 30 euro oltre 150 e fino a 500; 50 euro oltre 500 e fino a 1000; 100 euro oltre 1000.
 
 Per calcolare i 10 mesi il sistema usa la prima presenza reale del POD/PDR tra caricamenti importati e provvigioni agenzia; se non trova altro, usa la data di pre-associazione cliente come fallback.
 

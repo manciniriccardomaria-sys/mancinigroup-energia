@@ -2640,7 +2640,7 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
                       <td>{commodityLabels[record.commodity]}</td>
                       <td>{formatEuro(record.marginAmount)}</td>
                       <td>{record.commissionAmount !== undefined ? formatEuro(record.commissionAmount) : "-"}</td>
-                      <td>{record.commissionStatus}</td>
+                      <td>{record.commissionStatus === "sotto_soglia" ? "Sotto soglia" : record.commissionStatus}</td>
                     </tr>
                   ))}
                   {filteredAgencyRecords.length === 0 && (

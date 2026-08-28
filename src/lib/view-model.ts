@@ -62,6 +62,8 @@ export function summarizeAgencyMargins(records: AgencyMarginRecord[]) {
         summary.anticipatedRows += 1;
       } else if (record.commissionStatus === "in_maturazione") {
         summary.maturingRows += 1;
+      } else if (record.commissionStatus === "sotto_soglia") {
+        summary.belowThresholdRows += 1;
       } else if (record.commissionStatus === "da_abbinare") {
         summary.unmatchedRows += 1;
       } else if (record.commissionStatus === "tariffa_mancante") {
@@ -80,6 +82,7 @@ export function summarizeAgencyMargins(records: AgencyMarginRecord[]) {
       generatedCommissions: 0,
       anticipatedRows: 0,
       maturingRows: 0,
+      belowThresholdRows: 0,
       unmatchedRows: 0,
       missingTariffRows: 0,
       missingRuleRows: 0

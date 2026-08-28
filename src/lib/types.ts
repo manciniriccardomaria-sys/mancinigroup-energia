@@ -222,6 +222,7 @@ export type AgencyMarginRecord = {
     | "generata"
     | "anticipata"
     | "in_maturazione"
+    | "sotto_soglia"
     | "da_abbinare"
     | "tariffa_mancante"
     | "regola_mancante";
@@ -255,6 +256,7 @@ export type AgencyMarginImportResult = {
   generatedCommissionRows: number;
   anticipatedRows: number;
   maturingRows: number;
+  belowThresholdRows: number;
   missingTariffRows: number;
   missingRuleRows: number;
   totalMargin: number;

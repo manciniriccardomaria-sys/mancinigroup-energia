@@ -351,7 +351,7 @@ function homeCommissionAmount(offerEasy?: string) {
 }
 
 function frontlineBusinessCommissionAmount(agencyAmount: number) {
-  if (agencyAmount >= 0 && agencyAmount <= 150) return 25;
+  if (agencyAmount >= 30 && agencyAmount <= 150) return 25;
   if (agencyAmount > 150 && agencyAmount <= 500) return 30;
   if (agencyAmount > 500 && agencyAmount <= 1000) return 50;
   if (agencyAmount > 1000) return 100;
@@ -449,6 +449,10 @@ function commissionAmountFromRules(input: {
 
     if (monthsFromFirstPresence < FIXED_COMMISSION_MATURITY_MONTHS) {
       return { status: "in_maturazione" as const };
+    }
+
+    if (isBusiness && role === "FL" && input.record.marginAmount < 30) {
+      return { status: "sotto_soglia" as const };
     }
 
     if (
@@ -716,6 +720,7 @@ export function importAgencyMarginRecordsToStore(
   let generatedCommissionRows = 0;
   let anticipatedRows = 0;
   let maturingRows = 0;
+  let belowThresholdRows = 0;
   let missingTariffRows = 0;
   let missingRuleRows = 0;
   let excludedInvoiceRows = 0;
@@ -850,6 +855,7 @@ export function importAgencyMarginRecordsToStore(
         commissionEntryId = undefined;
         if (result.status === "anticipata") anticipatedRows += 1;
         if (result.status === "in_maturazione") maturingRows += 1;
+        if (result.status === "sotto_soglia") belowThresholdRows += 1;
         if (result.status === "regola_mancante") missingRuleRows += 1;
       }
     }
@@ -895,6 +901,7 @@ export function importAgencyMarginRecordsToStore(
     generatedCommissionRows,
     anticipatedRows,
     maturingRows,
+    belowThresholdRows,
     missingTariffRows,
     missingRuleRows,
     totalMargin: roundCurrency(totalMargin),
