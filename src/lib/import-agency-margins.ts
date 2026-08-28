@@ -216,8 +216,10 @@ function marginFromValues(input: {
   spread?: number;
   recurringConsumption?: number;
 }) {
+  const billableConsumption = Math.max(input.consumption, 0);
+
   if (input.pcv !== undefined && input.spread !== undefined && input.commodity !== "non_definito") {
-    const recurringConsumption = input.consumption * (input.spread - agencyBaseSpread(input.commodity));
+    const recurringConsumption = billableConsumption * (input.spread - agencyBaseSpread(input.commodity));
     const grossMarginAmount = input.pcv + recurringConsumption;
 
     return {
@@ -243,11 +245,12 @@ function marginFromValues(input: {
   }
 
   if (input.pcv !== undefined && input.recurringConsumption !== undefined) {
-    const grossMarginAmount = input.pcv + input.recurringConsumption;
+    const recurringConsumption = billableConsumption === 0 ? 0 : input.recurringConsumption;
+    const grossMarginAmount = input.pcv + recurringConsumption;
 
     return {
       recurringPoint: round4(input.pcv),
-      recurringConsumption: round4(input.recurringConsumption),
+      recurringConsumption: round4(recurringConsumption),
       grossMarginAmount: round4(grossMarginAmount),
       marginAmount: roundCurrency(grossMarginAmount * AGENCY_SHARE_RATE),
       tariffNote: undefined
@@ -258,7 +261,7 @@ function marginFromValues(input: {
     const offer = findOfferByCode(input.offer, input.commodity);
 
     if (offer) {
-      const recurringConsumption = input.consumption * (offer.spread - agencyBaseSpread(input.commodity));
+      const recurringConsumption = billableConsumption * (offer.spread - agencyBaseSpread(input.commodity));
       const grossMarginAmount = offer.pcv + recurringConsumption;
 
       return {

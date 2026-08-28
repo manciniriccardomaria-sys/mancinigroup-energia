@@ -68,8 +68,10 @@ Le colonne usate sono:
 
 La colonna D del vecchio foglio viene ricostruita cosi:
 
-- luce: `D = PCV + Consumo * (spread - 0,006)`.
-- gas: `D = PCV + Consumo * (spread - 0,06)`.
+- luce: `D = PCV + MAX(Consumo, 0) * (spread - 0,006)`.
+- gas: `D = PCV + MAX(Consumo, 0) * (spread - 0,06)`.
+
+Se il consumo e uguale o inferiore a zero, il consumo usato nella formula viene portato a zero: il margine resta quindi pari alla sola PCV e non viene ridotto.
 
 La provvigione mensile agenzia usata per calcolare le fonti e il 60% della colonna D ricostruita.
 La fonte ufficiale per PCV e spread e il foglio `Provv. continuative`, tab `Tabella Offerte`; nel gestionale e visibile dalla pagina `Offerte`.

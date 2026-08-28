@@ -47,8 +47,9 @@ export function calculateAgencyMarginFromOffer(input: {
   }
 
   const baseSpread = agencyBaseSpread(input.commodity);
+  const billableConsumption = Math.max(input.consumption, 0);
   const recurringPoint = tariff.pcv;
-  const recurringConsumption = input.consumption * (tariff.spread - baseSpread);
+  const recurringConsumption = billableConsumption * (tariff.spread - baseSpread);
   const grossMarginAmount = recurringPoint + recurringConsumption;
 
   return {
