@@ -1,7 +1,7 @@
 import { cert, getApps as getAdminApps, initializeApp as initializeAdminApp } from "firebase-admin/app";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
 import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
-import { initializeApp as initializeClientApp } from "firebase/app";
+import { deleteApp, initializeApp as initializeClientApp } from "firebase/app";
 import { getAuth, signInWithCustomToken } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, getFirestore, query, where } from "firebase/firestore";
 import { firebaseServiceAccount, loadProductionEnv } from "./firebase-env.mjs";
@@ -15,12 +15,64 @@ if (getAdminApps().length === 0) {
 
 const adminFirestore = getAdminFirestore();
 const collaboratorSnapshot = await adminFirestore.collection("appAccess").get();
-const collaboratorAccess = collaboratorSnapshot.docs.find(
-  (snapshot) => snapshot.data().role === "agent" && snapshot.data().active === true
+for (const snapshot of collaboratorSnapshot.docs) {
+  if (String(snapshot.data().email ?? "").startsWith("codex-access-test-")) {
+    await snapshot.ref.delete();
+    await getAdminAuth().deleteUser(snapshot.id).catch((error) => {
+      if (error?.code !== "auth/user-not-found") throw error;
+    });
+  }
+}
+let collaboratorAccess = collaboratorSnapshot.docs.find(
+  (snapshot) =>
+    snapshot.data().role === "agent" &&
+    snapshot.data().active === true &&
+    !String(snapshot.data().email ?? "").startsWith("codex-access-test-")
 );
+let temporaryUid;
+let clientApp;
+let adminClientApp;
 
 if (!collaboratorAccess) {
-  throw new Error("Nessun account collaboratore attivo da usare per la verifica.");
+  const [sourceSnapshot, customerSnapshot] = await Promise.all([
+    adminFirestore.collection("appData").doc("sources").collection("items").get(),
+    adminFirestore.collection("appData").doc("customers").collection("items").get()
+  ]);
+  const customerCountBySource = new Map();
+
+  for (const customer of customerSnapshot.docs) {
+    const sourceId = customer.data().sourceId;
+    customerCountBySource.set(sourceId, (customerCountBySource.get(sourceId) ?? 0) + 1);
+  }
+
+  const source = sourceSnapshot.docs
+    .filter((snapshot) => snapshot.data().kind === "collaboratore" && snapshot.data().active === true)
+    .sort(
+      (a, b) =>
+        (customerCountBySource.get(b.id) ?? 0) - (customerCountBySource.get(a.id) ?? 0)
+    )[0];
+
+  if (!source) throw new Error("Nessuna fonte collaboratore attiva disponibile per la verifica.");
+
+  const temporaryUser = await getAdminAuth().createUser({
+    email: `codex-access-test-${Date.now()}@example.invalid`,
+    displayName: "Test accesso collaboratore"
+  });
+  temporaryUid = temporaryUser.uid;
+  const temporaryProfile = {
+    id: `usr_test_access_${Date.now()}`,
+    email: temporaryUser.email,
+    name: "Test accesso collaboratore",
+    role: "agent",
+    sourceId: source.id,
+    active: true,
+    updatedAt: new Date().toISOString()
+  };
+  await adminFirestore.collection("appAccess").doc(temporaryUid).set(temporaryProfile);
+  collaboratorAccess = {
+    id: temporaryUid,
+    data: () => temporaryProfile
+  };
 }
 
 const profile = collaboratorAccess.data();
@@ -31,14 +83,6 @@ const appId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
 if (!apiKey || !authDomain || !appId) {
   throw new Error("Configurazione Firebase client incompleta.");
 }
-
-const clientApp = initializeClientApp(
-  { apiKey, authDomain, appId, projectId: serviceAccount.projectId },
-  `access-verification-${Date.now()}`
-);
-const customToken = await getAdminAuth().createCustomToken(collaboratorAccess.id);
-await signInWithCustomToken(getAuth(clientApp), customToken);
-const firestore = getFirestore(clientApp);
 
 async function mustAllow(label, operation) {
   try {
@@ -60,6 +104,19 @@ async function mustDeny(label, operation) {
     }
   }
 }
+
+try {
+clientApp = initializeClientApp(
+  { apiKey, authDomain, appId, projectId: serviceAccount.projectId },
+  `access-verification-${Date.now()}`
+);
+const customToken = await getAdminAuth().createCustomToken(collaboratorAccess.id);
+await signInWithCustomToken(getAuth(clientApp), customToken);
+const firestore = getFirestore(clientApp);
+
+await mustAllow("lettura profilo personale", () =>
+  getDoc(doc(firestore, "appAccess", collaboratorAccess.id))
+);
 
 const ownSource = await mustAllow("lettura fonte propria", () =>
   getDoc(doc(firestore, "appData", "sources", "items", profile.sourceId))
@@ -107,6 +164,40 @@ if (ownAgencyRecord.docs[0]) {
   );
 }
 
-console.log(
-  `Verifica collaboratore superata: ${ownCustomers.result.size} clienti e ${ownCommissions.result.size} provvigioni accessibili; dati altrui e margini agenzia negati.`
+const adminAccess = collaboratorSnapshot.docs.find(
+  (snapshot) => snapshot.data().role === "admin" && snapshot.data().active === true
 );
+if (!adminAccess) throw new Error("Nessun profilo admin attivo disponibile per la verifica.");
+
+adminClientApp = initializeClientApp(
+  { apiKey, authDomain, appId, projectId: serviceAccount.projectId },
+  `admin-access-verification-${Date.now()}`
+);
+const adminToken = await getAdminAuth().createCustomToken(adminAccess.id);
+await signInWithCustomToken(getAuth(adminClientApp), adminToken);
+const adminClientFirestore = getFirestore(adminClientApp);
+await mustAllow("lettura completa admin", () =>
+  Promise.all([
+    getDocs(collection(adminClientFirestore, "appData", "customers", "items")),
+    getDocs(collection(adminClientFirestore, "appData", "agencyMarginRecords", "items")),
+    getDocs(collection(adminClientFirestore, "appData", "users", "items"))
+  ])
+);
+
+console.log(
+  `Verifica accessi superata: collaboratore con ${ownCustomers.result.size} clienti e ${ownCommissions.result.size} provvigioni proprie; dati altrui e margini agenzia negati; accesso admin completo.`
+);
+} finally {
+  if (clientApp) {
+    await deleteApp(clientApp);
+  }
+  if (adminClientApp) {
+    await deleteApp(adminClientApp);
+  }
+  if (temporaryUid) {
+    await Promise.all([
+      adminFirestore.collection("appAccess").doc(temporaryUid).delete(),
+      getAdminAuth().deleteUser(temporaryUid)
+    ]);
+  }
+}
