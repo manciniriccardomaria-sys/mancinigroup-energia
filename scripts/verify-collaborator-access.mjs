@@ -30,7 +30,9 @@ let collaboratorAccess = collaboratorSnapshot.docs.find(
     !String(snapshot.data().email ?? "").startsWith("codex-access-test-")
 );
 let temporaryUid;
+let temporaryFrontlineUid;
 let clientApp;
+let frontlineClientApp;
 let adminClientApp;
 
 if (!collaboratorAccess) {
@@ -129,6 +131,13 @@ const ownCustomers = await mustAllow("query clienti propri", () =>
 const ownCommissions = await mustAllow("query provvigioni proprie", () =>
   getDocs(query(collection(firestore, "appData", "commissionEntries", "items"), where("sourceId", "==", profile.sourceId)))
 );
+const validPersonalCommissions = ownCommissions.result.docs
+  .map((snapshot) => snapshot.data())
+  .filter((entry) => entry.role === "COLL" && /^\d{4}-\d{2}$/.test(entry.dueMonth ?? ""));
+const validPersonalTotal = validPersonalCommissions.reduce((sum, entry) => sum + Number(entry.amount ?? 0), 0);
+const ownForecasts = await mustAllow("query forecast propri", () =>
+  getDocs(query(collection(firestore, "appData", "commissionForecasts", "items"), where("sourceId", "==", profile.sourceId)))
+);
 await mustAllow("query caricamenti propri", () =>
   getDocs(query(collection(firestore, "appData", "loadingRecords", "items"), where("matchedSourceId", "==", profile.sourceId)))
 );
@@ -164,6 +173,66 @@ if (ownAgencyRecord.docs[0]) {
   );
 }
 
+let frontlineAccess = collaboratorSnapshot.docs.find(
+  (snapshot) => snapshot.data().role === "frontline" && snapshot.data().active === true
+);
+if (!frontlineAccess) {
+  const [sourceSnapshot, customerSnapshot] = await Promise.all([
+    adminFirestore.collection("appData").doc("sources").collection("items").get(),
+    adminFirestore.collection("appData").doc("customers").collection("items").get()
+  ]);
+  const customerCountBySource = new Map();
+  for (const customer of customerSnapshot.docs) {
+    const sourceId = customer.data().sourceId;
+    customerCountBySource.set(sourceId, (customerCountBySource.get(sourceId) ?? 0) + 1);
+  }
+  const source = sourceSnapshot.docs
+    .filter((snapshot) => snapshot.data().kind === "frontline" && snapshot.data().active === true)
+    .sort((a, b) => (customerCountBySource.get(b.id) ?? 0) - (customerCountBySource.get(a.id) ?? 0))[0];
+  if (!source) throw new Error("Nessuna fonte frontline attiva disponibile per la verifica.");
+
+  const temporaryUser = await getAdminAuth().createUser({
+    email: `codex-access-test-frontline-${Date.now()}@example.invalid`,
+    displayName: "Test accesso frontline"
+  });
+  temporaryFrontlineUid = temporaryUser.uid;
+  const temporaryProfile = {
+    id: `usr_test_frontline_${Date.now()}`,
+    email: temporaryUser.email,
+    name: "Test accesso frontline",
+    role: "frontline",
+    sourceId: source.id,
+    active: true,
+    updatedAt: new Date().toISOString()
+  };
+  await adminFirestore.collection("appAccess").doc(temporaryFrontlineUid).set(temporaryProfile);
+  frontlineAccess = { id: temporaryFrontlineUid, data: () => temporaryProfile };
+}
+
+frontlineClientApp = initializeClientApp(
+  { apiKey, authDomain, appId, projectId: serviceAccount.projectId },
+  `frontline-access-verification-${Date.now()}`
+);
+const frontlineToken = await getAdminAuth().createCustomToken(frontlineAccess.id);
+await signInWithCustomToken(getAuth(frontlineClientApp), frontlineToken);
+const frontlineFirestore = getFirestore(frontlineClientApp);
+const frontlineProfile = frontlineAccess.data();
+await mustAllow("query clienti frontline propri", () =>
+  getDocs(query(collection(frontlineFirestore, "appData", "customers", "items"), where("sourceId", "==", frontlineProfile.sourceId)))
+);
+await mustAllow("query provvigioni frontline proprie", () =>
+  getDocs(query(collection(frontlineFirestore, "appData", "commissionEntries", "items"), where("sourceId", "==", frontlineProfile.sourceId)))
+);
+await mustAllow("query forecast frontline propri", () =>
+  getDocs(query(collection(frontlineFirestore, "appData", "commissionForecasts", "items"), where("sourceId", "==", frontlineProfile.sourceId)))
+);
+await mustDeny("lettura clienti altrui per frontline", () =>
+  getDocs(collection(frontlineFirestore, "appData", "customers", "items"))
+);
+await mustDeny("lettura utenti per frontline", () =>
+  getDocs(collection(frontlineFirestore, "appData", "users", "items"))
+);
+
 const adminAccess = collaboratorSnapshot.docs.find(
   (snapshot) => snapshot.data().role === "admin" && snapshot.data().active === true
 );
@@ -185,7 +254,7 @@ await mustAllow("lettura completa admin", () =>
 );
 
 console.log(
-  `Verifica accessi superata: collaboratore con ${ownCustomers.result.size} clienti e ${ownCommissions.result.size} provvigioni proprie; dati altrui e margini agenzia negati; accesso admin completo.`
+  `Verifica accessi superata: collaboratore con ${ownCustomers.result.size} clienti, ${validPersonalCommissions.length} provvigioni personali valide per EUR ${validPersonalTotal.toFixed(2)} e ${ownForecasts.result.size} forecast; frontline isolata sulla propria fonte; dati altrui e margini agenzia negati; accesso admin completo.`
 );
 } finally {
   if (clientApp) {
@@ -194,10 +263,19 @@ console.log(
   if (adminClientApp) {
     await deleteApp(adminClientApp);
   }
+  if (frontlineClientApp) {
+    await deleteApp(frontlineClientApp);
+  }
   if (temporaryUid) {
     await Promise.all([
       adminFirestore.collection("appAccess").doc(temporaryUid).delete(),
       getAdminAuth().deleteUser(temporaryUid)
+    ]);
+  }
+  if (temporaryFrontlineUid) {
+    await Promise.all([
+      adminFirestore.collection("appAccess").doc(temporaryFrontlineUid).delete(),
+      getAdminAuth().deleteUser(temporaryFrontlineUid)
     ]);
   }
 }
