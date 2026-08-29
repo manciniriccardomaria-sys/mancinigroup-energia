@@ -68,6 +68,7 @@ try {
 }
 
 if (!authOnly) {
+  const firestore = getFirestore();
   const userId = `usr_${slugify(email)}`;
   const userDoc = {
     id: userId,
@@ -82,12 +83,43 @@ if (!authOnly) {
     userDoc.sourceId = sourceId;
   }
 
-  await getFirestore()
+  if (role === "agent" || role === "frontline") {
+    if (!sourceId) {
+      throw new Error(`Il ruolo ${role} richiede --sourceId.`);
+    }
+
+    const sourceSnapshot = await firestore
+      .collection("appData")
+      .doc("sources")
+      .collection("items")
+      .doc(sourceId)
+      .get();
+    const expectedKind = role === "agent" ? "collaboratore" : "frontline";
+
+    if (!sourceSnapshot.exists || sourceSnapshot.data()?.kind !== expectedKind) {
+      throw new Error(`La fonte ${sourceId} deve essere attiva e di tipo ${expectedKind}.`);
+    }
+  }
+
+  await firestore
     .collection("appData")
     .doc("users")
     .collection("items")
     .doc(userId)
     .set(userDoc, { merge: true });
+
+  await firestore.collection("appAccess").doc(authUser.uid).set(
+    {
+      id: userId,
+      email,
+      name,
+      role,
+      sourceId: userDoc.sourceId ?? null,
+      active: true,
+      updatedAt: new Date().toISOString()
+    },
+    { merge: true }
+  );
 }
 
 console.log(`Utente Firebase pronto: ${authUser.email} (${authUser.uid})`);

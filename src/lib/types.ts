@@ -283,6 +283,10 @@ export type User = {
   createdAt: string;
 };
 
+export type AccessProfile = Pick<User, "id" | "email" | "name" | "role" | "sourceId"> & {
+  active: boolean;
+};
+
 export type StoreData = {
   sources: Source[];
   customers: Customer[];

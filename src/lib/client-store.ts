@@ -549,6 +549,12 @@ export function addUserToStore(
   if (input.role !== "admin" && input.role !== "operativo" && !source) {
     throw new Error("Collega l'utente a una fonte attiva.");
   }
+  if (input.role === "agent" && source?.kind !== "collaboratore") {
+    throw new Error("Collega il collaboratore a una fonte di tipo Collaboratore.");
+  }
+  if (input.role === "frontline" && source?.kind !== "frontline") {
+    throw new Error("Collega l'utente Frontline a una fonte di tipo Frontline.");
+  }
 
   store.users.push(
     createUserMetadata({

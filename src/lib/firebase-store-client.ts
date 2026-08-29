@@ -3,12 +3,15 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
+  query,
   type Firestore,
+  where,
   writeBatch
 } from "firebase/firestore";
 import { createDefaultClientStore, normalizeStore } from "./client-store";
-import type { StoreData } from "./types";
+import type { AccessProfile, StoreData } from "./types";
 
 const STORE_ROOT = "appData";
 const BATCH_LIMIT = 450;
@@ -49,6 +52,85 @@ function emptyStore(): StoreData {
     energyQuotes: [],
     users: []
   };
+}
+
+function isAccessProfile(value: unknown): value is AccessProfile {
+  if (!value || typeof value !== "object") return false;
+  const profile = value as Partial<AccessProfile>;
+  return Boolean(
+    profile.id &&
+      profile.email &&
+      profile.name &&
+      profile.active &&
+      ["admin", "frontline", "agent", "operativo"].includes(profile.role ?? "")
+  );
+}
+
+export async function readAccessProfile(db: Firestore, uid: string) {
+  const snapshot = await getDoc(doc(db, "appAccess", uid));
+  const value = snapshot.data();
+
+  if (!snapshot.exists() || !isAccessProfile(value)) {
+    throw new Error("Accesso non configurato o disattivato. Contatta l'amministratore.");
+  }
+
+  if (value.role === "agent" && !value.sourceId) {
+    throw new Error("Collaboratore non collegato a una fonte. Contatta l'amministratore.");
+  }
+
+  return value;
+}
+
+async function readScopedCollection(
+  db: Firestore,
+  key: StoreCollectionKey,
+  field: string,
+  value: string
+) {
+  const snapshot = await getDocs(
+    query(collection(db, STORE_ROOT, key, "items"), where(field, "==", value))
+  );
+  return snapshot.docs.map((item) => item.data());
+}
+
+export async function readFirestoreStoreForProfile(db: Firestore, profile: AccessProfile) {
+  if (profile.role !== "agent") {
+    return readFirestoreStore(db, profile.email);
+  }
+
+  const sourceId = profile.sourceId!;
+  const sourceSnapshot = await getDoc(doc(db, STORE_ROOT, "sources", "items", sourceId));
+  const [customers, commissionEntries, commissionPayments, loadingRecords, marketVariables, energyQuotes] =
+    await Promise.all([
+      readScopedCollection(db, "customers", "sourceId", sourceId),
+      readScopedCollection(db, "commissionEntries", "sourceId", sourceId),
+      readScopedCollection(db, "commissionPayments", "sourceId", sourceId),
+      readScopedCollection(db, "loadingRecords", "matchedSourceId", sourceId),
+      getDocs(collection(db, STORE_ROOT, "marketVariables", "items")).then((snapshot) =>
+        snapshot.docs.map((item) => item.data())
+      ),
+      readScopedCollection(db, "energyQuotes", "createdBy", profile.id)
+    ]);
+
+  const partial: StoreData = {
+    ...emptyStore(),
+    sources: sourceSnapshot.exists() ? [sourceSnapshot.data() as StoreData["sources"][number]] : [],
+    customers: customers as StoreData["customers"],
+    commissionEntries: commissionEntries as StoreData["commissionEntries"],
+    commissionPayments: commissionPayments as StoreData["commissionPayments"],
+    loadingRecords: loadingRecords as StoreData["loadingRecords"],
+    marketVariables: marketVariables as StoreData["marketVariables"],
+    energyQuotes: energyQuotes as StoreData["energyQuotes"],
+    users: [
+      {
+        ...profile,
+        passwordHash: "firebase-auth",
+        createdAt: ""
+      }
+    ]
+  };
+
+  return { isEmpty: false, store: normalizeStore(partial, profile.email) };
 }
 
 function itemsFor(store: StoreData, key: StoreCollectionKey) {

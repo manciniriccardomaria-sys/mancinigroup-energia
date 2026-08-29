@@ -2,12 +2,114 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /appData/{section}/items/{document} {
-      allow read, write: if request.auth != null;
+    function signedIn() {
+      return request.auth != null;
     }
 
-    match /appMeta/{document} {
-      allow read, write: if request.auth != null;
+    function accessPath() {
+      return /databases/$(database)/documents/appAccess/$(request.auth.uid);
+    }
+
+    function hasActiveAccess() {
+      return signedIn() && exists(accessPath()) && get(accessPath()).data.active == true;
+    }
+
+    function access() {
+      return get(accessPath()).data;
+    }
+
+    function isCollaborator() {
+      return hasActiveAccess() && access().role == 'agent' && access().sourceId is string;
+    }
+
+    function hasFullDataAccess() {
+      return hasActiveAccess() && access().role in ['admin', 'frontline', 'operativo'];
+    }
+
+    function isAdmin() {
+      return hasActiveAccess() && access().role == 'admin';
+    }
+
+    function ownsSource(sourceId) {
+      return isCollaborator() && sourceId == access().sourceId;
+    }
+
+    match /appAccess/{uid} {
+      allow get: if hasActiveAccess() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+
+    match /appData/sources/items/{documentId} {
+      allow read: if hasFullDataAccess() || (isCollaborator() && documentId == access().sourceId);
+      allow write: if hasFullDataAccess();
+    }
+
+    match /appData/customers/items/{documentId} {
+      allow read: if hasFullDataAccess() || ownsSource(resource.data.sourceId);
+      allow write: if hasFullDataAccess();
+    }
+
+    match /appData/commissionEntries/items/{documentId} {
+      allow read: if hasFullDataAccess() || ownsSource(resource.data.sourceId);
+      allow write: if hasFullDataAccess();
+    }
+
+    match /appData/commissionPayments/items/{documentId} {
+      allow read: if hasFullDataAccess() || ownsSource(resource.data.sourceId);
+      allow write: if hasFullDataAccess();
+    }
+
+    match /appData/loadingRecords/items/{documentId} {
+      allow read: if hasFullDataAccess() || ownsSource(resource.data.matchedSourceId);
+      allow write: if hasFullDataAccess();
+    }
+
+    match /appData/agencyMarginRecords/items/{documentId} {
+      allow read, write: if hasFullDataAccess();
+    }
+
+    match /appData/marketVariables/items/{documentId} {
+      allow read: if hasActiveAccess();
+      allow write: if hasFullDataAccess();
+    }
+
+    match /appData/energyQuotes/items/{documentId} {
+      allow read: if hasFullDataAccess() || (isCollaborator() && resource.data.createdBy == access().id);
+      allow create: if hasFullDataAccess() || (
+        isCollaborator() &&
+        request.resource.data.createdBy == access().id &&
+        request.resource.data.sourceId == access().sourceId
+      );
+      allow update: if hasFullDataAccess() || (
+        isCollaborator() &&
+        resource.data.createdBy == access().id &&
+        request.resource.data.createdBy == access().id &&
+        request.resource.data.sourceId == access().sourceId
+      );
+      allow delete: if hasFullDataAccess() || (
+        isCollaborator() && resource.data.createdBy == access().id
+      );
+    }
+
+    match /appData/users/items/{documentId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /appData/commissionRules/items/{documentId} {
+      allow read, write: if hasFullDataAccess();
+    }
+
+    match /appData/productionMetrics/items/{documentId} {
+      allow read, write: if hasFullDataAccess();
+    }
+
+    match /appData/uploadedFiles/items/{documentId} {
+      allow read, write: if hasFullDataAccess();
+    }
+
+    match /appMeta/{documentId} {
+      allow read, write: if hasFullDataAccess();
     }
   }
 }

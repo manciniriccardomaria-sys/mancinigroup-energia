@@ -13,7 +13,9 @@
     "firebase:deploy-rules": "firebase deploy --only firestore",
     "firebase:push-store": "node scripts/push-store-to-firebase.mjs",
     "firebase:backup": "node scripts/backup-firestore-store.mjs",
-    "firebase:create-user": "node scripts/create-firebase-auth-user.mjs"
+    "firebase:create-user": "node scripts/create-firebase-auth-user.mjs",
+    "firebase:sync-access": "node scripts/sync-firebase-access.mjs",
+    "firebase:verify-access": "node scripts/verify-collaborator-access.mjs"
   },
   "dependencies": {
     "firebase": "^12.15.0",

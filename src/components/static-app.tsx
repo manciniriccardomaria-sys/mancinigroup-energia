@@ -35,12 +35,12 @@ import {
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User as FirebaseAuthUser } from "firebase/auth";
 import { addCommissionPaymentToStore, addCommissionRuleToStore, addCustomerToStore, addEnergyQuoteToStore, addSourceToStore, addUploadedFileToStore, addUserToStore, cloneStore, createDefaultClientStore, importAgencyMarginRecordsToStore, importLoadingRecordsToStore, normalizeStore, reassignCustomerInStore, setCustomerStatusInStore, setSourceActiveInStore, upsertMarketVariableToStore } from "@/lib/client-store";
 import { firebaseAuth, firebaseDb, hasFirebaseClientConfig } from "@/lib/firebase-client";
-import { readFirestoreStore, seedFirestoreStore, writeFirestoreStore } from "@/lib/firebase-store-client";
+import { readAccessProfile, readFirestoreStoreForProfile, seedFirestoreStore, writeFirestoreStore } from "@/lib/firebase-store-client";
 import { parseAgencyMarginCsv } from "@/lib/import-agency-margins";
 import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth, formatConsumptionMonth } from "@/lib/agency-margin-upload";
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
 import { marketVariableDefinitions } from "@/lib/market-variables";
-import { formatDate, formatDateTime, formatEuro, parseEuro } from "@/lib/normalize";
+import { formatDate, formatDateTime, formatEuro, normalizePodPdr, parseEuro } from "@/lib/normalize";
 import { offerCatalog, summarizeOfferCatalog } from "@/lib/offers";
 import {
   calculateEnergyQuote,
@@ -124,7 +124,7 @@ const navItems: Array<{
   roles?: UserRole[];
 }> = [
   { href: "/dashboard/", view: "dashboard", label: "Home", icon: <Home size={18} />, roles: ["admin", "frontline", "agent"] },
-  { href: "/customers/new/", view: "customers-new", label: "Pre-associa", icon: <FilePlus2 size={18} />, roles: ["admin", "frontline", "agent", "operativo"] },
+  { href: "/customers/new/", view: "customers-new", label: "Pre-associa", icon: <FilePlus2 size={18} />, roles: ["admin", "frontline", "operativo"] },
   { href: "/customers/", view: "customers", label: "Clienti", icon: <UsersRound size={18} />, roles: ["admin", "frontline", "agent"] },
   {
     href: "/caricamenti/",
@@ -174,7 +174,7 @@ const sourceKindLabels: Record<SourceKind, string> = {
 const roleLabels: Record<UserRole, string> = {
   admin: "Admin",
   frontline: "Frontline",
-  agent: "Agente",
+  agent: "Collaboratore",
   operativo: "Operativo"
 };
 
@@ -867,7 +867,7 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
     });
 
     withTimeout(
-      readFirestoreStore(db, firebaseUser.email),
+      readAccessProfile(db, firebaseUser.uid).then((profile) => readFirestoreStoreForProfile(db, profile)),
       DATA_LOAD_TIMEOUT_MS,
       "La sincronizzazione dati sta impiegando troppo tempo. Controlla la connessione e riprova."
     )
@@ -1037,7 +1037,9 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
 
   return (
     <AppChrome user={sessionUser} view={view} flash={flash} onLogout={handleLogout} onNavigate={navigateToView}>
-      {view === "dashboard" && <DashboardView store={store} user={sessionUser} mutateStore={mutateStore} />}
+      {view === "dashboard" && (sessionUser.role === "agent"
+        ? <CollaboratorDashboard store={store} user={sessionUser} />
+        : <DashboardView store={store} user={sessionUser} mutateStore={mutateStore} />)}
       {view === "customers-new" && <NewCustomerView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "customers" && <CustomersView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "caricamenti" && <CaricamentiView store={store} user={sessionUser} mutateStore={mutateStore} />}
@@ -1213,6 +1215,92 @@ function AppChrome({
       {flash && <div className={`alert ${flash.type}`}>{flash.message}</div>}
       {children}
     </main>
+  );
+}
+
+function CollaboratorDashboard({ store, user }: Omit<ViewProps, "mutateStore">) {
+  const customers = visibleCustomers(user, store);
+  const agencyRecords = visibleAgencyMarginRecords(user, store);
+  const trackingByPod = new Map(
+    summarizeCustomerTracking(agencyRecords).rows.map((row) => [row.podPdrNorm, row])
+  );
+  const commissionEntries = visibleCommissionEntries(user, store);
+  const maturedEntries = maturedCommissionEntries(commissionEntries, currentMonthKey());
+  const payments = commissionPaymentsUpTo(visibleCommissionPayments(user, store), today());
+  const generated = commissionEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const matured = maturedEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const paid = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const activeCustomers = customers.filter(
+    (customer) => customerLifeStatus(customer, trackingByPod.get(customer.podPdrNorm)) === "attivo"
+  ).length;
+  const recentEntries = commissionEntries
+    .slice()
+    .sort((a, b) => b.dueMonth.localeCompare(a.dueMonth) || b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 6);
+
+  return (
+    <>
+      <section className="stats-grid">
+        <StatCard icon={<UsersRound size={24} />} label="Clienti in portafoglio" value={customers.length} />
+        <StatCard icon={<SearchCheck size={24} />} label="Clienti attivi" value={activeCustomers} />
+        <StatCard icon={<BadgeEuro size={24} />} label="Provvigioni generate" value={formatEuro(generated)} />
+        <StatCard icon={<ReceiptText size={24} />} label="Provvigioni da ricevere" value={formatEuro(Math.max(0, matured - paid))} />
+      </section>
+
+      <section className="dashboard-main-grid">
+        <section className="table-section no-margin">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Area personale</p>
+              <h2>Le tue ultime provvigioni</h2>
+              <p className="muted-text">Sono mostrati esclusivamente gli importi generati per te.</p>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table className="compact-table">
+              <thead>
+                <tr>
+                  <th>Mese</th>
+                  <th>Cliente</th>
+                  <th>POD/PDR</th>
+                  <th>Importo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentEntries.map((entry) => (
+                  <tr key={entry.id}>
+                    <td>{formatMonthKey(entry.dueMonth)}</td>
+                    <td>{[entry.customerName, entry.customerSurname].filter(Boolean).join(" ") || "-"}</td>
+                    <td>{entry.pod ?? "-"}</td>
+                    <td><strong>{formatEuro(entry.amount)}</strong></td>
+                  </tr>
+                ))}
+                {recentEntries.length === 0 && (
+                  <tr><td className="empty-state" colSpan={4}>Nessuna provvigione ancora generata.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside className="panel operations-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Riepilogo</p>
+              <h2>La tua posizione</h2>
+            </div>
+          </div>
+          <div className="summary-list">
+            <SummaryRow label="Provvigioni generate" value={formatEuro(generated)} />
+            <SummaryRow label="Provvigioni maturate" value={formatEuro(matured)} />
+            <SummaryRow label="Provvigioni pagate" value={formatEuro(paid)} />
+            <SummaryRow label="Da ricevere" value={formatEuro(Math.max(0, matured - paid))} />
+            <SummaryRow label="Clienti attivi" value={activeCustomers} />
+            <SummaryRow label="Clienti usciti" value={customers.length - activeCustomers} />
+          </div>
+        </aside>
+      </section>
+    </>
   );
 }
 
@@ -1970,8 +2058,17 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
   const trackingByPod = new Map(customerTracking.rows.map((row) => [row.podPdrNorm, row]));
   const loadingRecordsByPod = new Map<string, StoreData["loadingRecords"]>();
 
-  for (const record of customerAgencyMarginRecords) {
-    valueByPod.set(record.podPdrNorm, (valueByPod.get(record.podPdrNorm) ?? 0) + record.marginAmount);
+  if (user.role === "agent") {
+    for (const entry of visibleCommissionEntries(user, store)) {
+      const podPdrNorm = normalizePodPdr(entry.pod ?? "");
+      if (podPdrNorm) {
+        valueByPod.set(podPdrNorm, (valueByPod.get(podPdrNorm) ?? 0) + entry.amount);
+      }
+    }
+  } else {
+    for (const record of customerAgencyMarginRecords) {
+      valueByPod.set(record.podPdrNorm, (valueByPod.get(record.podPdrNorm) ?? 0) + record.marginAmount);
+    }
   }
 
   for (const record of visibleLoadingRecords(user, store)) {
@@ -1987,8 +2084,11 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
   const customerRows = customers.map((customer) => {
     const source = sourceById.get(customer.sourceId);
     const tracking = trackingByPod.get(customer.podPdrNorm);
-    const lifeStatus = customerLifeStatus(customer, tracking);
     const loadingRecords = loadingRecordsByPod.get(customer.podPdrNorm) ?? [];
+    const latestLoadingRecord = loadingRecords
+      .slice()
+      .sort((a, b) => (b.startDate || b.signedAt || b.importedAt).localeCompare(a.startDate || a.signedAt || a.importedAt))[0];
+    const lifeStatus = customerLifeStatus(customer, tracking);
 
     return {
       customer,
@@ -1996,6 +2096,8 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
       tracking,
       lifeStatus,
       entryInfo: customerEntryInfo(customer, tracking, loadingRecords),
+      fiscalId: latestLoadingRecord?.taxCode || latestLoadingRecord?.vat,
+      practiceStatus: latestLoadingRecord?.status || latestLoadingRecord?.loadedStatus || latestLoadingRecord?.precheckStatus,
       value: valueByPod.get(customer.podPdrNorm) ?? 0
     };
   });
@@ -2041,9 +2143,10 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
       <div className="section-heading">
         <div>
           <p className="eyebrow">Clienti</p>
-          <h2>Clienti e fonti</h2>
+          <h2>{user.role === "agent" ? "Il tuo portafoglio clienti" : "Clienti e fonti"}</h2>
           <p className="muted-text">
-            Tracking sugli ultimi 2 mesi disponibili: {activeCustomersCount} attivi e {exitedCustomersCount} usciti.
+            {user.role === "agent" ? "Dati e stato dei clienti collegati alla tua fonte" : "Tracking sugli ultimi 2 mesi disponibili"}:
+            {" "}{activeCustomersCount} attivi e {exitedCustomersCount} usciti.
           </p>
         </div>
         <div className="section-actions">
@@ -2090,15 +2193,16 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
               <th>Cliente</th>
               <th>POD/PDR</th>
               <th>Tipologia</th>
+              <th>CF / P.IVA</th>
               <th>Fonte</th>
-              <th>Valore cliente</th>
+              <th>{user.role === "agent" ? "Le tue provvigioni" : "Valore cliente"}</th>
               <th>Stato</th>
               <th>Data entrata</th>
               <th>Creato</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ customer, source, tracking, lifeStatus, entryInfo, value }) => (
+            {rows.map(({ customer, source, tracking, lifeStatus, entryInfo, fiscalId, practiceStatus, value }) => (
               <tr key={customer.id}>
                 <td>
                   <div className="customer-name-cell">
@@ -2113,52 +2217,61 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
                 <td>
                   <span className={`status-badge ${customer.commodity}`}>{commodityLabels[customer.commodity]}</span>
                 </td>
+                <td>{fiscalId ?? "-"}</td>
                 <td>
-                  <select
-                    value={customer.sourceId}
-                    onChange={(event) =>
-                      void mutateStore(
-                        (draft) => reassignCustomerInStore(draft, customer.id, event.target.value),
-                        "Fonte aggiornata."
-                      )
-                    }
-                  >
-                    {sources.map((source) => (
-                      <option key={source.id} value={source.id}>
-                        {source.name}
-                      </option>
-                    ))}
-                  </select>
+                  {user.role === "agent" ? (
+                    <strong>{source?.name ?? "-"}</strong>
+                  ) : (
+                    <select
+                      value={customer.sourceId}
+                      onChange={(event) =>
+                        void mutateStore(
+                          (draft) => reassignCustomerInStore(draft, customer.id, event.target.value),
+                          "Fonte aggiornata."
+                        )
+                      }
+                    >
+                      {sources.map((source) => (
+                        <option key={source.id} value={source.id}>
+                          {source.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <small>{source?.kind}</small>
                 </td>
                 <td>
                   <strong>{formatEuro(value)}</strong>
-                  <small>Provvigioni agenzia</small>
+                  <small>{user.role === "agent" ? "Provvigioni generate per te" : "Provvigioni agenzia"}</small>
                 </td>
                 <td>
                   <div className="customer-life-state">
                     <span className={`life-status-badge ${lifeStatus}`}>{lifeStatus === "attivo" ? "Attivo" : "Uscito"}</span>
                     <small>
-                      {tracking
-                        ? `Ultimo margine: ${formatMonthKey(tracking.lastMonthKey)}`
-                        : customer.status === "cessato"
-                          ? "Chiuso manualmente"
-                          : "Non ancora nei margini"}
+                      {user.role === "agent"
+                        ? practiceStatus || (customer.status === "cessato" ? "Chiuso" : "Stato gestionale")
+                        : tracking
+                          ? `Ultimo margine: ${formatMonthKey(tracking.lastMonthKey)}`
+                          : customer.status === "cessato"
+                            ? "Chiuso manualmente"
+                            : "Non ancora nei margini"}
                     </small>
                   </div>
-                  <select
-                    value={customer.status}
-                    onChange={(event) =>
-                      void mutateStore(
-                        (draft) => setCustomerStatusInStore(draft, customer.id, event.target.value as CustomerStatus),
-                        "Stato cliente aggiornato."
-                      )
-                    }
-                  >
-                    <option value="attivo">Attivo</option>
-                    <option value="in_lavorazione">In lavorazione</option>
-                    <option value="cessato">Cessato</option>
-                  </select>
+                  {user.role !== "agent" && (
+                    <select
+                      value={customer.status}
+                      onChange={(event) =>
+                        void mutateStore(
+                          (draft) => setCustomerStatusInStore(draft, customer.id, event.target.value as CustomerStatus),
+                          "Stato cliente aggiornato."
+                        )
+                      }
+                    >
+                      <option value="attivo">Attivo</option>
+                      <option value="in_lavorazione">In lavorazione</option>
+                      <option value="cessato">Cessato</option>
+                    </select>
+                  )}
                 </td>
                 <td>
                   <strong>{entryInfo.label}</strong>
@@ -2169,7 +2282,7 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td className="empty-state" colSpan={8}>
+                <td className="empty-state" colSpan={9}>
                   Nessun cliente presente.
                 </td>
               </tr>
@@ -2308,7 +2421,7 @@ function UsersView({ store, user, mutateStore }: ViewProps) {
           <label>
             Ruolo
             <select name="role" defaultValue="agent">
-              <option value="agent">Agente</option>
+              <option value="agent">Collaboratore</option>
               <option value="frontline">Frontline</option>
               <option value="operativo">Operativo</option>
               <option value="admin">Admin</option>
@@ -2669,8 +2782,10 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
   const uncalendarizedEntries = commissionEntries.filter((entry) => !isFullMonthKey(entry.dueMonth));
   const agencyRecords = visibleAgencyMarginRecords(user, store);
   const agencyMonthKeys = agencyRecords.map((record) => record.monthKey);
-  const projectionEndMonthKey = addMonthsToMonthKey(maturityCutoffMonthKey, 12);
-  const projectedEntries = simulateFutureCommissions({
+  const projectionEndMonthKey = user.role === "agent"
+    ? maturityCutoffMonthKey
+    : addMonthsToMonthKey(maturityCutoffMonthKey, 12);
+  const projectedEntries = user.role === "agent" ? [] : simulateFutureCommissions({
     records: agencyRecords,
     customers: store.customers,
     sources: store.sources,
@@ -2761,7 +2876,7 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Provvigioni</p>
-            <h2>Provvigioni maturate per mese</h2>
+            <h2>{user.role === "agent" ? "Le tue provvigioni maturate per mese" : "Provvigioni maturate per mese"}</h2>
             <p className="muted-text">
               Totali maturati fino a {formatMonthKey(maturityCutoffMonthKey)} ({formatDate(cutoffDate)}).
               {" "}
@@ -2769,10 +2884,11 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
                 ? `Ultimo mese presente nei dati: ${formatMonthKey(latestMaturedMonthKey)}.`
                 : "Nessun mese calendarizzato presente."}
               {" "}
-              Simulazione fino a {formatMonthKey(projectionEndMonthKey)}.
+              {user.role !== "agent" && ` Simulazione fino a ${formatMonthKey(projectionEndMonthKey)}.`}
             </p>
             <p className="muted-text">
-              Maturato: {formatEuro(totalMatured)}. Simulato futuro: {formatEuro(totalProjected)}.
+              Maturato: {formatEuro(totalMatured)}.
+              {user.role !== "agent" && ` Simulato futuro: ${formatEuro(totalProjected)}.`}
               {uncalendarizedEntries.length > 0
                 ? ` Escluse dal maturato ${uncalendarizedEntries.length} provvigioni storiche senza mese completo.`
                 : ""}
@@ -2848,17 +2964,19 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
                 ))}
               </select>
             </label>
-            <label className="table-filter-control">
-              Fonte
-              <select value={commissionSourceFilter} onChange={(event) => setCommissionSourceFilter(event.target.value)}>
-                <option value="tutte">Tutte le fonti</option>
-                {sources.map((source) => (
-                  <option key={source.id} value={source.id}>
-                    {source.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {user.role !== "agent" && (
+              <label className="table-filter-control">
+                Fonte
+                <select value={commissionSourceFilter} onChange={(event) => setCommissionSourceFilter(event.target.value)}>
+                  <option value="tutte">Tutte le fonti</option>
+                  {sources.map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <button className="secondary-button" type="button" onClick={() => setShowCommissionList((value) => !value)}>
               {showCommissionList ? "Nascondi elenco" : "Mostra elenco"}
             </button>
@@ -3028,7 +3146,10 @@ function RulesView({ store, user, mutateStore }: ViewProps) {
 }
 
 function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
-  const [quoteInput, setQuoteInput] = useState<EnergyQuoteInput>(() => createDefaultQuoteInput());
+  const [quoteInput, setQuoteInput] = useState<EnergyQuoteInput>(() => ({
+    ...createDefaultQuoteInput(),
+    sourceId: user.role === "agent" ? user.sourceId : undefined
+  }));
   const [quoteNumberInputs, setQuoteNumberInputs] = useState<Partial<Record<QuoteNumberField, string>>>({});
   const calculation = useMemo(
     () => calculateEnergyQuote(quoteInput, store.marketVariables),
@@ -3094,11 +3215,12 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
       return;
     }
 
+    const sourceId = user.role === "agent" ? user.sourceId : quoteInput.sourceId;
     await mutateStore((draft) => {
       addEnergyQuoteToStore(draft, {
         quoteDate: quoteInput.quoteDate,
-        sourceId: quoteInput.sourceId,
-        sourceName: store.sources.find((source) => source.id === quoteInput.sourceId)?.name,
+        sourceId,
+        sourceName: store.sources.find((source) => source.id === sourceId)?.name,
         customerFirstName: quoteInput.firstName,
         customerLastName: quoteInput.lastName,
         customerPhone: quoteInput.phone,
@@ -3117,12 +3239,16 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
         annualSaving: selectedOffer.annualSaving,
         agencyCommission: selectedOffer.agencyCommission,
         inputSnapshot: {
-          ...quoteInput
+          ...quoteInput,
+          sourceId
         },
         createdBy: user.id
       });
     }, "Preventivo salvato.");
-    setQuoteInput(createDefaultQuoteInput(false));
+    setQuoteInput({
+      ...createDefaultQuoteInput(false),
+      sourceId: user.role === "agent" ? user.sourceId : undefined
+    });
     setQuoteNumberInputs({});
   }
 
@@ -3198,14 +3324,21 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                 </label>
                 <label>
                   Fonte
-                  <select value={quoteInput.sourceId ?? ""} onChange={(event) => updateQuote("sourceId", event.target.value)}>
-                    <option value="">Nessuna</option>
-                    {store.sources.filter((source) => source.active).map((source) => (
-                      <option key={source.id} value={source.id}>
-                        {source.name}
-                      </option>
-                    ))}
-                  </select>
+                  {user.role === "agent" ? (
+                    <input
+                      readOnly
+                      value={store.sources.find((source) => source.id === user.sourceId)?.name ?? "Collaboratore"}
+                    />
+                  ) : (
+                    <select value={quoteInput.sourceId ?? ""} onChange={(event) => updateQuote("sourceId", event.target.value)}>
+                      <option value="">Nessuna</option>
+                      {store.sources.filter((source) => source.active).map((source) => (
+                        <option key={source.id} value={source.id}>
+                          {source.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </label>
                 <label>
                   Nome
@@ -3480,7 +3613,7 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
           </table>
         </div>
       </section>
-      <MarketVariablesPanel store={store} user={user} mutateStore={mutateStore} />
+      {user.role !== "agent" && <MarketVariablesPanel store={store} user={user} mutateStore={mutateStore} />}
       <QuotePrintPage calculation={calculation} input={quoteInput} selectedOffer={selectedOffer} />
     </>
   );

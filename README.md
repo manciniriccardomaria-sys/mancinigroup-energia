@@ -4,7 +4,7 @@ Gestionale web per la parte energia di Mancini Service, pubblicabile su GitHub P
 
 ## Primo MVP
 
-- Login con ruoli `admin`, `frontline`, `agente`.
+- Login con ruoli `admin`, `frontline`, `collaboratore` e `operativo`.
 - Home operativa con upload file e pulsante preventivatore.
 - Inserimento diretto di cliente e numero `POD/PDR` in pagina dedicata.
 - Pagine dedicate per clienti, fonti, provvigioni e regole provvigionali.
@@ -54,13 +54,23 @@ pnpm firebase:login
 pnpm firebase:deploy-rules
 pnpm firebase:push-store -- --yes
 pnpm firebase:backup
+pnpm firebase:sync-access
 pnpm build:pages
 ```
+
+Per creare un accesso collaboratore completo (Firebase Auth, profilo gestionale e permessi sulla propria fonte):
+
+```bash
+pnpm firebase:create-user -- --email=nome@example.com --password='PasswordSicura' --name='Nome Cognome' --role=agent --sourceId=src_nome
+```
+
+Il valore interno `agent` resta invariato per compatibilita con i dati storici, ma nell'interfaccia e mostrato come `Collaboratore`.
 
 ## Dati
 
 In sviluppo i dati vengono salvati in `localStorage`.
 In produzione dati operativi e import finiscono in Firestore sotto `appData/{sezione}/items/{id}`.
+I profili autorizzativi sono salvati in `appAccess/{firebaseUid}`; i collaboratori possono leggere soltanto clienti, caricamenti e provvigioni collegati alla propria fonte. I margini dell'agenzia non vengono esposti.
 
 Gli upload vengono letti dal browser, importati subito e poi non conservati come file originale: restano metadati, righe importate, match, totali e storico upload.
 
