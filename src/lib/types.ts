@@ -75,6 +75,14 @@ export type CommissionPayment = {
   createdBy: string;
 };
 
+export type CommissionForecast = {
+  id: string;
+  sourceId: string;
+  monthKey: string;
+  amount: number;
+  generatedAt: string;
+};
+
 export type MarketVariable = {
   id: string;
   key: string;
@@ -292,6 +300,7 @@ export type StoreData = {
   customers: Customer[];
   commissionEntries: CommissionEntry[];
   commissionPayments: CommissionPayment[];
+  commissionForecasts: CommissionForecast[];
   commissionRules: CommissionRule[];
   productionMetrics: ProductionMetric[];
   uploadedFiles: UploadedFileRecord[];

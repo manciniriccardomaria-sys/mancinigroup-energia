@@ -21,6 +21,7 @@ const collectionKeys = [
   "customers",
   "commissionEntries",
   "commissionPayments",
+  "commissionForecasts",
   "commissionRules",
   "productionMetrics",
   "uploadedFiles",
@@ -43,6 +44,7 @@ function emptyStore(): StoreData {
     customers: [],
     commissionEntries: [],
     commissionPayments: [],
+    commissionForecasts: [],
     commissionRules: [],
     productionMetrics: [],
     uploadedFiles: [],
@@ -74,8 +76,8 @@ export async function readAccessProfile(db: Firestore, uid: string) {
     throw new Error("Accesso non configurato o disattivato. Contatta l'amministratore.");
   }
 
-  if (value.role === "agent" && !value.sourceId) {
-    throw new Error("Collaboratore non collegato a una fonte. Contatta l'amministratore.");
+  if ((value.role === "agent" || value.role === "frontline") && !value.sourceId) {
+    throw new Error("Profilo personale non collegato a una fonte. Contatta l'amministratore.");
   }
 
   return value;
@@ -94,17 +96,18 @@ async function readScopedCollection(
 }
 
 export async function readFirestoreStoreForProfile(db: Firestore, profile: AccessProfile) {
-  if (profile.role !== "agent") {
+  if (profile.role !== "agent" && profile.role !== "frontline") {
     return readFirestoreStore(db, profile.email);
   }
 
   const sourceId = profile.sourceId!;
   const sourceSnapshot = await getDoc(doc(db, STORE_ROOT, "sources", "items", sourceId));
-  const [customers, commissionEntries, commissionPayments, loadingRecords, marketVariables, energyQuotes] =
+  const [customers, commissionEntries, commissionPayments, commissionForecasts, loadingRecords, marketVariables, energyQuotes] =
     await Promise.all([
       readScopedCollection(db, "customers", "sourceId", sourceId),
       readScopedCollection(db, "commissionEntries", "sourceId", sourceId),
       readScopedCollection(db, "commissionPayments", "sourceId", sourceId),
+      readScopedCollection(db, "commissionForecasts", "sourceId", sourceId),
       readScopedCollection(db, "loadingRecords", "matchedSourceId", sourceId),
       getDocs(collection(db, STORE_ROOT, "marketVariables", "items")).then((snapshot) =>
         snapshot.docs.map((item) => item.data())
@@ -118,6 +121,7 @@ export async function readFirestoreStoreForProfile(db: Firestore, profile: Acces
     customers: customers as StoreData["customers"],
     commissionEntries: commissionEntries as StoreData["commissionEntries"],
     commissionPayments: commissionPayments as StoreData["commissionPayments"],
+    commissionForecasts: commissionForecasts as StoreData["commissionForecasts"],
     loadingRecords: loadingRecords as StoreData["loadingRecords"],
     marketVariables: marketVariables as StoreData["marketVariables"],
     energyQuotes: energyQuotes as StoreData["energyQuotes"],

@@ -123,5 +123,5 @@ export async function requireUser(roles?: UserRole[]) {
 }
 
 export function canManageAll(user: SessionUser) {
-  return user.role === "admin" || user.role === "frontline";
+  return user.role === "admin" || user.role === "operativo";
 }

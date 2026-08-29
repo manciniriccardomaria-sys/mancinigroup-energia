@@ -15,7 +15,8 @@
     "firebase:backup": "node scripts/backup-firestore-store.mjs",
     "firebase:create-user": "node scripts/create-firebase-auth-user.mjs",
     "firebase:sync-access": "node scripts/sync-firebase-access.mjs",
-    "firebase:verify-access": "node scripts/verify-collaborator-access.mjs"
+    "firebase:verify-access": "node scripts/verify-collaborator-access.mjs",
+    "firebase:rebuild-forecasts": "node scripts/rebuild-commission-forecasts.mjs"
   },
   "dependencies": {
     "firebase": "^12.15.0",

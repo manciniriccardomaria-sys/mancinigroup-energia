@@ -18,11 +18,11 @@ import type { SessionUser } from "@/lib/types";
 
 const navItems = [
   { href: "/dashboard", label: "Home", icon: Home, roles: ["admin", "frontline", "agent"] },
-  { href: "/customers/new", label: "Pre-associa", icon: FilePlus2, roles: ["admin", "frontline", "operativo"] },
+  { href: "/customers/new", label: "Pre-associa", icon: FilePlus2, roles: ["admin", "operativo"] },
   { href: "/customers", label: "Clienti", icon: UsersRound, roles: ["admin", "frontline", "agent"] },
-  { href: "/caricamenti", label: "Caricamenti", operationalLabel: "Abbinamenti", icon: ClipboardList, roles: ["admin", "frontline", "operativo"] },
+  { href: "/caricamenti", label: "Caricamenti", operationalLabel: "Abbinamenti", icon: ClipboardList, roles: ["admin", "operativo"] },
   { href: "/offers", label: "Offerte", icon: Tags },
-  { href: "/sources", label: "Fonti", icon: UserRoundPlus, roles: ["admin", "frontline", "operativo"] },
+  { href: "/sources", label: "Fonti", icon: UserRoundPlus, roles: ["admin", "operativo"] },
   { href: "/users", label: "Utenti", icon: UserCog, adminOnly: true },
   { href: "/commissions", label: "Provvigioni", icon: BarChart3, roles: ["admin", "frontline", "agent"] },
   { href: "/commission-rules", label: "Regole", icon: Settings2, roles: ["admin"] }

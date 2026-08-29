@@ -1,4 +1,5 @@
 import { getMarketVariableDefinition, marketVariableSeedValues } from "./market-variables";
+import { addMonthsToForecastMonth, simulateFutureCommissions } from "./commission-forecast";
 import { detectCommodity, normalizePodPdr, slugify } from "./normalize";
 import type {
   AgencyMarginImportResult,
@@ -168,6 +169,42 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function currentMonthKeyValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function refreshCommissionForecasts(store: StoreData) {
+  const cutoffMonthKey = currentMonthKeyValue();
+  const projections = simulateFutureCommissions({
+    records: store.agencyMarginRecords,
+    customers: store.customers,
+    sources: store.sources,
+    cutoffMonthKey,
+    projectionEndMonthKey: addMonthsToForecastMonth(cutoffMonthKey, 12)
+  });
+  const totals = new Map<string, number>();
+
+  for (const projection of projections) {
+    const key = `${projection.sourceId}|${projection.monthKey}`;
+    totals.set(key, (totals.get(key) ?? 0) + projection.amount);
+  }
+
+  const generatedAt = nowIso();
+  store.commissionForecasts = [...totals.entries()]
+    .map(([key, amount]) => {
+      const [sourceIdValue, monthKey] = key.split("|");
+      return {
+        id: `forecast_${sourceIdValue}_${monthKey}`,
+        sourceId: sourceIdValue,
+        monthKey,
+        amount: roundCurrency(amount),
+        generatedAt
+      };
+    })
+    .sort((a, b) => a.monthKey.localeCompare(b.monthKey) || a.sourceId.localeCompare(b.sourceId));
+}
+
 let fallbackIdCounter = 0;
 
 function fallbackId() {
@@ -258,6 +295,7 @@ export function createDefaultClientStore(adminEmail: string, adminName = "Admin 
     customers: [],
     commissionEntries: [],
     commissionPayments: [],
+    commissionForecasts: [],
     commissionRules: seedRules(adminUser.id, createdAt),
     productionMetrics: seedProductionMetrics,
     marketVariables: seedMarketVariables(adminUser.id, createdAt),
@@ -277,6 +315,7 @@ export function normalizeStore(data: Partial<StoreData>, adminEmail?: string): S
   base.customers ??= [];
   base.commissionEntries ??= [];
   base.commissionPayments ??= [];
+  base.commissionForecasts ??= [];
   base.commissionRules ??= fallback.commissionRules;
   base.productionMetrics ??= fallback.productionMetrics;
   base.uploadedFiles ??= [];
@@ -879,6 +918,7 @@ export function importAgencyMarginRecordsToStore(
     (a, b) => b.monthKey.localeCompare(a.monthKey) || b.importedAt.localeCompare(a.importedAt)
   );
   store.commissionEntries = nextEntries.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  refreshCommissionForecasts(store);
 
   return {
     totalRows: input.totalRows,

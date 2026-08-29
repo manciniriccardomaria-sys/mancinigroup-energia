@@ -14,8 +14,12 @@ export function sourceMap(sources: Source[]) {
   return new Map(sources.map((source) => [source.id, source]));
 }
 
+export function isPersonalUser(user: SessionUser) {
+  return (user.role === "agent" || user.role === "frontline") && Boolean(user.sourceId);
+}
+
 export function visibleCustomers(user: SessionUser, store: StoreData) {
-  if (user.role === "admin" || user.role === "frontline") {
+  if (!isPersonalUser(user)) {
     return store.customers;
   }
 
@@ -23,7 +27,7 @@ export function visibleCustomers(user: SessionUser, store: StoreData) {
 }
 
 export function visibleLoadingRecords(user: SessionUser, store: StoreData) {
-  if (user.role === "agent" && user.sourceId) {
+  if (isPersonalUser(user)) {
     return store.loadingRecords.filter((record) => record.matchedSourceId === user.sourceId);
   }
 
@@ -31,12 +35,7 @@ export function visibleLoadingRecords(user: SessionUser, store: StoreData) {
 }
 
 export function visibleAgencyMarginRecords(user: SessionUser, store: StoreData) {
-  const records =
-    user.role === "agent" && user.sourceId
-      ? store.agencyMarginRecords.filter((record) => record.matchedSourceId === user.sourceId)
-      : store.agencyMarginRecords;
-
-  return records;
+  return isPersonalUser(user) ? [] : store.agencyMarginRecords;
 }
 
 export function summarizeAgencyMargins(records: AgencyMarginRecord[]) {
@@ -201,7 +200,7 @@ export function customerSource(customer: Customer, sources: Source[]) {
 export function activeSourcesForUser(user: SessionUser, sources: Source[]) {
   const active = sources.filter((source) => source.active);
 
-  if (user.role === "agent" && user.sourceId) {
+  if (isPersonalUser(user)) {
     return active.filter((source) => source.id === user.sourceId);
   }
 
@@ -209,7 +208,7 @@ export function activeSourcesForUser(user: SessionUser, sources: Source[]) {
 }
 
 export function visibleSourcesForUser(user: SessionUser, sources: Source[]) {
-  if (user.role === "agent" && user.sourceId) {
+  if (isPersonalUser(user)) {
     return sources.filter((source) => source.id === user.sourceId);
   }
 
@@ -217,19 +216,34 @@ export function visibleSourcesForUser(user: SessionUser, sources: Source[]) {
 }
 
 export function visibleCommissionEntries(user: SessionUser, store: StoreData) {
-  if (user.role === "agent" && user.sourceId) {
-    return store.commissionEntries.filter((entry) => entry.sourceId === user.sourceId);
+  if (isPersonalUser(user)) {
+    const source = store.sources.find((item) => item.id === user.sourceId);
+    const expectedRole = source?.kind === "frontline" ? "FL" : "COLL";
+    return store.commissionEntries.filter(
+      (entry) =>
+        entry.sourceId === user.sourceId &&
+        entry.role === expectedRole &&
+        isFullMonthKey(entry.dueMonth)
+    );
   }
 
   return store.commissionEntries;
 }
 
 export function visibleCommissionPayments(user: SessionUser, store: StoreData) {
-  if (user.role === "agent" && user.sourceId) {
+  if (isPersonalUser(user)) {
     return store.commissionPayments.filter((payment) => payment.sourceId === user.sourceId);
   }
 
   return store.commissionPayments;
+}
+
+export function visibleCommissionForecasts(user: SessionUser, store: StoreData) {
+  if (isPersonalUser(user)) {
+    return store.commissionForecasts.filter((forecast) => forecast.sourceId === user.sourceId);
+  }
+
+  return store.commissionForecasts;
 }
 
 export function isFullMonthKey(value?: string) {

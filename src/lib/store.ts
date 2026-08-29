@@ -652,6 +652,7 @@ async function defaultStore(): Promise<StoreData> {
     customers: [],
     commissionEntries: seedCommissionEntries(sources, now),
     commissionPayments: seedCommissionPayments(adminUser.id, now),
+    commissionForecasts: [],
     commissionRules: seedRules(adminUser.id, now),
     productionMetrics: seedProductionMetrics,
     marketVariables: seedMarketVariables(adminUser.id, now),
@@ -675,6 +676,7 @@ function needsMigration(data: Partial<StoreData>) {
     !Array.isArray(data.uploadedFiles) ||
     !Array.isArray(data.commissionEntries) ||
     !Array.isArray(data.commissionPayments) ||
+    !Array.isArray(data.commissionForecasts) ||
     !Array.isArray(data.commissionRules) ||
     !Array.isArray(data.productionMetrics) ||
     !Array.isArray(data.marketVariables) ||
@@ -703,6 +705,7 @@ function migrateStore(data: Partial<StoreData>): StoreData {
   base.uploadedFiles ??= [];
   base.commissionEntries ??= seedCommissionEntries(base.sources, now);
   base.commissionPayments ??= seedCommissionPayments(adminId, now);
+  base.commissionForecasts ??= [];
   base.commissionRules ??= seedRules(adminId, now);
   base.productionMetrics ??= seedProductionMetrics;
   base.marketVariables ??= [];

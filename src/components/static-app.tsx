@@ -36,6 +36,7 @@ import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User as F
 import { addCommissionPaymentToStore, addCommissionRuleToStore, addCustomerToStore, addEnergyQuoteToStore, addSourceToStore, addUploadedFileToStore, addUserToStore, cloneStore, createDefaultClientStore, importAgencyMarginRecordsToStore, importLoadingRecordsToStore, normalizeStore, reassignCustomerInStore, setCustomerStatusInStore, setSourceActiveInStore, upsertMarketVariableToStore } from "@/lib/client-store";
 import { firebaseAuth, firebaseDb, hasFirebaseClientConfig } from "@/lib/firebase-client";
 import { readAccessProfile, readFirestoreStoreForProfile, seedFirestoreStore, writeFirestoreStore } from "@/lib/firebase-store-client";
+import { simulateFutureCommissions, type ProjectedCommission } from "@/lib/commission-forecast";
 import { parseAgencyMarginCsv } from "@/lib/import-agency-margins";
 import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth, formatConsumptionMonth } from "@/lib/agency-margin-upload";
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
@@ -69,6 +70,7 @@ import {
   activeSourcesForUser,
   commissionPaymentsUpTo,
   isFullMonthKey,
+  isPersonalUser,
   maturedCommissionEntries,
   monthlyPerformance,
   summarizeAgencyMargins,
@@ -76,6 +78,7 @@ import {
   summarizeCommissionRows,
   visibleAgencyMarginRecords,
   visibleCommissionEntries,
+  visibleCommissionForecasts,
   visibleCommissionPayments,
   visibleCustomers,
   visibleLoadingRecords,
@@ -124,7 +127,7 @@ const navItems: Array<{
   roles?: UserRole[];
 }> = [
   { href: "/dashboard/", view: "dashboard", label: "Home", icon: <Home size={18} />, roles: ["admin", "frontline", "agent"] },
-  { href: "/customers/new/", view: "customers-new", label: "Pre-associa", icon: <FilePlus2 size={18} />, roles: ["admin", "frontline", "operativo"] },
+  { href: "/customers/new/", view: "customers-new", label: "Pre-associa", icon: <FilePlus2 size={18} />, roles: ["admin", "operativo"] },
   { href: "/customers/", view: "customers", label: "Clienti", icon: <UsersRound size={18} />, roles: ["admin", "frontline", "agent"] },
   {
     href: "/caricamenti/",
@@ -132,10 +135,10 @@ const navItems: Array<{
     label: "Caricamenti",
     operationalLabel: "Abbinamenti",
     icon: <ClipboardList size={18} />,
-    roles: ["admin", "frontline", "operativo"]
+    roles: ["admin", "operativo"]
   },
   { href: "/offers/", view: "offers", label: "Offerte", icon: <Tags size={18} /> },
-  { href: "/sources/", view: "sources", label: "Fonti", icon: <UserPlus size={18} />, roles: ["admin", "frontline", "operativo"] },
+  { href: "/sources/", view: "sources", label: "Fonti", icon: <UserPlus size={18} />, roles: ["admin", "operativo"] },
   { href: "/commissions/", view: "commissions", label: "Provvigioni", icon: <BarChart3 size={18} />, roles: ["admin", "frontline", "agent"] },
   { href: "/commission-rules/", view: "commission-rules", label: "Regole", icon: <SlidersHorizontal size={18} />, roles: ["admin"] },
   { href: "/preventivatore/", view: "preventivatore", label: "Preventivatore", icon: <Calculator size={18} /> },
@@ -277,21 +280,11 @@ function addMonthsToMonthKey(monthKey: string, months: number) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function monthDistance(startMonthKey: string, currentMonthKey: string) {
-  const [startYear, startMonth] = startMonthKey.split("-").map(Number);
-  const [currentYear, currentMonth] = currentMonthKey.split("-").map(Number);
-  return (currentYear - startYear) * 12 + (currentMonth - startMonth);
-}
-
 function latestFullMonthKey(entries: CommissionEntry[]) {
   return entries
     .map((entry) => entry.dueMonth)
     .filter(isFullMonthKey)
     .sort((a, b) => b.localeCompare(a))[0];
-}
-
-function latestFullMonthValue(monthKeys: string[]) {
-  return monthKeys.filter(isFullMonthKey).sort((a, b) => b.localeCompare(a))[0];
 }
 
 function buildCommissionMonthColumns(entries: CommissionEntry[], cutoffMonthKey: string, startMonthCandidates: string[] = []) {
@@ -304,12 +297,6 @@ function buildCommissionMonthColumns(entries: CommissionEntry[], cutoffMonthKey:
 
   return firstMonthKey ? monthRange(firstMonthKey, cutoffMonthKey) : [];
 }
-
-type ProjectedCommission = {
-  sourceId: string;
-  monthKey: string;
-  amount: number;
-};
 
 type MonthlyCommissionCell = {
   actual: number;
@@ -364,140 +351,8 @@ function buildMonthlyCommissionRows(
     .sort((a, b) => b.due - a.due || a.source.name.localeCompare(b.source.name, "it"));
 }
 
-function isHomeCommissionOffer(offer?: string) {
-  return (offer ?? "").toUpperCase().startsWith("HOME");
-}
-
-function isBusinessCommissionOffer(offer?: string) {
-  const normalized = (offer ?? "").toUpperCase();
-  return normalized.startsWith("BUSINESS") || normalized.includes("CONDOMINI STANDARD") || normalized.includes("COND. STANDARD");
-}
-
-function projectedFixedHomeAmount(offer?: string) {
-  const normalized = (offer ?? "").toUpperCase();
-  if (normalized.includes("HOME FAMILY")) return 15;
-  if (normalized.includes("HOME FIDELITY")) return 20;
-  return 25;
-}
-
-function projectedFrontlineBusinessAmount(agencyAmount: number) {
-  if (agencyAmount >= 0 && agencyAmount <= 150) return 25;
-  if (agencyAmount > 150 && agencyAmount <= 500) return 30;
-  if (agencyAmount > 500 && agencyAmount <= 1000) return 50;
-  if (agencyAmount > 1000) return 100;
-  return 0;
-}
-
 function roundCurrency(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-function simulateFutureCommissions(input: {
-  records: AgencyMarginRecord[];
-  customers: StoreData["customers"];
-  sources: Source[];
-  cutoffMonthKey: string;
-  projectionEndMonthKey: string;
-}) {
-  const sourceById = new Map(input.sources.map((source) => [source.id, source]));
-  const customerByPod = new Map(input.customers.map((customer) => [customer.podPdrNorm, customer]));
-  const recordsByPod = new Map<string, AgencyMarginRecord[]>();
-
-  for (const record of input.records) {
-    if (!record.podPdrNorm || !isFullMonthKey(record.monthKey)) {
-      continue;
-    }
-
-    const group = recordsByPod.get(record.podPdrNorm) ?? [];
-    group.push(record);
-    recordsByPod.set(record.podPdrNorm, group);
-  }
-
-  const latestImportedMonthKey = latestFullMonthValue(input.records.map((record) => record.monthKey));
-  const activeThresholdMonthKey = latestImportedMonthKey ? addMonthsToMonthKey(latestImportedMonthKey, -2) : "";
-  const futureMonths = monthRange(addMonthsToMonthKey(input.cutoffMonthKey, 1), input.projectionEndMonthKey);
-  const projections: ProjectedCommission[] = [];
-
-  for (const [podPdrNorm, records] of recordsByPod.entries()) {
-    const sorted = records.slice().sort((a, b) => a.monthKey.localeCompare(b.monthKey));
-    const firstMonthKey = sorted[0]?.monthKey;
-    const lastRecord = sorted.at(-1);
-    const lastMonthKey = lastRecord?.monthKey;
-    const customer = customerByPod.get(podPdrNorm);
-    const source = sourceById.get(customer?.sourceId ?? lastRecord?.matchedSourceId ?? "");
-    const offer = lastRecord?.offerEasy ?? lastRecord?.offer ?? customer?.offer;
-
-    if (!firstMonthKey || !lastMonthKey || !lastRecord || !source || source.kind === "sede") {
-      continue;
-    }
-
-    const isStillActive = customer?.status !== "cessato" && (!activeThresholdMonthKey || lastMonthKey >= activeThresholdMonthKey);
-    const firstFixedDueMonthKey = addMonthsToMonthKey(firstMonthKey, 10);
-    const closedBeforeMaturity = !isStillActive && monthDistance(firstMonthKey, lastMonthKey) < 10;
-
-    if (closedBeforeMaturity) {
-      continue;
-    }
-
-    if (source.kind === "collaboratore" && isBusinessCommissionOffer(offer)) {
-      if (!isStillActive) {
-        continue;
-      }
-
-      const latestGenerated = sorted
-        .filter((record) => record.commissionKind === "business_coll_monthly" && record.commissionAmount !== undefined)
-        .sort((a, b) => b.monthKey.localeCompare(a.monthKey))[0];
-      const amount = latestGenerated?.commissionAmount ?? roundCurrency(lastRecord.marginAmount * 0.5);
-
-      if (amount > 0) {
-        for (const monthKey of futureMonths) {
-          projections.push({ sourceId: source.id, monthKey, amount });
-        }
-      }
-
-      continue;
-    }
-
-    if (!isHomeCommissionOffer(offer) && !(source.kind === "frontline" && isBusinessCommissionOffer(offer))) {
-      continue;
-    }
-
-    if (!isStillActive && lastMonthKey < firstFixedDueMonthKey) {
-      continue;
-    }
-
-    const amount = isHomeCommissionOffer(offer)
-      ? projectedFixedHomeAmount(offer)
-      : projectedFrontlineBusinessAmount(lastRecord.marginAmount);
-
-    if (amount <= 0) {
-      continue;
-    }
-
-    const generatedFixedMonths = sorted
-      .filter(
-        (record) =>
-          record.commissionStatus === "generata" &&
-          (record.commissionKind === "home_once" || record.commissionKind === "business_fl_once")
-      )
-      .map((record) => record.monthKey)
-      .sort((a, b) => b.localeCompare(a));
-    let nextDueMonthKey = generatedFixedMonths[0] ? addMonthsToMonthKey(generatedFixedMonths[0], 12) : firstFixedDueMonthKey;
-
-    while (nextDueMonthKey <= input.cutoffMonthKey) {
-      nextDueMonthKey = addMonthsToMonthKey(nextDueMonthKey, 12);
-    }
-
-    while (nextDueMonthKey <= input.projectionEndMonthKey) {
-      if (isStillActive || nextDueMonthKey <= lastMonthKey) {
-        projections.push({ sourceId: source.id, monthKey: nextDueMonthKey, amount });
-      }
-
-      nextDueMonthKey = addMonthsToMonthKey(nextDueMonthKey, 12);
-    }
-  }
-
-  return projections;
 }
 
 function formatNumber(value: number, digits = 2) {
@@ -1037,7 +892,7 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
 
   return (
     <AppChrome user={sessionUser} view={view} flash={flash} onLogout={handleLogout} onNavigate={navigateToView}>
-      {view === "dashboard" && (sessionUser.role === "agent"
+      {view === "dashboard" && (isPersonalUser(sessionUser)
         ? <CollaboratorDashboard store={store} user={sessionUser} />
         : <DashboardView store={store} user={sessionUser} mutateStore={mutateStore} />)}
       {view === "customers-new" && <NewCustomerView store={store} user={sessionUser} mutateStore={mutateStore} />}
@@ -2058,7 +1913,7 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
   const trackingByPod = new Map(customerTracking.rows.map((row) => [row.podPdrNorm, row]));
   const loadingRecordsByPod = new Map<string, StoreData["loadingRecords"]>();
 
-  if (user.role === "agent") {
+  if (isPersonalUser(user)) {
     for (const entry of visibleCommissionEntries(user, store)) {
       const podPdrNorm = normalizePodPdr(entry.pod ?? "");
       if (podPdrNorm) {
@@ -2143,9 +1998,9 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
       <div className="section-heading">
         <div>
           <p className="eyebrow">Clienti</p>
-          <h2>{user.role === "agent" ? "Il tuo portafoglio clienti" : "Clienti e fonti"}</h2>
+          <h2>{isPersonalUser(user) ? "Il tuo portafoglio clienti" : "Clienti e fonti"}</h2>
           <p className="muted-text">
-            {user.role === "agent" ? "Dati e stato dei clienti collegati alla tua fonte" : "Tracking sugli ultimi 2 mesi disponibili"}:
+            {isPersonalUser(user) ? "Dati e stato dei clienti collegati alla tua fonte" : "Tracking sugli ultimi 2 mesi disponibili"}:
             {" "}{activeCustomersCount} attivi e {exitedCustomersCount} usciti.
           </p>
         </div>
@@ -2195,7 +2050,7 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
               <th>Tipologia</th>
               <th>CF / P.IVA</th>
               <th>Fonte</th>
-              <th>{user.role === "agent" ? "Le tue provvigioni" : "Valore cliente"}</th>
+              <th>{isPersonalUser(user) ? "Le tue provvigioni" : "Valore cliente"}</th>
               <th>Stato</th>
               <th>Data entrata</th>
               <th>Creato</th>
@@ -2219,7 +2074,7 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
                 </td>
                 <td>{fiscalId ?? "-"}</td>
                 <td>
-                  {user.role === "agent" ? (
+                  {isPersonalUser(user) ? (
                     <strong>{source?.name ?? "-"}</strong>
                   ) : (
                     <select
@@ -2242,13 +2097,13 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
                 </td>
                 <td>
                   <strong>{formatEuro(value)}</strong>
-                  <small>{user.role === "agent" ? "Provvigioni generate per te" : "Provvigioni agenzia"}</small>
+                  <small>{isPersonalUser(user) ? "Provvigioni generate per te" : "Provvigioni agenzia"}</small>
                 </td>
                 <td>
                   <div className="customer-life-state">
                     <span className={`life-status-badge ${lifeStatus}`}>{lifeStatus === "attivo" ? "Attivo" : "Uscito"}</span>
                     <small>
-                      {user.role === "agent"
+                      {isPersonalUser(user)
                         ? practiceStatus || (customer.status === "cessato" ? "Chiuso" : "Stato gestionale")
                         : tracking
                           ? `Ultimo margine: ${formatMonthKey(tracking.lastMonthKey)}`
@@ -2257,7 +2112,7 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
                             : "Non ancora nei margini"}
                     </small>
                   </div>
-                  {user.role !== "agent" && (
+                  {!isPersonalUser(user) && (
                     <select
                       value={customer.status}
                       onChange={(event) =>
@@ -2782,17 +2637,22 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
   const uncalendarizedEntries = commissionEntries.filter((entry) => !isFullMonthKey(entry.dueMonth));
   const agencyRecords = visibleAgencyMarginRecords(user, store);
   const agencyMonthKeys = agencyRecords.map((record) => record.monthKey);
-  const projectionEndMonthKey = user.role === "agent"
-    ? maturityCutoffMonthKey
-    : addMonthsToMonthKey(maturityCutoffMonthKey, 12);
-  const projectedEntries = user.role === "agent" ? [] : simulateFutureCommissions({
-    records: agencyRecords,
-    customers: store.customers,
-    sources: store.sources,
-    cutoffMonthKey: maturityCutoffMonthKey,
-    projectionEndMonthKey
-  });
-  const monthlyColumns = buildCommissionMonthColumns(maturedEntries, projectionEndMonthKey, agencyMonthKeys);
+  const projectionEndMonthKey = addMonthsToMonthKey(maturityCutoffMonthKey, 12);
+  const projectedEntries = isPersonalUser(user)
+    ? visibleCommissionForecasts(user, store)
+        .filter((forecast) => forecast.monthKey > maturityCutoffMonthKey && forecast.monthKey <= projectionEndMonthKey)
+    : simulateFutureCommissions({
+        records: agencyRecords,
+        customers: store.customers,
+        sources: store.sources,
+        cutoffMonthKey: maturityCutoffMonthKey,
+        projectionEndMonthKey
+      });
+  const monthlyColumns = buildCommissionMonthColumns(
+    maturedEntries,
+    projectionEndMonthKey,
+    [...agencyMonthKeys, ...projectedEntries.map((entry) => entry.monthKey)]
+  );
   const monthlyRows = buildMonthlyCommissionRows(maturedEntries, commissionPayments, sources, monthlyColumns, projectedEntries);
   const [commissionMonthFilter, setCommissionMonthFilter] = useState("tutti");
   const [commissionSourceFilter, setCommissionSourceFilter] = useState("tutte");
@@ -2830,7 +2690,7 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
 
   return (
     <>
-      {user.role !== "agent" && (
+      {!isPersonalUser(user) && (
         <section className="panel narrow-panel">
           <div className="panel-heading">
             <div>
@@ -2876,7 +2736,7 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Provvigioni</p>
-            <h2>{user.role === "agent" ? "Le tue provvigioni maturate per mese" : "Provvigioni maturate per mese"}</h2>
+            <h2>{isPersonalUser(user) ? "Le tue provvigioni maturate per mese" : "Provvigioni maturate per mese"}</h2>
             <p className="muted-text">
               Totali maturati fino a {formatMonthKey(maturityCutoffMonthKey)} ({formatDate(cutoffDate)}).
               {" "}
@@ -2884,11 +2744,11 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
                 ? `Ultimo mese presente nei dati: ${formatMonthKey(latestMaturedMonthKey)}.`
                 : "Nessun mese calendarizzato presente."}
               {" "}
-              {user.role !== "agent" && ` Simulazione fino a ${formatMonthKey(projectionEndMonthKey)}.`}
+              {` Forecast personale fino a ${formatMonthKey(projectionEndMonthKey)}.`}
             </p>
             <p className="muted-text">
               Maturato: {formatEuro(totalMatured)}.
-              {user.role !== "agent" && ` Simulato futuro: ${formatEuro(totalProjected)}.`}
+              {` Forecast futuro: ${formatEuro(totalProjected)}.`}
               {uncalendarizedEntries.length > 0
                 ? ` Escluse dal maturato ${uncalendarizedEntries.length} provvigioni storiche senza mese completo.`
                 : ""}
@@ -2964,7 +2824,7 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
                 ))}
               </select>
             </label>
-            {user.role !== "agent" && (
+            {!isPersonalUser(user) && (
               <label className="table-filter-control">
                 Fonte
                 <select value={commissionSourceFilter} onChange={(event) => setCommissionSourceFilter(event.target.value)}>
@@ -3148,7 +3008,7 @@ function RulesView({ store, user, mutateStore }: ViewProps) {
 function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
   const [quoteInput, setQuoteInput] = useState<EnergyQuoteInput>(() => ({
     ...createDefaultQuoteInput(),
-    sourceId: user.role === "agent" ? user.sourceId : undefined
+    sourceId: isPersonalUser(user) ? user.sourceId : undefined
   }));
   const [quoteNumberInputs, setQuoteNumberInputs] = useState<Partial<Record<QuoteNumberField, string>>>({});
   const calculation = useMemo(
@@ -3215,7 +3075,7 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
       return;
     }
 
-    const sourceId = user.role === "agent" ? user.sourceId : quoteInput.sourceId;
+    const sourceId = isPersonalUser(user) ? user.sourceId : quoteInput.sourceId;
     await mutateStore((draft) => {
       addEnergyQuoteToStore(draft, {
         quoteDate: quoteInput.quoteDate,
@@ -3247,7 +3107,7 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
     }, "Preventivo salvato.");
     setQuoteInput({
       ...createDefaultQuoteInput(false),
-      sourceId: user.role === "agent" ? user.sourceId : undefined
+      sourceId: isPersonalUser(user) ? user.sourceId : undefined
     });
     setQuoteNumberInputs({});
   }
@@ -3324,7 +3184,7 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                 </label>
                 <label>
                   Fonte
-                  {user.role === "agent" ? (
+                  {isPersonalUser(user) ? (
                     <input
                       readOnly
                       value={store.sources.find((source) => source.id === user.sourceId)?.name ?? "Collaboratore"}
@@ -3613,7 +3473,7 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
           </table>
         </div>
       </section>
-      {user.role !== "agent" && <MarketVariablesPanel store={store} user={user} mutateStore={mutateStore} />}
+      {!isPersonalUser(user) && <MarketVariablesPanel store={store} user={user} mutateStore={mutateStore} />}
       <QuotePrintPage calculation={calculation} input={quoteInput} selectedOffer={selectedOffer} />
     </>
   );

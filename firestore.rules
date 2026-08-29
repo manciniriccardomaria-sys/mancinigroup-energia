@@ -18,12 +18,12 @@ service cloud.firestore {
       return get(accessPath()).data;
     }
 
-    function isCollaborator() {
-      return hasActiveAccess() && access().role == 'agent' && access().sourceId is string;
+    function isPersonalProfile() {
+      return hasActiveAccess() && access().role in ['agent', 'frontline'] && access().sourceId is string;
     }
 
     function hasFullDataAccess() {
-      return hasActiveAccess() && access().role in ['admin', 'frontline', 'operativo'];
+      return hasActiveAccess() && access().role in ['admin', 'operativo'];
     }
 
     function isAdmin() {
@@ -31,7 +31,7 @@ service cloud.firestore {
     }
 
     function ownsSource(sourceId) {
-      return isCollaborator() && sourceId == access().sourceId;
+      return isPersonalProfile() && sourceId == access().sourceId;
     }
 
     match /appAccess/{uid} {
@@ -41,7 +41,7 @@ service cloud.firestore {
     }
 
     match /appData/sources/items/{documentId} {
-      allow read: if hasFullDataAccess() || (isCollaborator() && documentId == access().sourceId);
+      allow read: if hasFullDataAccess() || (isPersonalProfile() && documentId == access().sourceId);
       allow write: if hasFullDataAccess();
     }
 
@@ -56,6 +56,11 @@ service cloud.firestore {
     }
 
     match /appData/commissionPayments/items/{documentId} {
+      allow read: if hasFullDataAccess() || ownsSource(resource.data.sourceId);
+      allow write: if hasFullDataAccess();
+    }
+
+    match /appData/commissionForecasts/items/{documentId} {
       allow read: if hasFullDataAccess() || ownsSource(resource.data.sourceId);
       allow write: if hasFullDataAccess();
     }
@@ -75,20 +80,20 @@ service cloud.firestore {
     }
 
     match /appData/energyQuotes/items/{documentId} {
-      allow read: if hasFullDataAccess() || (isCollaborator() && resource.data.createdBy == access().id);
+      allow read: if hasFullDataAccess() || (isPersonalProfile() && resource.data.createdBy == access().id);
       allow create: if hasFullDataAccess() || (
-        isCollaborator() &&
+        isPersonalProfile() &&
         request.resource.data.createdBy == access().id &&
         request.resource.data.sourceId == access().sourceId
       );
       allow update: if hasFullDataAccess() || (
-        isCollaborator() &&
+        isPersonalProfile() &&
         resource.data.createdBy == access().id &&
         request.resource.data.createdBy == access().id &&
         request.resource.data.sourceId == access().sourceId
       );
       allow delete: if hasFullDataAccess() || (
-        isCollaborator() && resource.data.createdBy == access().id
+        isPersonalProfile() && resource.data.createdBy == access().id
       );
     }
 

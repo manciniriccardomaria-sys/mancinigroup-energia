@@ -70,7 +70,7 @@ Il valore interno `agent` resta invariato per compatibilita con i dati storici, 
 
 In sviluppo i dati vengono salvati in `localStorage`.
 In produzione dati operativi e import finiscono in Firestore sotto `appData/{sezione}/items/{id}`.
-I profili autorizzativi sono salvati in `appAccess/{firebaseUid}`; i collaboratori possono leggere soltanto clienti, caricamenti e provvigioni collegati alla propria fonte. I margini dell'agenzia non vengono esposti.
+I profili autorizzativi sono salvati in `appAccess/{firebaseUid}`; collaboratori e frontline possono leggere soltanto clienti, caricamenti, provvigioni personali e forecast collegati alla propria fonte. Le vecchie righe annuali senza mese/POD e i margini dell'agenzia non vengono esposti nei portali personali.
 
 Gli upload vengono letti dal browser, importati subito e poi non conservati come file originale: restano metadati, righe importate, match, totali e storico upload.
 

@@ -290,16 +290,12 @@ export async function toggleSourceAction(formData: FormData) {
 }
 
 export async function createCustomerAction(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireUser(["admin", "operativo"]);
   const podPdr = asString(formData, "podPdr");
   const name = asString(formData, "name");
   const offer = asString(formData, "offer");
   const notes = asString(formData, "notes");
   let sourceId = asString(formData, "sourceId");
-
-  if (user.role === "agent" && user.sourceId) {
-    sourceId = user.sourceId;
-  }
 
   try {
     await addCustomer({
@@ -325,7 +321,7 @@ export async function createCustomerAction(formData: FormData) {
 }
 
 export async function reassignCustomerAction(formData: FormData) {
-  await requireUser(["admin", "frontline", "operativo"]);
+  await requireUser(["admin", "operativo"]);
 
   const customerId = asString(formData, "customerId");
   const sourceId = asString(formData, "sourceId");
@@ -343,7 +339,7 @@ export async function reassignCustomerAction(formData: FormData) {
 }
 
 export async function setCustomerStatusAction(formData: FormData) {
-  await requireUser(["admin", "frontline"]);
+  await requireUser(["admin"]);
 
   const customerId = asString(formData, "customerId");
   const status = asString(formData, "status");
@@ -366,7 +362,7 @@ export async function setCustomerStatusAction(formData: FormData) {
 }
 
 export async function uploadFileAction(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireUser(["admin", "operativo"]);
   const category = asString(formData, "category");
   const billingMonth = asString(formData, "referenceMonth");
   const marginCommodity = asString(formData, "marginCommodity");
