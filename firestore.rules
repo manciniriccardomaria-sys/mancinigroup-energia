@@ -93,7 +93,8 @@ service cloud.firestore {
     }
 
     match /appData/users/items/{documentId} {
-      allow read, write: if isAdmin();
+      allow read: if hasFullDataAccess();
+      allow write: if isAdmin();
     }
 
     match /appData/commissionRules/items/{documentId} {
