@@ -77,6 +77,8 @@ La colonna D del vecchio foglio viene ricostruita cosi:
 
 Se il consumo e uguale o inferiore a zero, il consumo usato nella formula viene portato a zero: il margine resta quindi pari alla sola PCV e non viene ridotto.
 
+Le fatture con totale negativo non vengono escluse: generano comunque la sola PCV, senza quota consumo, e la provvigione agenzia resta il 60% della PCV.
+
 La provvigione mensile agenzia usata per calcolare le fonti e il 60% della colonna D ricostruita.
 La fonte ufficiale per PCV e spread e il foglio `Provv. continuative`, tab `Tabella Offerte`; nel gestionale e visibile dalla pagina `Offerte`.
 

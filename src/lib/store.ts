@@ -4,7 +4,6 @@ import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { hashPassword } from "./passwords";
-import { hasNonPositiveAgencyMarginInvoice } from "./agency-margin-records";
 import { getFirebaseDb, isFirebaseBackendEnabled } from "./firebase-admin";
 import { getMarketVariableDefinition, marketVariableSeedValues } from "./market-variables";
 import { detectCommodity, normalizePodPdr, slugify } from "./normalize";
@@ -1173,7 +1172,6 @@ export async function importAgencyMarginRecords(input: {
   let belowThresholdRows = 0;
   let missingTariffRows = 0;
   let missingRuleRows = 0;
-  let excludedInvoiceRows = 0;
   let totalMargin = 0;
   let totalGeneratedCommissions = 0;
 
@@ -1218,21 +1216,6 @@ export async function importAgencyMarginRecords(input: {
 
   for (const row of rows) {
     const existing = existingByKey.get(row.importKey);
-
-    if (hasNonPositiveAgencyMarginInvoice(row)) {
-      excludedInvoiceRows += 1;
-      removeExistingCommission(existing?.commissionEntryId);
-
-      if (existing) {
-        const index = nextRecords.findIndex((item) => item.id === existing.id);
-        if (index >= 0) {
-          nextRecords.splice(index, 1);
-          updatedRows += 1;
-        }
-      }
-
-      continue;
-    }
 
     const customer = customerByPod.get(row.podPdrNorm);
     const source = customer ? sourceById.get(customer.sourceId) : undefined;
@@ -1377,9 +1360,9 @@ export async function importAgencyMarginRecords(input: {
     totalRows: input.totalRows,
     importedRows,
     updatedRows,
-    skippedRows: input.skippedRows + excludedInvoiceRows,
+    skippedRows: input.skippedRows,
     matchedRows,
-    unmatchedRows: rows.length - excludedInvoiceRows - matchedRows,
+    unmatchedRows: rows.length - matchedRows,
     generatedCommissionRows,
     anticipatedRows,
     maturingRows,

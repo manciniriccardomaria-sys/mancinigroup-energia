@@ -215,8 +215,34 @@ function marginFromValues(input: {
   pcv?: number;
   spread?: number;
   recurringConsumption?: number;
+  pcvOnly?: boolean;
 }) {
-  const billableConsumption = Math.max(input.consumption, 0);
+  const billableConsumption = input.pcvOnly ? 0 : Math.max(input.consumption, 0);
+
+  if (input.pcvOnly) {
+    const offer = input.offer && input.commodity !== "non_definito"
+      ? findOfferByCode(input.offer, input.commodity)
+      : undefined;
+    const pcv = input.pcv ?? offer?.pcv;
+
+    if (pcv !== undefined) {
+      return {
+        recurringPoint: round4(pcv),
+        recurringConsumption: 0,
+        grossMarginAmount: round4(pcv),
+        marginAmount: roundCurrency(pcv * AGENCY_SHARE_RATE),
+        tariffNote: undefined
+      };
+    }
+
+    return {
+      recurringPoint: 0,
+      recurringConsumption: 0,
+      grossMarginAmount: 0,
+      marginAmount: 0,
+      tariffNote: "Fattura negativa: PCV non disponibile nel file o nel catalogo offerte."
+    };
+  }
 
   if (input.pcv !== undefined && input.spread !== undefined && input.commodity !== "non_definito") {
     const recurringConsumption = billableConsumption * (input.spread - agencyBaseSpread(input.commodity));
@@ -465,6 +491,7 @@ export function parseAgencyMarginCsv(
       const dueAt = parseItalianDate(valueAt(row, indexes.dueAt));
       const consumption = numberAt(row, indexes.consumption);
       const invoiceTotalAvailable = hasValueAt(row, indexes.invoiceTotal);
+      const invoiceTotal = numberAt(row, indexes.invoiceTotal);
       const paidAvailable = hasValueAt(row, indexes.paid);
       const gross = hasValueAt(row, indexes.gross) ? numberAt(row, indexes.gross) : undefined;
       const pcv = hasValueAt(row, indexes.pcv) ? numberAt(row, indexes.pcv) : undefined;
@@ -489,7 +516,8 @@ export function parseAgencyMarginCsv(
         gross,
         pcv,
         spread,
-        recurringConsumption
+        recurringConsumption,
+        pcvOnly: invoiceTotalAvailable && invoiceTotal < 0
       });
 
       rows.push({
@@ -506,7 +534,7 @@ export function parseAgencyMarginCsv(
         taxCode: emptyToUndefined(valueAt(row, indexes.taxCode)),
         issuedAt,
         dueAt,
-        invoiceTotal: numberAt(row, indexes.invoiceTotal),
+        invoiceTotal,
         invoiceTotalAvailable,
         paid: numberAt(row, indexes.paid),
         paidAvailable,
