@@ -34,10 +34,45 @@ service cloud.firestore {
       return isPersonalProfile() && sourceId == access().sourceId;
     }
 
+    function validAccessRole(role) {
+      return role in ['admin', 'frontline', 'agent', 'operativo'];
+    }
+
+    function sourceMatchesAccessRole(role, sourceId) {
+      return (role in ['admin', 'operativo'] && sourceId == null) ||
+        (
+          role in ['agent', 'frontline'] &&
+          sourceId is string &&
+          exists(/databases/$(database)/documents/appData/sources/items/$(sourceId)) &&
+          get(/databases/$(database)/documents/appData/sources/items/$(sourceId)).data.active == true &&
+          (
+            (role == 'agent' && get(/databases/$(database)/documents/appData/sources/items/$(sourceId)).data.kind == 'collaboratore') ||
+            (role == 'frontline' && get(/databases/$(database)/documents/appData/sources/items/$(sourceId)).data.kind == 'frontline')
+          )
+        );
+    }
+
+    function validAccessProfile() {
+      return request.resource.data.keys().hasAll([
+          'id', 'email', 'name', 'role', 'sourceId', 'active', 'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'id', 'email', 'name', 'role', 'sourceId', 'active', 'updatedAt'
+        ]) &&
+        request.resource.data.id is string &&
+        request.resource.data.email is string &&
+        request.resource.data.name is string &&
+        validAccessRole(request.resource.data.role) &&
+        request.resource.data.active is bool &&
+        request.resource.data.updatedAt is string &&
+        sourceMatchesAccessRole(request.resource.data.role, request.resource.data.sourceId);
+    }
+
     match /appAccess/{uid} {
       allow get: if hasActiveAccess() && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
-      allow write: if false;
+      allow create, update: if isAdmin() && validAccessProfile();
+      allow delete: if false;
     }
 
     match /appData/sources/items/{documentId} {

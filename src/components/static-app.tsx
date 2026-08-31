@@ -35,6 +35,7 @@ import {
 } from "react";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User as FirebaseAuthUser } from "firebase/auth";
 import { addCommissionPaymentToStore, addCommissionRuleToStore, addCustomerToStore, addEnergyQuoteToStore, addSourceToStore, addUploadedFileToStore, addUserToStore, cloneStore, createDefaultClientStore, importAgencyMarginRecordsToStore, importLoadingRecordsToStore, normalizeStore, reassignCustomerInStore, setCustomerStatusInStore, setSourceActiveInStore, upsertMarketVariableToStore } from "@/lib/client-store";
+import { provisionFirebaseUserAccess } from "@/lib/firebase-access-client";
 import { firebaseAuth, firebaseDb, hasFirebaseClientConfig } from "@/lib/firebase-client";
 import { readAccessProfile, readFirestoreStoreForProfile, seedFirestoreStore, writeFirestoreStore } from "@/lib/firebase-store-client";
 import { simulateFutureCommissions, type ProjectedCommission } from "@/lib/commission-forecast";
@@ -65,6 +66,7 @@ import type {
   SourceKind,
   StoreData,
   UploadCategory,
+  User,
   UserRole
 } from "@/lib/types";
 import {
@@ -106,10 +108,22 @@ type Flash = {
 
 type MutateStore = (change: (draft: StoreData) => void, successMessage: string) => Promise<void>;
 
+type CreateAccessUser = (input: {
+  email: string;
+  name: string;
+  password: string;
+  role: UserRole;
+  sourceId?: string;
+}) => Promise<boolean>;
+
 type ViewProps = {
   store: StoreData;
   user: SessionUser;
   mutateStore: MutateStore;
+};
+
+type SourcesViewProps = ViewProps & {
+  createAccessUser: CreateAccessUser;
 };
 
 const LOCAL_STORE_KEY = "mg_energia_static_store";
@@ -844,6 +858,51 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
     }
   };
 
+  const createAccessUser: CreateAccessUser = async (input) => {
+    if (!store || !persistedStore || sessionUser?.role !== "admin") {
+      return false;
+    }
+
+    if (useLocalAuth) {
+      setFlash({
+        type: "error",
+        message: "La creazione degli accessi Firebase non e disponibile in modalita locale."
+      });
+      return false;
+    }
+
+    const nextStore = cloneStore(store);
+
+    try {
+      addUserToStore(nextStore, {
+        email: input.email,
+        name: input.name,
+        role: input.role,
+        sourceId: input.sourceId
+      });
+
+      const createdUser = nextStore.users.find(
+        (item) => item.email === input.email.trim().toLowerCase()
+      ) as User | undefined;
+
+      if (!createdUser) {
+        throw new Error("Impossibile preparare il nuovo utente.");
+      }
+
+      await provisionFirebaseUserAccess(createdUser, input.password);
+      setStore(nextStore);
+      setPersistedStore(cloneStore(nextStore));
+      setFlash({ type: "success", message: "Accesso creato e abilitato correttamente." });
+      return true;
+    } catch (error) {
+      setFlash({
+        type: "error",
+        message: error instanceof Error ? error.message : "Creazione accesso non riuscita."
+      });
+      return false;
+    }
+  };
+
   function navigateToView(view: StaticView, href: string) {
     setFlash(null);
     setActiveView(view);
@@ -900,7 +959,14 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
       {view === "customers" && <CustomersView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "caricamenti" && <CaricamentiView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "offers" && <OffersView />}
-      {view === "sources" && <SourcesView store={store} user={sessionUser} mutateStore={mutateStore} />}
+      {view === "sources" && (
+        <SourcesView
+          store={store}
+          user={sessionUser}
+          mutateStore={mutateStore}
+          createAccessUser={createAccessUser}
+        />
+      )}
       {view === "users" && <UsersView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "commissions" && <CommissionsView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "commission-rules" && <RulesView store={store} user={sessionUser} mutateStore={mutateStore} />}
@@ -2150,9 +2216,35 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
   );
 }
 
-function SourcesView({ store, user, mutateStore }: ViewProps) {
+function SourcesView({ store, user, mutateStore, createAccessUser }: SourcesViewProps) {
+  const [accessRole, setAccessRole] = useState<UserRole>("agent");
+  const [accessSourceId, setAccessSourceId] = useState("");
+  const [accessName, setAccessName] = useState("");
+  const [accessEmail, setAccessEmail] = useState("");
+  const [accessPassword, setAccessPassword] = useState("");
+  const [creatingAccess, setCreatingAccess] = useState(false);
+
   if (user.role !== "admin" && user.role !== "frontline" && user.role !== "operativo") {
     return <LockedPanel />;
+  }
+
+  const compatibleSources = store.sources.filter((source) => {
+    if (!source.active) return false;
+    if (accessRole === "agent") return source.kind === "collaboratore";
+    if (accessRole === "frontline") return source.kind === "frontline";
+    return false;
+  });
+  const selectedSourceId = compatibleSources.some((source) => source.id === accessSourceId)
+    ? accessSourceId
+    : compatibleSources[0]?.id ?? "";
+  const roleNeedsSource = accessRole === "agent" || accessRole === "frontline";
+  const usersBySource = new Map<string, User[]>();
+
+  for (const configuredUser of store.users) {
+    if (!configuredUser.sourceId) continue;
+    const sourceUsers = usersBySource.get(configuredUser.sourceId) ?? [];
+    sourceUsers.push(configuredUser);
+    usersBySource.set(configuredUser.sourceId, sourceUsers);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -2163,6 +2255,29 @@ function SourcesView({ store, user, mutateStore }: ViewProps) {
         kind: textValue(data, "kind") as SourceKind
       });
     }, "Fonte aggiunta.");
+  }
+
+  async function submitAccess(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreatingAccess(true);
+
+    try {
+      const success = await createAccessUser({
+        email: accessEmail,
+        name: accessName,
+        password: accessPassword,
+        role: accessRole,
+        sourceId: roleNeedsSource ? selectedSourceId : undefined
+      });
+
+      if (success) {
+        setAccessName("");
+        setAccessEmail("");
+        setAccessPassword("");
+      }
+    } finally {
+      setCreatingAccess(false);
+    }
   }
 
   return (
@@ -2193,6 +2308,93 @@ function SourcesView({ store, user, mutateStore }: ViewProps) {
           </button>
         </form>
       </section>
+      {user.role === "admin" && (
+        <section className="panel narrow-panel access-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Accesso gestionale</p>
+              <h2>Associa email, password e ruolo</h2>
+            </div>
+            <ShieldCheck size={24} />
+          </div>
+          <form className="form-grid compact" onSubmit={(event) => void submitAccess(event)}>
+            <label>
+              Nome
+              <input
+                autoComplete="name"
+                value={accessName}
+                onChange={(event) => setAccessName(event.target.value)}
+                required
+              />
+            </label>
+            <label>
+              Email
+              <input
+                autoComplete="email"
+                type="email"
+                value={accessEmail}
+                onChange={(event) => setAccessEmail(event.target.value)}
+                required
+              />
+            </label>
+            <label>
+              Ruolo
+              <select
+                value={accessRole}
+                onChange={(event) => {
+                  setAccessRole(event.target.value as UserRole);
+                  setAccessSourceId("");
+                }}
+              >
+                <option value="agent">Collaboratore</option>
+                <option value="frontline">Frontline</option>
+                <option value="operativo">Operativo</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <label>
+              Fonte associata
+              <select
+                value={roleNeedsSource ? selectedSourceId : ""}
+                onChange={(event) => setAccessSourceId(event.target.value)}
+                disabled={!roleNeedsSource}
+                required={roleNeedsSource}
+              >
+                {!roleNeedsSource && <option value="">Nessuna fonte richiesta</option>}
+                {roleNeedsSource && compatibleSources.length === 0 && (
+                  <option value="">Nessuna fonte compatibile attiva</option>
+                )}
+                {compatibleSources.map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="wide-field">
+              Password iniziale
+              <input
+                autoComplete="new-password"
+                minLength={6}
+                type="password"
+                value={accessPassword}
+                onChange={(event) => setAccessPassword(event.target.value)}
+                required
+              />
+            </label>
+            <p className="form-note wide-field">
+              La password viene salvata soltanto da Firebase Authentication e non viene mai registrata nel gestionale.
+            </p>
+            <button
+              className="primary-button wide-field"
+              type="submit"
+              disabled={creatingAccess || (roleNeedsSource && !selectedSourceId)}
+            >
+              {creatingAccess ? "Creazione in corso..." : "Crea e abilita accesso"}
+            </button>
+          </form>
+        </section>
+      )}
       <section className="table-section">
         <div className="section-heading">
           <h2>Elenco fonti</h2>
@@ -2204,31 +2406,52 @@ function SourcesView({ store, user, mutateStore }: ViewProps) {
                 <th>Fonte</th>
                 <th>Tipo</th>
                 <th>Stato</th>
+                {user.role === "admin" && <th>Accessi associati</th>}
                 <th>Azione</th>
               </tr>
             </thead>
             <tbody>
-              {[...store.sources].sort((a, b) => a.name.localeCompare(b.name, "it")).map((source) => (
-                <tr key={source.id}>
-                  <td className="source-name">{source.name}</td>
-                  <td>{sourceKindLabels[source.kind]}</td>
-                  <td>{source.active ? "Attiva" : "Disattiva"}</td>
-                  <td>
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() =>
-                        void mutateStore(
-                          (draft) => setSourceActiveInStore(draft, source.id, !source.active),
-                          source.active ? "Fonte disattivata." : "Fonte riattivata."
-                        )
-                      }
-                    >
-                      {source.active ? "Disattiva" : "Riattiva"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {[...store.sources].sort((a, b) => a.name.localeCompare(b.name, "it")).map((source) => {
+                const sourceUsers = usersBySource.get(source.id) ?? [];
+
+                return (
+                  <tr key={source.id}>
+                    <td className="source-name">{source.name}</td>
+                    <td>{sourceKindLabels[source.kind]}</td>
+                    <td>{source.active ? "Attiva" : "Disattiva"}</td>
+                    {user.role === "admin" && (
+                      <td>
+                        {sourceUsers.length > 0 ? (
+                          <div className="source-access-list">
+                            {sourceUsers.map((sourceUser) => (
+                              <span key={sourceUser.id}>
+                                <strong>{sourceUser.email}</strong>
+                                <small>{roleLabels[sourceUser.role]}</small>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="muted-copy">Nessun accesso</span>
+                        )}
+                      </td>
+                    )}
+                    <td>
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={() =>
+                          void mutateStore(
+                            (draft) => setSourceActiveInStore(draft, source.id, !source.active),
+                            source.active ? "Fonte disattivata." : "Fonte riattivata."
+                          )
+                        }
+                      >
+                        {source.active ? "Disattiva" : "Riattiva"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -2237,22 +2460,9 @@ function SourcesView({ store, user, mutateStore }: ViewProps) {
   );
 }
 
-function UsersView({ store, user, mutateStore }: ViewProps) {
+function UsersView({ store, user }: ViewProps) {
   if (user.role !== "admin") {
     return <LockedPanel />;
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    const data = formData(event);
-    const role = textValue(data, "role") as UserRole;
-    await mutateStore((draft) => {
-      addUserToStore(draft, {
-        email: textValue(data, "email"),
-        name: textValue(data, "name"),
-        role,
-        sourceId: role === "admin" || role === "operativo" ? undefined : textValue(data, "sourceId")
-      });
-    }, "Utente gestionale aggiunto.");
   }
 
   return (
@@ -2261,42 +2471,16 @@ function UsersView({ store, user, mutateStore }: ViewProps) {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Accessi</p>
-            <h2>Nuovo utente</h2>
+            <h2>Gestione utenti</h2>
           </div>
           <ShieldCheck size={24} />
         </div>
-        <form className="form-grid compact" onSubmit={(event) => void submit(event)}>
-          <label>
-            Nome
-            <input name="name" required />
-          </label>
-          <label>
-            Email
-            <input name="email" type="email" required />
-          </label>
-          <label>
-            Ruolo
-            <select name="role" defaultValue="agent">
-              <option value="agent">Collaboratore</option>
-              <option value="frontline">Frontline</option>
-              <option value="operativo">Operativo</option>
-              <option value="admin">Admin</option>
-            </select>
-          </label>
-          <label>
-            Fonte
-            <select name="sourceId">
-              {store.sources.filter((source) => source.active).map((source) => (
-                <option key={source.id} value={source.id}>
-                  {source.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button className="primary-button wide-field" type="submit">
-            Salva utente
-          </button>
-        </form>
+        <p className="panel-copy">
+          Gli accessi completi con email, password, ruolo e fonte si creano dalla pagina Fonti.
+        </p>
+        <a className="primary-button panel-action" href="/sources/">
+          Vai a Fonti
+        </a>
       </section>
       <section className="table-section">
         <div className="section-heading">

@@ -249,6 +249,11 @@ textarea:focus {
   background: var(--green-dark);
 }
 
+.primary-button:disabled {
+  cursor: not-allowed;
+  background: #8ba99f;
+}
+
 .secondary-button {
   background: #e7eefb;
   color: var(--blue);
@@ -569,6 +574,48 @@ textarea:focus {
 
 .wide-field {
   grid-column: 1 / -1;
+}
+
+.access-panel {
+  margin-top: 16px;
+}
+
+.form-note,
+.panel-copy,
+.muted-copy {
+  color: var(--muted);
+}
+
+.form-note {
+  margin: -2px 0 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.panel-copy {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.panel-action {
+  width: fit-content;
+  margin-top: 16px;
+  text-decoration: none;
+}
+
+.source-access-list {
+  display: grid;
+  gap: 8px;
+}
+
+.source-access-list span {
+  display: grid;
+  gap: 2px;
+}
+
+.source-access-list small {
+  color: var(--muted);
 }
 
 .table-section {

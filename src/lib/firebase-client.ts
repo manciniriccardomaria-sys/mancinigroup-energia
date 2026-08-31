@@ -22,7 +22,15 @@ export function firebaseClientApp() {
     throw new Error("Config Firebase client mancante.");
   }
 
-  return getApps()[0] ?? initializeApp(firebaseConfig);
+  return getApps().find((app) => app.name === "[DEFAULT]") ?? initializeApp(firebaseConfig);
+}
+
+export function firebaseSecondaryApp(name: string) {
+  if (!hasFirebaseClientConfig()) {
+    throw new Error("Config Firebase client mancante.");
+  }
+
+  return initializeApp(firebaseConfig, name);
 }
 
 export function firebaseAuth() {
