@@ -951,7 +951,7 @@ function LoginScreen({
         <form className="form-grid" onSubmit={submit}>
           <label>
             Email
-            <input name="email" type="email" defaultValue={ADMIN_EMAIL} required />
+            <input name="email" type="email" required />
           </label>
           <label>
             Password
