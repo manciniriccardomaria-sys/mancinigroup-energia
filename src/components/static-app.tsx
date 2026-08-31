@@ -30,6 +30,7 @@ import {
   type ReactNode,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from "react";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User as FirebaseAuthUser } from "firebase/auth";
@@ -2627,6 +2628,7 @@ function CaricamentiView({ store, user, mutateStore }: ViewProps) {
 }
 
 function CommissionsView({ store, user, mutateStore }: ViewProps) {
+  const personalUser = isPersonalUser(user);
   const sources = [...visibleSourcesForUser(user, store.sources)].sort((a, b) => a.name.localeCompare(b.name, "it"));
   const commissionEntries = visibleCommissionEntries(user, store);
   const cutoffDate = today();
@@ -2638,7 +2640,7 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
   const agencyRecords = visibleAgencyMarginRecords(user, store);
   const agencyMonthKeys = agencyRecords.map((record) => record.monthKey);
   const projectionEndMonthKey = addMonthsToMonthKey(maturityCutoffMonthKey, 12);
-  const projectedEntries = isPersonalUser(user)
+  const projectedEntries = personalUser
     ? visibleCommissionForecasts(user, store)
         .filter((forecast) => forecast.monthKey > maturityCutoffMonthKey && forecast.monthKey <= projectionEndMonthKey)
     : simulateFutureCommissions({
@@ -2672,7 +2674,30 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
     sources
   );
   const totalMatured = rows.reduce((sum, row) => sum + row.total, 0);
+  const totalPaid = rows.reduce((sum, row) => sum + row.paid, 0);
+  const totalDue = rows.reduce((sum, row) => sum + row.due, 0);
   const totalProjected = monthlyRows.reduce((sum, row) => sum + row.projectedTotal, 0);
+  const commissionTableWrapRef = useRef<HTMLDivElement>(null);
+  const monthlyColumnSignature = monthlyColumns.join("|");
+
+  useEffect(() => {
+    if (!personalUser || !window.matchMedia("(max-width: 720px)").matches) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const wrapper = commissionTableWrapRef.current;
+      const currentMonthHeader = wrapper?.querySelector<HTMLElement>(
+        `[data-month-key="${maturityCutoffMonthKey}"]`
+      );
+
+      if (wrapper && currentMonthHeader) {
+        wrapper.scrollLeft = Math.max(0, currentMonthHeader.offsetLeft - 12);
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [maturityCutoffMonthKey, monthlyColumnSignature, personalUser]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     const data = formData(event);
@@ -2690,7 +2715,7 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
 
   return (
     <>
-      {!isPersonalUser(user) && (
+      {!personalUser && (
         <section className="panel narrow-panel">
           <div className="panel-heading">
             <div>
@@ -2732,11 +2757,11 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
           </form>
         </section>
       )}
-      <section className="table-section">
+      <section className={`table-section ${personalUser ? "personal-commission-section" : ""}`}>
         <div className="section-heading">
           <div>
             <p className="eyebrow">Provvigioni</p>
-            <h2>{isPersonalUser(user) ? "Le tue provvigioni maturate per mese" : "Provvigioni maturate per mese"}</h2>
+            <h2>{personalUser ? "Le tue provvigioni maturate per mese" : "Provvigioni maturate per mese"}</h2>
             <p className="muted-text">
               Totali maturati fino a {formatMonthKey(maturityCutoffMonthKey)} ({formatDate(cutoffDate)}).
               {" "}
@@ -2755,7 +2780,36 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
             </p>
           </div>
         </div>
-        <div className="table-wrap sticky-commission-wrap">
+        {personalUser && (
+          <div className="mobile-commission-summary" aria-label="Riepilogo provvigioni personale">
+            <div>
+              <span>Maturato</span>
+              <strong>{formatEuro(totalMatured)}</strong>
+            </div>
+            <div>
+              <span>Pagato</span>
+              <strong>{formatEuro(totalPaid)}</strong>
+            </div>
+            <div>
+              <span>Da ricevere</span>
+              <strong>{formatEuro(totalDue)}</strong>
+            </div>
+            <div className="forecast-summary-card">
+              <span>Forecast</span>
+              <strong>{formatEuro(totalProjected)}</strong>
+            </div>
+          </div>
+        )}
+        {personalUser && (
+          <div className="mobile-commission-scroll-guide">
+            <span>Scorri per vedere tutti i mesi</span>
+            <span className="mobile-commission-legend">
+              <i className="actual-legend-dot" /> Maturato
+              <i className="forecast-legend-dot" /> Forecast
+            </span>
+          </div>
+        )}
+        <div className="table-wrap sticky-commission-wrap" ref={commissionTableWrapRef}>
           <table className="commission-monthly-table">
             <thead>
               <tr>
@@ -2764,7 +2818,7 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
                 <th>Pagate</th>
                 <th>Da pagare</th>
                 {monthlyColumns.map((monthKey) => (
-                  <th key={monthKey}>{formatShortMonthKey(monthKey)}</th>
+                  <th data-month-key={monthKey} key={monthKey}>{formatShortMonthKey(monthKey)}</th>
                 ))}
               </tr>
             </thead>
@@ -2824,7 +2878,7 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
                 ))}
               </select>
             </label>
-            {!isPersonalUser(user) && (
+            {!personalUser && (
               <label className="table-filter-control">
                 Fonte
                 <select value={commissionSourceFilter} onChange={(event) => setCommissionSourceFilter(event.target.value)}>

@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { createLoadingImportKey } from "./loading-records";
 import { detectCommodity, normalizePodPdr } from "./normalize";
 import type { Commodity, LoadingImportRow } from "./types";
 
@@ -83,19 +84,6 @@ function commodityFromSupply(supplyType: string, podPdr: string): Commodity {
   return detectCommodity(podPdr);
 }
 
-function createImportKey(row: {
-  idCaricamento: string;
-  podPdrNorm: string;
-  signedAt?: string;
-  offer: string;
-}) {
-  if (row.idCaricamento) {
-    return `id:${row.idCaricamento}`;
-  }
-
-  return [row.podPdrNorm, row.signedAt ?? "", row.offer].filter(Boolean).join("|");
-}
-
 export function parseCaricamentiWorkbook(buffer: WorkbookInput): ParsedLoadingWorkbook {
   const workbook = XLSX.read(buffer, {
     type: workbookReadType(buffer),
@@ -134,7 +122,7 @@ export function parseCaricamentiWorkbook(buffer: WorkbookInput): ParsedLoadingWo
     const supplyType = valueFrom(row, ["TIPO FORNITURA"]);
     const signedAt = normalizeDate(valueFrom(row, ["DATA FIRMA"]));
     const loadingRow: LoadingImportRow = {
-      importKey: createImportKey({ idCaricamento, podPdrNorm, signedAt, offer }),
+      importKey: createLoadingImportKey({ idCaricamento, podPdrNorm, signedAt, offer }),
       rowNumber: index + 2,
       idCaricamento: idCaricamento || undefined,
       status: valueFrom(row, ["STATO CARICAMENTO"]) || undefined,

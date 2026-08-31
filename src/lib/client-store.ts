@@ -1,5 +1,11 @@
 import { getMarketVariableDefinition, marketVariableSeedValues } from "./market-variables";
 import { addMonthsToForecastMonth, simulateFutureCommissions } from "./commission-forecast";
+import {
+  compareLoadingRecordsLatestFirst,
+  compareUploadedFilesLatestFirst,
+  createLoadingImportKey,
+  deduplicateLoadingRecords
+} from "./loading-records";
 import { detectCommodity, normalizePodPdr, slugify } from "./normalize";
 import type {
   AgencyMarginImportResult,
@@ -318,8 +324,8 @@ export function normalizeStore(data: Partial<StoreData>, adminEmail?: string): S
   base.commissionForecasts ??= [];
   base.commissionRules ??= fallback.commissionRules;
   base.productionMetrics ??= fallback.productionMetrics;
-  base.uploadedFiles ??= [];
-  base.loadingRecords ??= [];
+  base.uploadedFiles = (base.uploadedFiles ?? []).slice().sort(compareUploadedFilesLatestFirst);
+  base.loadingRecords = (base.loadingRecords ?? []).slice().sort(compareLoadingRecordsLatestFirst);
   base.agencyMarginRecords ??= [];
   base.marketVariables ??= fallback.marketVariables;
   base.energyQuotes ??= [];
@@ -696,15 +702,17 @@ export function importLoadingRecordsToStore(
 ): LoadingImportResult {
   const now = nowIso();
   const customerByPod = new Map(store.customers.map((customer) => [customer.podPdrNorm, customer]));
-  const existingByKey = new Map(store.loadingRecords.map((record) => [record.importKey, record]));
-  const nextRecords = [...store.loadingRecords];
+  const nextRecords = deduplicateLoadingRecords(store.loadingRecords, store.uploadedFiles);
+  const existingByKey = new Map(
+    nextRecords.map((record) => [createLoadingImportKey(record), record])
+  );
   let importedRows = 0;
   let updatedRows = 0;
   let matchedRows = 0;
 
   for (const row of input.rows) {
     const customer = customerByPod.get(row.podPdrNorm);
-    const existing = existingByKey.get(row.importKey);
+    const existing = existingByKey.get(createLoadingImportKey(row));
     const record: LoadingRecord = {
       ...row,
       id: existing?.id ?? randomId("car"),
@@ -725,13 +733,11 @@ export function importLoadingRecordsToStore(
       nextRecords.unshift(record);
       importedRows += 1;
     }
+
+    existingByKey.set(createLoadingImportKey(record), record);
   }
 
-  store.loadingRecords = nextRecords.sort((a, b) => {
-    const aDate = a.signedAt || a.loadedAt || a.importedAt;
-    const bDate = b.signedAt || b.loadedAt || b.importedAt;
-    return bDate.localeCompare(aDate);
-  });
+  store.loadingRecords = nextRecords.sort(compareLoadingRecordsLatestFirst);
 
   return {
     totalRows: input.totalRows,

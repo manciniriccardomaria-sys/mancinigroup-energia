@@ -6,6 +6,12 @@ import { randomUUID } from "crypto";
 import { hashPassword } from "./passwords";
 import { getFirebaseDb, isFirebaseBackendEnabled } from "./firebase-admin";
 import { getMarketVariableDefinition, marketVariableSeedValues } from "./market-variables";
+import {
+  compareLoadingRecordsLatestFirst,
+  compareUploadedFilesLatestFirst,
+  createLoadingImportKey,
+  deduplicateLoadingRecords
+} from "./loading-records";
 import { detectCommodity, normalizePodPdr, slugify } from "./normalize";
 import type {
   AgencyMarginImportResult,
@@ -796,6 +802,8 @@ function migrateStore(data: Partial<StoreData>): StoreData {
       a.commodity.localeCompare(b.commodity) ||
       a.label.localeCompare(b.label, "it")
   );
+  base.uploadedFiles.sort(compareUploadedFilesLatestFirst);
+  base.loadingRecords.sort(compareLoadingRecordsLatestFirst);
 
   return base;
 }
@@ -1099,15 +1107,17 @@ export async function importLoadingRecords(input: {
   const store = await readStore();
   const now = new Date().toISOString();
   const customerByPod = new Map(store.customers.map((customer) => [customer.podPdrNorm, customer]));
-  const existingByKey = new Map(store.loadingRecords.map((record) => [record.importKey, record]));
-  const nextRecords = [...store.loadingRecords];
+  const nextRecords = deduplicateLoadingRecords(store.loadingRecords, store.uploadedFiles);
+  const existingByKey = new Map(
+    nextRecords.map((record) => [createLoadingImportKey(record), record])
+  );
   let importedRows = 0;
   let updatedRows = 0;
   let matchedRows = 0;
 
   for (const row of input.rows) {
     const customer = customerByPod.get(row.podPdrNorm);
-    const existing = existingByKey.get(row.importKey);
+    const existing = existingByKey.get(createLoadingImportKey(row));
     const record: LoadingRecord = {
       ...row,
       id: existing?.id ?? `car_${randomUUID()}`,
@@ -1132,13 +1142,11 @@ export async function importLoadingRecords(input: {
       nextRecords.unshift(record);
       importedRows += 1;
     }
+
+    existingByKey.set(createLoadingImportKey(record), record);
   }
 
-  store.loadingRecords = nextRecords.sort((a, b) => {
-    const aDate = a.signedAt || a.loadedAt || a.importedAt;
-    const bDate = b.signedAt || b.loadedAt || b.importedAt;
-    return bDate.localeCompare(aDate);
-  });
+  store.loadingRecords = nextRecords.sort(compareLoadingRecordsLatestFirst);
 
   await writeStore(store);
 

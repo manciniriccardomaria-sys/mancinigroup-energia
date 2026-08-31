@@ -986,6 +986,11 @@ table {
   max-height: 72vh;
 }
 
+.mobile-commission-summary,
+.mobile-commission-scroll-guide {
+  display: none;
+}
+
 .commission-monthly-table th,
 .commission-monthly-table td {
   white-space: nowrap;
@@ -2177,6 +2182,137 @@ td small {
   .user-pill {
     max-width: calc(100vw - 82px);
     overflow: hidden;
+  }
+
+  .personal-commission-section .section-heading {
+    margin-bottom: 12px;
+    padding: 18px 16px 0;
+  }
+
+  .personal-commission-section .section-heading h2 {
+    font-size: 1.18rem;
+  }
+
+  .personal-commission-section .section-heading .muted-text {
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  .mobile-commission-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0 12px 12px;
+  }
+
+  .mobile-commission-summary > div {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+    padding: 11px 12px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: #f7faf9;
+  }
+
+  .mobile-commission-summary span {
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .mobile-commission-summary strong {
+    overflow: hidden;
+    font-size: 1rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-commission-summary .forecast-summary-card {
+    border-color: #cfe0f3;
+    background: #eef6ff;
+    color: #235a97;
+  }
+
+  .mobile-commission-scroll-guide {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 12px;
+    border-top: 1px solid var(--line);
+    background: #fafcfc;
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+  }
+
+  .mobile-commission-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  .mobile-commission-legend i {
+    width: 8px;
+    height: 8px;
+    display: inline-block;
+    border-radius: 999px;
+  }
+
+  .actual-legend-dot {
+    background: var(--green);
+  }
+
+  .forecast-legend-dot {
+    margin-left: 3px;
+    background: #4c86c6;
+  }
+
+  .personal-commission-section .sticky-commission-wrap {
+    max-height: none;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-color: var(--green) #edf2f0;
+    scrollbar-width: thin;
+  }
+
+  .personal-commission-section .commission-monthly-table {
+    width: max-content;
+    min-width: 100%;
+    table-layout: fixed;
+  }
+
+  .personal-commission-section .commission-monthly-table th:nth-child(-n + 4),
+  .personal-commission-section .commission-monthly-table td:nth-child(-n + 4):not(.empty-state) {
+    display: none;
+  }
+
+  .personal-commission-section .commission-monthly-table th:nth-child(n + 5),
+  .personal-commission-section .commission-monthly-table td:nth-child(n + 5) {
+    width: 94px;
+    min-width: 94px;
+    padding: 12px 9px;
+    text-align: center;
+    scroll-snap-align: start;
+  }
+
+  .personal-commission-section .commission-monthly-table th:nth-child(n + 5) {
+    color: var(--ink);
+    background: #f5f8f7;
+    font-size: 0.72rem;
+  }
+
+  .personal-commission-section .commission-monthly-table td:nth-child(n + 5) {
+    font-size: 0.82rem;
+    font-weight: 850;
+  }
+
+  .personal-commission-section .commission-monthly-table .projected-cell {
+    box-shadow: inset 0 3px 0 #4c86c6;
   }
 }
 
