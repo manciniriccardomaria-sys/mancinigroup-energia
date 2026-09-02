@@ -2374,9 +2374,11 @@ function SourcesView({ store, user, mutateStore, createAccessUser }: SourcesView
             <label className="wide-field">
               Password iniziale
               <input
-                autoComplete="new-password"
+                autoCapitalize="none"
+                autoComplete="off"
                 minLength={6}
-                type="password"
+                spellCheck={false}
+                type="text"
                 value={accessPassword}
                 onChange={(event) => setAccessPassword(event.target.value)}
                 required
