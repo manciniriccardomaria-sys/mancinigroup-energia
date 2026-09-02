@@ -2584,9 +2584,7 @@ td small {
     display: block;
     pointer-events: none;
     user-select: none;
-    background: currentColor;
-    -webkit-mask: url("/mancini-m-mark.svg") center / contain no-repeat;
-    mask: url("/mancini-m-mark.svg") center / contain no-repeat;
+    fill: currentColor;
   }
 
   .print-saving-hero > .print-watermark {

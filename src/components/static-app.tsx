@@ -3830,6 +3830,20 @@ function MarketVariablesPanel({ store, user, mutateStore }: ViewProps) {
   );
 }
 
+function PrintMMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="print-watermark"
+      focusable="false"
+      preserveAspectRatio="xMidYMid meet"
+      viewBox="0 0 297.13 300.31"
+    >
+      <path d="M151.13 137.8c-13.04-9.23-26-18.55-39.1-27.69-2.54-1.77-3.72-3.66-3.56-6.86.27-5.03.07-10.08.07-15.42-10.31 0-19.9-.36-29.44.11-8.35.41-12.06 4.53-13.12 13.03-.25 1.94-.42 3.92-.42 5.88-.02 40.73-.02 81.47 0 122.2 0 1.72.19 3.44.29 5.02h42.91v-73.03c1.99 1.33 3.2 2.09 4.36 2.92 8.59 6.19 17.11 12.51 25.79 18.57 9.87 6.88 15.69 5.93 22.77-3.72 7.26-9.89 14.31-19.93 21.42-29.92.53-.74.8-1.66 1.27-2.67-4.79-3.5-9.37-6.86-14.22-10.41-8.58 9.25-8.73 9.28-19.03 1.99M191.3 234.02h42.41c.07-1.36.16-2.33.16-3.3 0-41.58.01-83.17-.02-124.75 0-1.96-.24-3.93-.56-5.87-1.28-7.67-4.38-11.44-11.97-11.93-9.83-.65-19.75-.16-30.02-.16v146.01ZM148.99 0C65.04-.17.75 64.1 0 147.49c-.77 85.76 60.75 152.53 148.47 152.82 85.03.28 148.65-64.19 148.65-150.08S233.66.17 148.99 0M70.61 41.85c27.16-20.18 58.2-26.87 91.35-23.97 28.5 2.49 53.88 13 75.17 32.65 21.68 20.01 34.53 45.01 39.3 74.11 5.83 35.59.93 69.52-18.51 100.27-21.39 33.82-52.67 52.28-91.83 57.08-31.8 3.9-61.97-1.53-89.21-19.13-32.97-21.3-50.95-52.45-56.78-91.17-.42-2.76-.75-5.53-.94-8.31-.3-4.42-.44-8.85-.69-14.16.96-43.27 16.14-80.61 52.15-107.36" />
+    </svg>
+  );
+}
+
 function QuotePrintPage({
   calculation,
   input,
@@ -3895,7 +3909,7 @@ function QuotePrintPage({
       </section>
 
       <section className={`print-saving-hero ${impactClass}`}>
-        <div className="print-watermark" aria-hidden="true" />
+        <PrintMMark />
         <div>
           <p className="print-eyebrow green">{saving >= 0 ? "Risparmio annuo stimato" : "Maggior costo annuo stimato"}</p>
           <strong>{selectedOffer ? formatPrintMainImpact(saving) : "-"}</strong>
@@ -3934,7 +3948,7 @@ function QuotePrintPage({
         </article>
 
         <article className="print-offer-card new">
-          <div className="print-watermark" aria-hidden="true" />
+          <PrintMMark />
           <div className="print-new-card-head">
             <p className="print-card-kicker">Mancini Service<br />Luce &amp; Gas</p>
             <span>La tua nuova offerta</span>
