@@ -15,6 +15,7 @@
     "firebase:backup": "node scripts/backup-firestore-store.mjs",
     "firebase:create-user": "node scripts/create-firebase-auth-user.mjs",
     "firebase:sync-access": "node scripts/sync-firebase-access.mjs",
+    "firebase:fix-loading-start-dates": "node scripts/fix-loading-start-dates.mjs",
     "firebase:verify-access": "node scripts/verify-collaborator-access.mjs",
     "firebase:rebuild-forecasts": "node scripts/rebuild-commission-forecasts.mjs"
   },

@@ -70,6 +70,24 @@ function normalizeDate(value: string) {
   return value;
 }
 
+function normalizeStartDate(value: string) {
+  const slashDate = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+
+  if (slashDate) {
+    const [, firstPart, secondPart, year] = slashDate;
+    const month = Number(firstPart);
+    const day = Number(secondPart);
+
+    // L'export Caricamenti rappresenta gli inizi mensili come mese/1/anno
+    // (per esempio 4/1/2025 = 1 aprile 2025).
+    if (month >= 2 && month <= 12 && day === 1) {
+      return `${year}-${String(month).padStart(2, "0")}-01`;
+    }
+  }
+
+  return normalizeDate(value);
+}
+
 function commodityFromSupply(supplyType: string, podPdr: string): Commodity {
   const normalized = supplyType.trim().toLowerCase();
 
@@ -146,7 +164,7 @@ export function parseCaricamentiWorkbook(buffer: WorkbookInput): ParsedLoadingWo
       precheckStatus: valueFrom(row, ["STATO PRECHECK"]) || undefined,
       precheckDetail: valueFrom(row, ["DETTAGLIO ESITO PRECHECK"]) || undefined,
       validationDate: normalizeDate(valueFrom(row, ["DATA ULTIMA VALIDAZIONE"])),
-      startDate: normalizeDate(valueFrom(row, ["DATA INIZIO"])),
+      startDate: normalizeStartDate(valueFrom(row, ["DATA INIZIO"])),
       endDate: normalizeDate(valueFrom(row, ["DATA FINE"])),
       practice: valueFrom(row, ["PRATICA"]) || undefined,
       notes:
