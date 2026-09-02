@@ -3496,7 +3496,14 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                   </select>
                 </label>
                 <label>
-                  PCV attuale
+                  <span className="quote-field-caption">
+                    <strong>Quota Fissa</strong>
+                    <span>
+                      {quoteInput.commodity === "luce"
+                        ? "di cui spesa per vendita energia elettrica"
+                        : "di cui spesa per vendita di gas naturale"}
+                    </span>
+                  </span>
                   <input
                     inputMode="decimal"
                     value={quoteNumberValue("currentPcv")}
@@ -3504,7 +3511,14 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                   />
                 </label>
                 <label>
-                  Prezzo medio {quoteInput.commodity === "luce" ? "kWh" : "Smc"}
+                  <span className="quote-field-caption">
+                    <strong>Quota Consumi</strong>
+                    <span>
+                      {quoteInput.commodity === "luce"
+                        ? "di cui spesa per vendita energia elettrica"
+                        : "di cui spesa per vendita di gas naturale"}
+                    </span>
+                  </span>
                   <input
                     inputMode="decimal"
                     value={quoteNumberValue("currentAveragePrice")}

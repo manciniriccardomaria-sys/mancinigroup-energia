@@ -1573,6 +1573,7 @@ td small {
 
 .quote-line-grid.five {
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: end;
 }
 
 .quote-line-grid.four {
@@ -1606,6 +1607,24 @@ td small {
   font-size: 0.8rem;
   font-weight: 850;
   min-width: 0;
+}
+
+.quote-field-caption {
+  display: grid;
+  gap: 2px;
+}
+
+.quote-field-caption strong {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.quote-field-caption span {
+  color: #74818c;
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.2;
 }
 
 .quote-sheet input,
