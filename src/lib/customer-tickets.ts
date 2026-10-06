@@ -8,7 +8,8 @@ export const ticketProblems = [
   "credito",
   "dilazione",
   "sollecito pagamento",
-  "rid non andato a buon fine"
+  "rid non andato a buon fine",
+  "passaggio a fornitore interno"
 ] as const;
 
 export function ticketCustomerDefaults(customer: Customer) {
