@@ -101,6 +101,8 @@ export type MarketVariable = {
 
 export type CustomerTicket = {
   id: string;
+  customerId?: string;
+  notes?: string;
   firstName: string;
   lastName: string;
   podPdr: string;

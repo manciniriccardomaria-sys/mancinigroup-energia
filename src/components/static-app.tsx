@@ -60,6 +60,7 @@ import type {
   CommissionEntry,
   CommissionPayment,
   CommissionRule,
+  Customer,
   CustomerStatus,
   EnergyQuote,
   SessionUser,
@@ -648,15 +649,18 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
   const [flash, setFlash] = useState<Flash | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [ticketCustomerId, setTicketCustomerId] = useState<string>();
   const [activeView, setActiveView] = useState<StaticView>(() => normalizeInitialView(initialView));
 
   useEffect(() => {
     setActiveView(normalizeInitialView(initialView));
+    setTicketCustomerId(new URLSearchParams(window.location.search).get("customer") ?? undefined);
   }, [initialView]);
 
   useEffect(() => {
     function handlePopState() {
       setActiveView(viewFromPath(window.location.pathname));
+      setTicketCustomerId(new URLSearchParams(window.location.search).get("customer") ?? undefined);
     }
 
     window.addEventListener("popstate", handlePopState);
@@ -913,6 +917,7 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
   function navigateToView(view: StaticView, href: string) {
     setFlash(null);
     setActiveView(view);
+    setTicketCustomerId(new URL(href, window.location.origin).searchParams.get("customer") ?? undefined);
     window.history.pushState(null, "", href);
     window.scrollTo({ top: 0 });
   }
@@ -963,10 +968,10 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
         ? <CollaboratorDashboard store={store} user={sessionUser} />
         : <DashboardView store={store} user={sessionUser} mutateStore={mutateStore} />)}
       {view === "customers-new" && <NewCustomerView store={store} user={sessionUser} mutateStore={mutateStore} />}
-      {view === "customers" && <CustomersView store={store} user={sessionUser} mutateStore={mutateStore} />}
+      {view === "customers" && <CustomersView store={store} user={sessionUser} mutateStore={mutateStore} onOpenTicket={(customer) => navigateToView("tickets", `/tickets/?customer=${encodeURIComponent(customer.id)}`)} />}
       {view === "caricamenti" && <CaricamentiView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "offers" && <ManagedOffersView store={store} user={sessionUser} mutateStore={mutateStore} />}
-      {view === "tickets" && <TicketsView store={store} user={sessionUser} mutateStore={mutateStore} />}
+      {view === "tickets" && <TicketsView store={store} user={sessionUser} mutateStore={mutateStore} initialCustomer={visibleCustomers(sessionUser, store).find((customer) => customer.id === ticketCustomerId)} onClearInitialCustomer={() => { setTicketCustomerId(undefined); window.history.replaceState(null, "", "/tickets/"); }} />}
       {view === "saved-quotes" && <SavedQuotesView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "sources" && (
         <SourcesView
@@ -1975,7 +1980,7 @@ function NewCustomerView({ store, user, mutateStore }: ViewProps) {
   );
 }
 
-function CustomersView({ store, user, mutateStore }: ViewProps) {
+function CustomersView({ store, user, mutateStore, onOpenTicket }: ViewProps & { onOpenTicket: (customer: Customer) => void }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortKey, setSortKey] = useState<"name" | "source" | "value">("name");
   const [showActiveCustomers, setShowActiveCustomers] = useState(true);
@@ -2130,6 +2135,7 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
               <th>Stato</th>
               <th>Data entrata</th>
               <th>Creato</th>
+              <th>Richieste</th>
             </tr>
           </thead>
           <tbody>
@@ -2209,11 +2215,12 @@ function CustomersView({ store, user, mutateStore }: ViewProps) {
                   <small>{entryInfo.detail}</small>
                 </td>
                 <td>{formatDateTime(customer.createdAt)}</td>
+                <td><button className="secondary-button" type="button" onClick={() => onOpenTicket(customer)}><MessageCircle size={16} /> Apri ticket</button></td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td className="empty-state" colSpan={9}>
+                <td className="empty-state" colSpan={10}>
                   Nessun cliente presente.
                 </td>
               </tr>

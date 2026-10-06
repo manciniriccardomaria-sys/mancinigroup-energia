@@ -3,23 +3,25 @@
 import { useState, type FormEvent } from "react";
 import { BadgeEuro, ClipboardList, Tags } from "lucide-react";
 import type { ManagedOffer } from "@/lib/offers";
-import type { CustomerTicket, SessionUser, StoreData } from "@/lib/types";
+import type { Customer, CustomerTicket, SessionUser, StoreData } from "@/lib/types";
 import { formatDate, formatEuro, normalizePodPdr, parseEuro } from "@/lib/normalize";
 import { isPersonalUser } from "@/lib/view-model";
+import { ticketProblems, ticketCustomerDefaults } from "@/lib/customer-tickets";
 import { paymentGate } from "@/lib/payment-gate";
 
 type Props = { store: StoreData; user: SessionUser; mutateStore: (change: (draft: StoreData) => void, message: string) => Promise<boolean> };
 const statuses: Record<CustomerTicket["status"], string> = { aperta: "Aperta", in_lavorazione: "In lavorazione", risolta: "Risolta", chiusa: "Chiusa" };
 const dateToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome" }).format(new Date());
 
-export function TicketsView({ store, user, mutateStore }: Props) {
+export function TicketsView({ store, user, mutateStore, initialCustomer, onClearInitialCustomer }: Props & { initialCustomer?: Customer; onClearInitialCustomer: () => void }) {
   const [editing, setEditing] = useState<CustomerTicket>();
+  const defaults = initialCustomer && !editing ? ticketCustomerDefaults(initialCustomer) : undefined;
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("tutti");
   const [error, setError] = useState("");
   const tickets = store.customerTickets.filter((ticket) => (!isPersonalUser(user) || ticket.sourceId === user.sourceId)
     && (status === "tutti" || ticket.status === status)
-    && `${ticket.firstName} ${ticket.lastName} ${ticket.podPdr} ${ticket.problem}`.toLowerCase().includes(search.toLowerCase()))
+    && `${ticket.firstName} ${ticket.lastName} ${ticket.podPdr} ${ticket.problem} ${ticket.notes ?? ""}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => b.openedAt.localeCompare(a.openedAt));
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,8 +31,11 @@ export function TicketsView({ store, user, mutateStore }: Props) {
     if (!["firstName", "lastName", "podPdr", "openedAt", "problem"].every((key) => value(key))) {
       setError("Compila tutti i campi obbligatori."); return;
     }
+    if (!ticketProblems.some((problem) => problem === value("problem")) && value("problem") !== editing?.problem) {
+      setError("Seleziona una problematica / richiesta valida."); return;
+    }
     const timestamp = new Date().toISOString();
-    const ticket: CustomerTicket = { id: editing?.id ?? crypto.randomUUID(), firstName: value("firstName"), lastName: value("lastName"),
+    const ticket: CustomerTicket = { id: editing?.id ?? crypto.randomUUID(), customerId: editing ? editing.customerId : initialCustomer?.id, notes: value("notes") || undefined, firstName: value("firstName"), lastName: value("lastName"),
       podPdr: normalizePodPdr(value("podPdr")), openedAt: value("openedAt"), problem: value("problem"), status: value("status") as CustomerTicket["status"],
       sourceId: isPersonalUser(user) ? user.sourceId : value("sourceId") || undefined,
       createdBy: editing?.createdBy ?? user.id, createdAt: editing?.createdAt ?? timestamp, updatedAt: timestamp };
@@ -38,28 +43,34 @@ export function TicketsView({ store, user, mutateStore }: Props) {
       const index = draft.customerTickets.findIndex((item) => item.id === ticket.id);
       if (index >= 0) draft.customerTickets[index] = ticket; else draft.customerTickets.unshift(ticket);
     }, editing ? "Ticket aggiornato." : "Ticket aperto.");
-    if (success) { setEditing(undefined); form.reset(); setError(""); }
+    if (success) { setEditing(undefined); form.reset(); setError(""); onClearInitialCustomer(); }
   }
   return <>
     <section className="panel"><div className="panel-heading"><h2>{editing ? "Modifica ticket" : "Apri una problematica cliente"}</h2><ClipboardList /></div>
-      <form key={editing?.id ?? "new"} className="form-grid compact" onSubmit={(event) => void submit(event)}>
-        <label>Nome<input name="firstName" required defaultValue={editing?.firstName} /></label>
-        <label>Cognome<input name="lastName" required defaultValue={editing?.lastName} /></label>
-        <label>POD / PDR<input name="podPdr" required defaultValue={editing?.podPdr} /></label>
+      {initialCustomer && !editing && <p className="muted-text">Dati precompilati da Clienti: {initialCustomer.name}. Puoi correggere nome e cognome prima di aprire il ticket.</p>}
+      <form key={editing?.id ?? initialCustomer?.id ?? "new"} className="form-grid compact" onSubmit={(event) => void submit(event)}>
+        <label>Nome<input name="firstName" required defaultValue={editing?.firstName ?? defaults?.firstName} /></label>
+        <label>Cognome<input name="lastName" required defaultValue={editing?.lastName ?? defaults?.lastName} /></label>
+        <label>POD / PDR<input name="podPdr" required defaultValue={editing?.podPdr ?? defaults?.podPdr} /></label>
         <label>Data apertura<input name="openedAt" type="date" required defaultValue={editing?.openedAt ?? dateToday()} /></label>
-        {!isPersonalUser(user) && <label>Fonte<select name="sourceId" defaultValue={editing?.sourceId ?? ""}><option value="">Senza fonte</option>{store.sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}</select></label>}
+        {!isPersonalUser(user) && <label>Fonte<select name="sourceId" defaultValue={editing?.sourceId ?? defaults?.sourceId ?? ""}><option value="">Senza fonte</option>{store.sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}</select></label>}
         <label>Stato<select name="status" defaultValue={editing?.status ?? "aperta"}>{Object.entries(statuses).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-        <label className="wide-field">Problematica<textarea name="problem" required rows={4} defaultValue={editing?.problem} /></label>
+        <label className="wide-field">Problematica / richiesta<select name="problem" required defaultValue={editing?.problem ?? ""}>
+          <option value="" disabled>Seleziona una problematica / richiesta</option>
+          {editing?.problem && !ticketProblems.some((problem) => problem === editing.problem) && <option value={editing.problem}>{editing.problem} (ticket precedente)</option>}
+          {ticketProblems.map((problem) => <option key={problem} value={problem}>{problem}</option>)}
+        </select></label>
+        <label className="wide-field">Dettagli / note (facoltativi)<textarea name="notes" rows={3} defaultValue={editing?.notes} /></label>
         {error && <p role="alert">{error}</p>}
         <button className="primary-button" type="submit">{editing ? "Salva modifiche" : "Apri ticket"}</button>
-        {editing && <button className="secondary-button" type="button" onClick={() => setEditing(undefined)}>Annulla</button>}
+        {(editing || initialCustomer) && <button className="secondary-button" type="button" onClick={() => { setEditing(undefined); setError(""); onClearInitialCustomer(); }}>Annulla</button>}
       </form>
     </section>
     <section className="table-section operations-table"><h2>Ticket clienti ({tickets.length})</h2>
       <div className="operations-filters"><label>Cerca cliente, POD/PDR o problema<input value={search} onChange={(event) => setSearch(event.target.value)} /></label>
         <label>Stato<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="tutti">Tutti</option>{Object.entries(statuses).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div>
-      <div className="table-wrap"><table><thead><tr><th>Cliente</th><th>POD/PDR</th><th>Apertura</th><th>Problematica</th><th>Stato</th><th>Azioni</th></tr></thead><tbody>
-        {tickets.map((ticket) => <tr key={ticket.id}><td>{ticket.firstName} {ticket.lastName}</td><td>{ticket.podPdr}</td><td>{formatDate(ticket.openedAt)}</td><td className="ticket-problem">{ticket.problem}</td><td><span className="status-badge">{statuses[ticket.status]}</span></td><td><button className="secondary-button" onClick={() => { setEditing(ticket); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Gestisci</button></td></tr>)}
+      <div className="table-wrap"><table><thead><tr><th>Cliente</th><th>POD/PDR</th><th>Apertura</th><th>Problematica / richiesta</th><th>Stato</th><th>Azioni</th></tr></thead><tbody>
+        {tickets.map((ticket) => <tr key={ticket.id}><td>{ticket.firstName} {ticket.lastName}</td><td>{ticket.podPdr}</td><td>{formatDate(ticket.openedAt)}</td><td className="ticket-problem">{ticket.problem}{ticket.notes && <small>{ticket.notes}</small>}</td><td><span className="status-badge">{statuses[ticket.status]}</span></td><td><button className="secondary-button" onClick={() => { setEditing(ticket); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Gestisci</button></td></tr>)}
         {!tickets.length && <tr><td colSpan={6} className="empty-state">Nessun ticket trovato.</td></tr>}
       </tbody></table></div>
     </section>
