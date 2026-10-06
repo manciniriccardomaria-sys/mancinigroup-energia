@@ -1,3 +1,4 @@
+import { defaultQuoteOffers, normalizeManagedOffers } from "./offers";
 import { getMarketVariableDefinition, marketVariableSeedValues } from "./market-variables";
 import { addMonthsToForecastMonth, simulateFutureCommissions } from "./commission-forecast";
 import {
@@ -306,6 +307,8 @@ export function createDefaultClientStore(adminEmail: string, adminName = "Admin 
     productionMetrics: seedProductionMetrics,
     marketVariables: seedMarketVariables(adminUser.id, createdAt),
     energyQuotes: [],
+    customerTickets: [],
+    managedOffers: defaultQuoteOffers(),
     uploadedFiles: [],
     loadingRecords: [],
     agencyMarginRecords: [],
@@ -329,6 +332,8 @@ export function normalizeStore(data: Partial<StoreData>, adminEmail?: string): S
   base.agencyMarginRecords ??= [];
   base.marketVariables ??= fallback.marketVariables;
   base.energyQuotes ??= [];
+  base.customerTickets ??= [];
+  base.managedOffers = normalizeManagedOffers(base.managedOffers);
   base.users ??= fallback.users;
 
   return base;

@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "test:operations": "node scripts/test-operations.cjs",
     "firebase:login": "firebase login",
     "firebase:deploy-rules": "firebase deploy --only firestore",
     "firebase:push-store": "node scripts/push-store-to-firebase.mjs",

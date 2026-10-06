@@ -44,7 +44,7 @@ import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth, formatCo
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
 import { marketVariableDefinitions } from "@/lib/market-variables";
 import { formatDate, formatDateTime, formatEuro, normalizePodPdr, parseEuro } from "@/lib/normalize";
-import { offerCatalog, summarizeOfferCatalog } from "@/lib/offers";
+import { ManagedOffersView, TicketsView, PaymentGateBadge } from "./operations-views";
 import {
   calculateEnergyQuote,
   defaultEnergyQuoteInput,
@@ -61,6 +61,7 @@ import type {
   CommissionPayment,
   CommissionRule,
   CustomerStatus,
+  EnergyQuote,
   SessionUser,
   Source,
   SourceKind,
@@ -95,6 +96,8 @@ export type StaticView =
   | "customers"
   | "caricamenti"
   | "offers"
+  | "saved-quotes"
+  | "tickets"
   | "sources"
   | "users"
   | "commissions"
@@ -106,7 +109,7 @@ type Flash = {
   message: string;
 };
 
-type MutateStore = (change: (draft: StoreData) => void, successMessage: string) => Promise<void>;
+type MutateStore = (change: (draft: StoreData) => void, successMessage: string) => Promise<boolean>;
 
 type CreateAccessUser = (input: {
   email: string;
@@ -152,6 +155,8 @@ const navItems: Array<{
     icon: <ClipboardList size={18} />,
     roles: ["admin", "operativo"]
   },
+  { href: "/saved-quotes/", view: "saved-quotes", label: "Preventivi salvati", icon: <ReceiptText size={18} /> },
+  { href: "/tickets/", view: "tickets", label: "Ticket clienti", icon: <MessageCircle size={18} /> },
   { href: "/offers/", view: "offers", label: "Offerte", icon: <Tags size={18} /> },
   { href: "/sources/", view: "sources", label: "Fonti", icon: <UserPlus size={18} />, roles: ["admin", "operativo"] },
   { href: "/commissions/", view: "commissions", label: "Provvigioni", icon: <BarChart3 size={18} />, roles: ["admin", "frontline", "agent"] },
@@ -833,7 +838,7 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
 
   const mutateStore: MutateStore = async (change, successMessage) => {
     if (!store || !persistedStore) {
-      return;
+      return false;
     }
 
     const nextStore = cloneStore(store);
@@ -850,11 +855,13 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
       setStore(nextStore);
       setPersistedStore(cloneStore(nextStore));
       setFlash({ type: "success", message: successMessage });
+      return true;
     } catch (error) {
       setFlash({
         type: "error",
         message: error instanceof Error ? error.message : "Operazione non riuscita."
       });
+      return false;
     }
   };
 
@@ -958,7 +965,9 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
       {view === "customers-new" && <NewCustomerView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "customers" && <CustomersView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "caricamenti" && <CaricamentiView store={store} user={sessionUser} mutateStore={mutateStore} />}
-      {view === "offers" && <OffersView />}
+      {view === "offers" && <ManagedOffersView store={store} user={sessionUser} mutateStore={mutateStore} />}
+      {view === "tickets" && <TicketsView store={store} user={sessionUser} mutateStore={mutateStore} />}
+      {view === "saved-quotes" && <SavedQuotesView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "sources" && (
         <SourcesView
           store={store}
@@ -2515,58 +2524,6 @@ function UsersView({ store, user }: ViewProps) {
   );
 }
 
-function OffersView() {
-  const summary = summarizeOfferCatalog();
-
-  return (
-    <>
-      <section className="stats-grid three">
-        <StatCard icon={<Tags size={24} />} label="Offerte" value={summary.total} />
-        <StatCard icon={<Zap size={24} />} label="Luce" value={summary.luce} />
-        <StatCard icon={<Flame size={24} />} label="Gas" value={summary.gas} />
-      </section>
-      <section className="table-section no-margin">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Catalogo</p>
-            <h2>Tabella offerte</h2>
-          </div>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Offerta</th>
-                <th>Tipologia</th>
-                <th>Cliente</th>
-                <th>PCV</th>
-                <th>Spread</th>
-                <th>Codice</th>
-              </tr>
-            </thead>
-            <tbody>
-              {offerCatalog.map((offer) => (
-                <tr key={offer.code}>
-                  <td>{offer.offerEasy}</td>
-                  <td>
-                    <span className={`status-badge ${offer.commodity}`}>{commodityLabels[offer.commodity]}</span>
-                  </td>
-                  <td>{offer.customerType}</td>
-                  <td>{formatEuro(offer.pcv)}</td>
-                  <td>{formatSpread(offer.spread, 3)}</td>
-                  <td>
-                    <span className="offer-code">{offer.code}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </>
-  );
-}
-
 function CaricamentiView({ store, user, mutateStore }: ViewProps) {
   const loadingRecords = visibleLoadingRecords(user, store);
   const agencyRecords = visibleAgencyMarginRecords(user, store);
@@ -3011,7 +2968,7 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
             <tbody>
               {monthlyRows.map((row) => (
                 <tr key={row.source.id}>
-                  <td>{row.source.name}</td>
+                  <td>{row.source.name} <PaymentGateBadge sourceId={row.source.id} store={store} date={cutoffDate} forecasts={projectedEntries.map((entry) => ({ sourceId: entry.sourceId, monthKey: entry.monthKey, amount: entry.amount }))} /></td>
                   <td className="summary-col">{formatEuro(row.total)}</td>
                   <td className="summary-col">{formatEuro(row.paid)}</td>
                   <td className="summary-col">
@@ -3245,15 +3202,50 @@ function RulesView({ store, user, mutateStore }: ViewProps) {
   );
 }
 
-function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
+function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
+  const [search, setSearch] = useState("");
+  const [commodity, setCommodity] = useState("tutti");
+  const [selected, setSelected] = useState<EnergyQuote>();
+  const [reopened, setReopened] = useState<EnergyQuote>();
+  const quotes = store.energyQuotes.filter((quote) => (!isPersonalUser(user) || quote.createdBy === user.id)
+    && (commodity === "tutti" || quote.commodity === commodity)
+    && `${quote.customerFirstName} ${quote.customerLastName} ${quote.customerPhone ?? ""} ${quote.selectedOfferName} ${quote.sourceName ?? ""}`.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => b.quoteDate.localeCompare(a.quoteDate) || b.createdAt.localeCompare(a.createdAt));
+  if (reopened) return <><section className="panel print-hidden"><button className="secondary-button" onClick={() => setReopened(undefined)}>Torna all’archivio</button><p>Nuovo preventivo dai dati salvati: il confronto usa le offerte attive e le variabili attuali. Il preventivo originale resta in archivio.</p></section><PreventivatoreView key={reopened.id} store={store} user={user} mutateStore={mutateStore} initialInput={defaultEnergyQuoteInput(reopened.inputSnapshot as Partial<EnergyQuoteInput>)} /></>;
+  const detail = selected && <section className={`panel ${selected.calculationSnapshot ? "print-hidden" : "quote-archive-print"}`}>
+    <h2>Preventivo del {formatDate(selected.quoteDate)} · {selected.customerFirstName} {selected.customerLastName}</h2>
+    <div className="operations-detail"><p>Telefono: <strong>{selected.customerPhone || "—"}</strong></p><p>Fonte: <strong>{selected.sourceName || "—"}</strong></p>
+      <p>Fornitura: <strong>{commodityLabels[selected.commodity]} · {selected.customerType}</strong></p><p>Offerta: <strong>{selected.selectedOfferName}</strong></p>
+      <p>Consumo periodo: <strong>{selected.totalConsumption} {selected.commodity === "luce" ? "kWh" : "Smc"}</strong></p><p>Consumo annuo: <strong>{selected.annualConsumption} {selected.commodity === "luce" ? "kWh" : "Smc"}</strong></p>
+      <p>Spesa attuale: <strong>{formatEuro(selected.currentSpend)}</strong></p><p>Quota consumi proposta: <strong>{formatEuro(selected.quotaConsumi)}</strong></p>
+      <p>Risparmio annuo: <strong>{formatEuro(selected.annualSaving)}</strong></p>{!isPersonalUser(user) && <p>Provvigione agenzia: <strong>{formatEuro(selected.agencyCommission)}</strong></p>}
+      {selected.calculationSnapshot?.selectedOffer && <><p>PCV proposta: <strong>{formatEuro(selected.calculationSnapshot.selectedOffer.pcv)}/mese</strong></p><p>{selected.calculationSnapshot.selectedOffer.pricingType === "fixed" ? "Prezzo fisso" : "Spread"}: <strong>{selected.calculationSnapshot.selectedOffer.pricingType === "fixed" ? selected.calculationSnapshot.selectedOffer.fixedPrice : selected.calculationSnapshot.selectedOffer.spread} {selected.commodity === "luce" ? "€/kWh" : "€/Smc"}</strong></p></>}
+    </div>
+    {!selected.calculationSnapshot && <p className="muted-text">Preventivo storico: sono disponibili i valori salvati, senza il dettaglio completo della tariffa.</p>}
+    <div className="operations-actions"><button className="print-button" onClick={() => window.print()}>Stampa / salva PDF</button><button className="secondary-button" onClick={() => setReopened(selected)}>Crea nuovo da questi dati</button><button className="secondary-button" onClick={() => setSelected(undefined)}>Chiudi dettaglio</button></div>
+  </section>;
+  return <>
+    <section className="table-section operations-table print-hidden"><h2>Preventivi salvati ({quotes.length})</h2>
+      <div className="operations-filters"><label>Cerca cliente, telefono, fonte o offerta<input value={search} onChange={(event) => setSearch(event.target.value)} /></label><label>Fornitura<select value={commodity} onChange={(event) => setCommodity(event.target.value)}><option value="tutti">Tutte</option><option value="luce">Luce</option><option value="gas">Gas</option></select></label></div>
+      <div className="table-wrap"><table><thead><tr><th>Data</th><th>Cliente</th><th>Telefono</th><th>Fonte</th><th>Fornitura</th><th>Offerta</th><th>Risparmio annuo</th><th>Azioni</th></tr></thead><tbody>
+        {quotes.map((quote) => <tr key={quote.id}><td>{formatDate(quote.quoteDate)}</td><td>{quote.customerFirstName} {quote.customerLastName}</td><td>{quote.customerPhone || "—"}</td><td>{quote.sourceName || "—"}</td><td>{commodityLabels[quote.commodity]}</td><td>{quote.selectedOfferName}</td><td>{formatEuro(quote.annualSaving)}</td><td><button className="secondary-button" onClick={() => setSelected(quote)}>Visualizza</button></td></tr>)}
+        {!quotes.length && <tr><td colSpan={8} className="empty-state">Nessun preventivo trovato.</td></tr>}
+      </tbody></table></div>
+    </section>
+    {detail}
+    {selected?.calculationSnapshot && <QuotePrintPage calculation={selected.calculationSnapshot} input={defaultEnergyQuoteInput(selected.inputSnapshot as Partial<EnergyQuoteInput>)} selectedOffer={selected.calculationSnapshot.selectedOffer} />}
+  </>;
+}
+
+function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProps & { initialInput?: EnergyQuoteInput }) {
   const [quoteInput, setQuoteInput] = useState<EnergyQuoteInput>(() => ({
-    ...createDefaultQuoteInput(),
-    sourceId: isPersonalUser(user) ? user.sourceId : undefined
+    ...(initialInput ?? createDefaultQuoteInput()),
+    sourceId: isPersonalUser(user) ? user.sourceId : initialInput?.sourceId
   }));
   const [quoteNumberInputs, setQuoteNumberInputs] = useState<Partial<Record<QuoteNumberField, string>>>({});
   const calculation = useMemo(
-    () => calculateEnergyQuote(quoteInput, store.marketVariables),
-    [quoteInput, store.marketVariables]
+    () => calculateEnergyQuote(quoteInput, store.marketVariables, store.managedOffers),
+    [quoteInput, store.marketVariables, store.managedOffers]
   );
   const offerChoices = calculation.offers.filter((offer) => offer.customerType === quoteInput.customerType);
   const comparisonOffers = [...offerChoices].sort((a, b) => b.annualSaving - a.annualSaving);
@@ -3316,8 +3308,9 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
     }
 
     const sourceId = isPersonalUser(user) ? user.sourceId : quoteInput.sourceId;
-    await mutateStore((draft) => {
+    const saved = await mutateStore((draft) => {
       addEnergyQuoteToStore(draft, {
+        calculationSnapshot: calculation,
         quoteDate: quoteInput.quoteDate,
         sourceId,
         sourceName: store.sources.find((source) => source.id === sourceId)?.name,
@@ -3345,6 +3338,7 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
         createdBy: user.id
       });
     }, "Preventivo salvato.");
+    if (!saved) return;
     setQuoteInput({
       ...createDefaultQuoteInput(false),
       sourceId: isPersonalUser(user) ? user.sourceId : undefined
@@ -3643,8 +3637,8 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                 <strong>{resultValue(selectedOffer ? formatEuro(selectedOffer.quotaConsumi) : "-")}</strong>
               </div>
               <div className="quote-metric-row proposed">
-                <span>Spread proposto</span>
-                <strong>{resultValue(selectedOffer ? `${formatSpread(selectedOffer.spread, 3)} €` : "-")}</strong>
+                <span>{selectedOffer?.pricingType === "fixed" ? "Prezzo fisso proposto" : "Spread proposto"}</span>
+                <strong>{resultValue(selectedOffer ? `${formatSpread(selectedOffer.pricingType === "fixed" ? selectedOffer.fixedPrice ?? 0 : selectedOffer.spread, 3)} €` : "-")}</strong>
               </div>
               <div className="quote-metric-row proposed">
                 <span>PCV proposto</span>
@@ -3690,7 +3684,7 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                 <th>Offerta</th>
                 <th>Cliente</th>
                 <th>PCV</th>
-                <th>Spread</th>
+                <th>Prezzo / spread</th>
                 <th>Quota consumi</th>
                 <th>Risparmio annuo</th>
                 <th />
@@ -3702,7 +3696,7 @@ function PreventivatoreView({ store, user, mutateStore }: ViewProps) {
                   <td>{offer.offerName}</td>
                   <td>{offer.customerType}</td>
                   <td>{formatEuro(offer.pcv)}</td>
-                  <td>{formatSpread(offer.spread, 3)} €</td>
+                  <td>{offer.pricingType === "fixed" ? "Fisso " : "Spread "}{formatSpread(offer.pricingType === "fixed" ? offer.fixedPrice ?? 0 : offer.spread, 3)} €</td>
                   <td>{resultValue(formatEuro(offer.quotaConsumi))}</td>
                   <td className={offer.annualSaving >= 0 ? "saving-cell" : "extra-cost-cell"}>
                     {quoteReady ? formatSavingImpact(offer.annualSaving) : "-"}
@@ -3973,8 +3967,8 @@ function QuotePrintPage({
           </div>
           <dl>
             <div>
-              <dt>Spread</dt>
-              <dd>{selectedOffer ? `${formatSpread(selectedOffer.spread, 3)} €` : "-"}</dd>
+              <dt>{selectedOffer?.pricingType === "fixed" ? "Prezzo fisso" : "Spread"}</dt>
+              <dd>{selectedOffer ? `${formatSpread(selectedOffer.pricingType === "fixed" ? selectedOffer.fixedPrice ?? 0 : selectedOffer.spread, 3)} €` : "-"}</dd>
             </div>
             <div>
               <dt>PCV</dt>
@@ -4016,7 +4010,7 @@ function QuotePrintPage({
           <article>
             <span className="print-why-icon"><BarChart3 size={17} /></span>
             <h3>Prezzo trasparente</h3>
-            <p>Spread e PCV dichiarati in chiaro: sai esattamente cosa paghi, senza sorprese in bolletta.</p>
+            <p>Prezzo e PCV dichiarati in chiaro: sai esattamente cosa paghi, senza sorprese in bolletta.</p>
           </article>
           <article>
             <span className="print-why-icon"><UsersRound size={17} /></span>

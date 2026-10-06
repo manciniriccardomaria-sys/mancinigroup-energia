@@ -132,6 +132,21 @@ service cloud.firestore {
       );
     }
 
+    match /appData/managedOffers/items/{documentId} {
+      allow read: if hasActiveAccess();
+      allow write: if hasFullDataAccess();
+    }
+
+    match /appData/customerTickets/items/{documentId} {
+      allow read: if hasFullDataAccess() || ownsSource(resource.data.sourceId);
+      allow create: if hasFullDataAccess() || (isPersonalProfile() &&
+        request.resource.data.sourceId == access().sourceId && request.resource.data.createdBy == access().id);
+      allow update: if hasFullDataAccess() || (ownsSource(resource.data.sourceId) &&
+        request.resource.data.sourceId == resource.data.sourceId &&
+        request.resource.data.createdBy == resource.data.createdBy);
+      allow delete: if hasFullDataAccess();
+    }
+
     match /appData/users/items/{documentId} {
       allow read: if hasFullDataAccess();
       allow write: if isAdmin();

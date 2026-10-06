@@ -1,3 +1,4 @@
+import { defaultQuoteOffers, normalizeManagedOffers } from "./offers";
 import "server-only";
 
 import { mkdir, readFile, rename, writeFile } from "fs/promises";
@@ -663,6 +664,8 @@ async function defaultStore(): Promise<StoreData> {
     productionMetrics: seedProductionMetrics,
     marketVariables: seedMarketVariables(adminUser.id, now),
     energyQuotes: [],
+    customerTickets: [],
+    managedOffers: defaultQuoteOffers(),
     uploadedFiles: [],
     loadingRecords: [],
     agencyMarginRecords: [],
@@ -687,6 +690,8 @@ function needsMigration(data: Partial<StoreData>) {
     !Array.isArray(data.productionMetrics) ||
     !Array.isArray(data.marketVariables) ||
     !Array.isArray(data.energyQuotes) ||
+    !Array.isArray(data.customerTickets) ||
+    !Array.isArray(data.managedOffers) ||
     (Array.isArray(data.marketVariables) && hasLegacyMarketSeedVariables(data.marketVariables)) ||
     marketVariableSeedValues.some(
       (seed) =>
@@ -716,6 +721,8 @@ function migrateStore(data: Partial<StoreData>): StoreData {
   base.productionMetrics ??= seedProductionMetrics;
   base.marketVariables ??= [];
   base.energyQuotes ??= [];
+  base.customerTickets ??= [];
+  base.managedOffers = normalizeManagedOffers(base.managedOffers);
   base.loadingRecords ??= [];
   base.agencyMarginRecords ??= [];
   migrateLegacyMarketVariableYears(base.marketVariables);

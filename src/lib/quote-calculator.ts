@@ -1,4 +1,4 @@
-import { offerCatalog, type OfferCatalogItem } from "./offers";
+import { defaultQuoteOffers, type OfferCatalogItem } from "./offers";
 import type { Commodity, MarketVariable } from "./types";
 
 // Fonte formule: fogli SIMULATORE_LUCE e SIMULATORE_GAS. Il foglio veloce non guida il calcolo.
@@ -40,6 +40,8 @@ export type QuoteOfferResult = {
   customerType: QuoteCustomerType;
   pcv: number;
   spread: number;
+  pricingType?: "fixed" | "variable";
+  fixedPrice?: number;
   quotaConsumi: number;
   annualDifference: number;
   annualSaving: number;
@@ -72,72 +74,6 @@ const GAS_SYSTEM_OFFSET = 0.026;
 const GAS_COMMISSION_BASE_SPREAD = 0.06;
 const AGENCY_RATE = 0.3;
 
-const GAS_QUOTE_OFFERS = [
-  {
-    code: "AGF_GAS_MANCINI GROUP_HOME FAMILY",
-    commodity: "gas",
-    offerEasy: "Home Family",
-    customerType: "RES",
-    pcv: 8,
-    spread: 0.09
-  },
-  {
-    code: "AGF_GAS_MANCINI GROUP_HOME FIDELITY",
-    commodity: "gas",
-    offerEasy: "Home Fidelity",
-    customerType: "RES",
-    pcv: 8,
-    spread: 0.109
-  },
-  {
-    code: "AGF_GAS_MANCINI GROUP_HOME BASIC",
-    commodity: "gas",
-    offerEasy: "Home Basic",
-    customerType: "RES",
-    pcv: 8,
-    spread: 0.129
-  },
-  {
-    code: "AGF_GAS_MANCINI GROUP_HOME STANDARD",
-    commodity: "gas",
-    offerEasy: "Home Standard",
-    customerType: "RES",
-    pcv: 10,
-    spread: 0.129
-  },
-  {
-    code: "AGF_GAS_MANCINI GROUP_HOME PLUS_0.129",
-    commodity: "gas",
-    offerEasy: "Home Plus",
-    customerType: "RES",
-    pcv: 12,
-    spread: 0.129
-  },
-  {
-    code: "AGF_GAS_MANCINI GROUP_HOME PLUS",
-    commodity: "gas",
-    offerEasy: "Home Plus",
-    customerType: "RES",
-    pcv: 12,
-    spread: 0.149
-  },
-  {
-    code: "AGF_GAS_MANCINI GROUP_BUSINESS FIDELITY",
-    commodity: "gas",
-    offerEasy: "Business Fidelity",
-    customerType: "BUS",
-    pcv: 12,
-    spread: 0.109
-  },
-  {
-    code: "AGF_GAS_MANCINI GROUP_BUSINESS BASIC",
-    commodity: "gas",
-    offerEasy: "Business Basic",
-    customerType: "BUS",
-    pcv: 12,
-    spread: 0.129
-  }
-] satisfies OfferCatalogItem[];
 
 function round2(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -197,14 +133,14 @@ function customerTypeRank(customerType: QuoteCustomerType) {
   return customerType === "RES" ? 0 : 1;
 }
 
-function uniqueOffers(commodity: QuoteCommodity) {
+function uniqueOffers(commodity: QuoteCommodity, catalog: OfferCatalogItem[]) {
   const seen = new Set<string>();
-  const sourceOffers = commodity === "gas" ? GAS_QUOTE_OFFERS : offerCatalog;
+  const sourceOffers = catalog;
 
   return sourceOffers
-    .filter((offer) => offer.commodity === commodity)
+    .filter((offer) => offer.commodity === commodity && offer.active !== false)
     .filter((offer) => {
-      const key = `${offer.offerEasy}|${offer.pcv}|${offer.spread}`;
+      const key = `${offer.customerType}|${offer.offerEasy}|${offer.pcv}|${offer.spread}|${offer.pricingType}|${offer.fixedPrice}`;
 
       if (seen.has(key)) {
         return false;
@@ -233,7 +169,7 @@ function selectedOffer(
   );
 }
 
-function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[]) {
+function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[], catalog: OfferCatalogItem[]) {
   const warnings: string[] = [];
   const lossFactor = lightLossFactor(input.lightLossMode);
   const months = activeMonths(input);
@@ -279,6 +215,7 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
   });
   const totalConsumption = monthConsumptions.reduce((sum, item) => sum + item.consumption.total, 0);
   const periodCount = monthConsumptions.filter((item) => item.consumption.total > 0).length || 1;
+  let punPeriodCost = 0;
   const marketCost = monthConsumptions.reduce((sum, item) => {
     const capacity = marketValue(variables, "mercato_capacita", item.monthKey, warnings);
     const dispatching = marketValue(variables, "dispacciamento", item.monthKey, warnings);
@@ -292,6 +229,7 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
         ? (consumption.f1 * punF1 + consumption.f2 * punF2 + consumption.f3 * punF3) * lossFactor
         : consumption.total * punMono;
 
+    punPeriodCost += punCost;
     return (
       sum +
       punCost +
@@ -307,15 +245,21 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
     totalConsumption > 0 ? (currentSpend - marketCost) / (totalConsumption * lossFactor) : 0;
   const referenceMonthlyConsumption = monthConsumptions[0]?.consumption.total ?? 0;
   const annualConsumption = referenceMonthlyConsumption * 12;
-  const offers = uniqueOffers("luce");
+  const offers = uniqueOffers("luce", catalog).filter((offer) => offer.customerType === input.customerType);
   const offerToSelect = selectedOffer(offers, input.selectedOfferCode, input.customerType);
   const currentAnnualCommercialCost = input.currentPcv * 12 + annualConsumption * currentSpread;
   const results = offers.map((offer) => {
-    const annualCommercialCost = offer.pcv * 12 + annualConsumption * offer.spread;
+    const fixed = offer.pricingType === "fixed";
+    const quotaConsumi = fixed
+      ? totalConsumption * lossFactor * (offer.fixedPrice ?? 0) + marketCost - punPeriodCost
+      : marketCost + totalConsumption * lossFactor * offer.spread;
+    const annualCommercialCost = offer.pcv * 12 + annualConsumption * (fixed
+      ? (quotaConsumi - marketCost) / (totalConsumption * lossFactor || 1)
+      : offer.spread);
     const annualDifference = annualCommercialCost - currentAnnualCommercialCost;
     const agencyCommission =
-      offer.pcv * 12 * AGENCY_RATE +
-      Math.max(0, offer.spread - LIGHT_COMMISSION_BASE_SPREAD) * annualConsumption * AGENCY_RATE;
+      offer.fixedAgencyCommission ?? (offer.pcv * 12 * (offer.commissionRate ?? AGENCY_RATE) +
+      Math.max(0, (fixed ? 0 : offer.spread) - (offer.commissionBaseSpread ?? LIGHT_COMMISSION_BASE_SPREAD)) * annualConsumption * (offer.commissionRate ?? AGENCY_RATE));
 
     return {
       code: offer.code,
@@ -323,7 +267,9 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
       customerType: offer.customerType,
       pcv: offer.pcv,
       spread: offer.spread,
-      quotaConsumi: marketCost + totalConsumption * lossFactor * offer.spread,
+      pricingType: offer.pricingType ?? "variable",
+      fixedPrice: offer.fixedPrice,
+      quotaConsumi,
       annualDifference: round2(annualDifference),
       annualSaving: round2(-annualDifference),
       agencyCommission: round2(agencyCommission),
@@ -349,7 +295,7 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
   };
 }
 
-function calculateGasQuote(input: EnergyQuoteInput, variables: MarketVariable[]) {
+function calculateGasQuote(input: EnergyQuoteInput, variables: MarketVariable[], catalog: OfferCatalogItem[]) {
   const warnings: string[] = [];
   const hasAnnualConsumption = input.gasAnnualConsumption > 0;
 
@@ -377,14 +323,16 @@ function calculateGasQuote(input: EnergyQuoteInput, variables: MarketVariable[])
   const currentSpread = effectiveAveragePrice - weightedPsv - GAS_SYSTEM_OFFSET;
   const averageMonthlyConsumption = totalConsumption / periodCount;
   const annualConsumption = hasAnnualConsumption ? input.gasAnnualConsumption : 0;
-  const offers = uniqueOffers("gas");
+  const offers = uniqueOffers("gas", catalog).filter((offer) => offer.customerType === input.customerType);
   const offerToSelect = selectedOffer(offers, input.selectedOfferCode, input.customerType);
   const results = offers.map((offer) => {
+    const fixed = offer.pricingType === "fixed";
+    const effectiveSpread = fixed ? (offer.fixedPrice ?? 0) - weightedPsv : offer.spread;
     const annualDifference =
-      (offer.spread - currentSpread) * annualConsumption + (offer.pcv - input.currentPcv) * 12;
+      (effectiveSpread - currentSpread) * annualConsumption + (offer.pcv - input.currentPcv) * 12;
     const agencyCommission =
-      offer.pcv * 12 * AGENCY_RATE +
-      Math.max(0, offer.spread - GAS_COMMISSION_BASE_SPREAD) * annualConsumption * AGENCY_RATE;
+      offer.fixedAgencyCommission ?? (offer.pcv * 12 * (offer.commissionRate ?? AGENCY_RATE) +
+      Math.max(0, (fixed ? 0 : offer.spread) - (offer.commissionBaseSpread ?? GAS_COMMISSION_BASE_SPREAD)) * annualConsumption * (offer.commissionRate ?? AGENCY_RATE));
 
     return {
       code: offer.code,
@@ -392,7 +340,9 @@ function calculateGasQuote(input: EnergyQuoteInput, variables: MarketVariable[])
       customerType: offer.customerType,
       pcv: offer.pcv,
       spread: offer.spread,
-      quotaConsumi: psvCost + totalConsumption * offer.spread,
+      pricingType: offer.pricingType ?? "variable",
+      fixedPrice: offer.fixedPrice,
+      quotaConsumi: fixed ? totalConsumption * (offer.fixedPrice ?? 0) : psvCost + totalConsumption * offer.spread,
       annualDifference: round2(annualDifference),
       annualSaving: round2(-annualDifference),
       agencyCommission: round2(agencyCommission),
@@ -420,11 +370,12 @@ function calculateGasQuote(input: EnergyQuoteInput, variables: MarketVariable[])
 
 export function calculateEnergyQuote(
   input: EnergyQuoteInput,
-  variables: MarketVariable[]
+  variables: MarketVariable[],
+  catalog: OfferCatalogItem[] = defaultQuoteOffers()
 ): EnergyQuoteCalculation {
   return input.commodity === "gas"
-    ? calculateGasQuote(input, variables)
-    : calculateLightQuote(input, variables);
+    ? calculateGasQuote(input, variables, catalog)
+    : calculateLightQuote(input, variables, catalog);
 }
 
 export function defaultEnergyQuoteInput(input?: Partial<EnergyQuoteInput>): EnergyQuoteInput {

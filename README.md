@@ -76,3 +76,12 @@ Gli upload vengono letti dal browser, importati subito e poi non conservati come
 
 La spiegazione funzionale e in `docs/COME_FUNZIONA.md`.
 La checklist di go-live e in `docs/GO_LIVE.md`.
+
+## Preventivi, ticket, offerte e pagamenti trimestrali
+
+- **Preventivi salvati**: ricerca, filtro luce/gas, dettaglio, stampa e creazione di un nuovo preventivo dai dati archiviati. I nuovi preventivi conservano il calcolo originale; quelli storici mostrano i valori già salvati.
+- **Ticket clienti**: nome, cognome, POD/PDR, data apertura, problematica e stato (Aperta inizialmente, In lavorazione, Risolta, Chiusa). È possibile modificare i ticket e filtrarli per stato. I profili personali vedono soltanto i ticket della propria fonte.
+- **Offerte**: admin e operativo possono aggiungere/modificare/attivare/disattivare tariffe. Il preventivatore usa solo offerte attive della fornitura e tipologia cliente selezionate. Prezzi fissi in €/kWh (luce) o €/Smc (gas); variabili PUN/PSV + spread, con PCV mensile e parametri provvigionali. Le condizioni iniziali del preventivatore sono mantenute come catalogo predefinito, con modifiche persistenti in `managedOffers`.
+- **Provvigioni**: l’icona accanto alla fonte compare dal primo pagamento positivo registrato. Passando il mouse, mettendola a fuoco o toccandola si vedono ultimo pagamento, scadenza a tre mesi di calendario (fine mese adattato), i tre mesi successivi al mese pagato e il saldo attuale. Il saldo comprende eventuali arretrati e sottrae i pagamenti effettivi; forecast e maturato restano distinti. Ogni nuovo pagamento sposta la scadenza. Le righe senza mese completo e i pagamenti futuri sono esclusi.
+
+Verifica funzionale: `node scripts/test-operations.cjs`. Prima di distribuire questa versione pubblicare anche le regole Firestore aggiornate, che autorizzano le raccolte `customerTickets` e `managedOffers`.

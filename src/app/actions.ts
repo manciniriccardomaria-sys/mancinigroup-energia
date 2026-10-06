@@ -660,7 +660,7 @@ export async function saveEnergyQuoteAction(formData: FormData) {
   const user = await requireUser();
   const input = quoteInputFromForm(formData);
   const store = await readStore();
-  const calculation = calculateEnergyQuote(input, store.marketVariables);
+  const calculation = calculateEnergyQuote(input, store.marketVariables, store.managedOffers);
   const selectedOffer = calculation.selectedOffer;
   const source = store.sources.find((item) => item.id === input.sourceId);
 
@@ -674,6 +674,7 @@ export async function saveEnergyQuoteAction(formData: FormData) {
   }
 
   await addEnergyQuote({
+    calculationSnapshot: calculation,
     quoteDate: input.quoteDate,
     sourceId: source?.id,
     sourceName: source?.name,

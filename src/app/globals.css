@@ -3026,3 +3026,29 @@ td small {
     background: #ffc107;
   }
 }
+
+.operations-filters, .operations-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.operations-filters label { flex: 1; min-width: 190px; }
+.operations-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px 24px; }
+.ticket-problem { min-width: 230px; max-width: 460px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.payment-gate { display: inline-flex; position: relative; vertical-align: middle; margin-left: 6px; }
+.payment-gate-trigger { cursor: pointer; display: inline-flex; padding: 5px; border: 1px solid currentColor; border-radius: 50%; background: transparent; color: inherit; }
+.payment-gate.due { color: #b45309; }
+.payment-gate.pending { color: #2563eb; }
+.payment-gate-tooltip { display: none; position: fixed; z-index: 100; left: max(12px, calc(50vw - 180px)); top: 22vh; width: min(360px, calc(100vw - 24px)); padding: 18px; border-radius: 14px; background: #fff; color: #163049; box-shadow: 0 12px 50px #10223840; border: 1px solid #dbe5ee; white-space: normal; font-weight: normal; text-align: left; gap: 8px; }
+.payment-gate:hover .payment-gate-tooltip, .payment-gate:focus-within .payment-gate-tooltip { display: grid; }
+@media print {
+  .quote-archive-print { display: block !important; box-shadow: none; border: 0; }
+  .quote-archive-print .operations-actions { display: none !important; }
+  .payment-gate { display: none; }
+}
+
+@media print {
+  .print-hidden { display: none !important; }
+  .quote-archive-print { padding: 15mm; }
+}
+
+.operations-table > h2 { padding: 22px 22px 0; }
+.operations-table > .operations-filters { padding: 0 22px; }
+.operations-table > label { margin: 16px 22px; }
+.operations-table .offer-code { display: block; margin-top: 4px; }

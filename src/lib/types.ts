@@ -1,3 +1,5 @@
+import type { ManagedOffer } from "./offers";
+import type { EnergyQuoteCalculation } from "./quote-calculator";
 export type SourceKind = "collaboratore" | "frontline" | "sede";
 
 export type UserRole = "admin" | "frontline" | "agent" | "operativo";
@@ -97,7 +99,22 @@ export type MarketVariable = {
   updatedBy: string;
 };
 
+export type CustomerTicket = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  podPdr: string;
+  openedAt: string;
+  problem: string;
+  status: "aperta" | "in_lavorazione" | "risolta" | "chiusa";
+  sourceId?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type EnergyQuote = {
+  calculationSnapshot?: EnergyQuoteCalculation;
   id: string;
   quoteDate: string;
   sourceId?: string;
@@ -308,6 +325,8 @@ export type StoreData = {
   agencyMarginRecords: AgencyMarginRecord[];
   marketVariables: MarketVariable[];
   energyQuotes: EnergyQuote[];
+  customerTickets: CustomerTicket[];
+  managedOffers: ManagedOffer[];
   users: User[];
 };
 

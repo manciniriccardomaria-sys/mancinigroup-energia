@@ -9,6 +9,12 @@ export type OfferCatalogItem = {
   customerType: Exclude<OfferCustomerType, "non_definito">;
   pcv: number;
   spread: number;
+  pricingType?: "fixed" | "variable";
+  fixedPrice?: number;
+  active?: boolean;
+  commissionRate?: number;
+  commissionBaseSpread?: number;
+  fixedAgencyCommission?: number;
 };
 
 export const offerCatalog: OfferCatalogItem[] = [
@@ -285,4 +291,88 @@ export function summarizeOfferCatalog() {
     },
     { total: 0, luce: 0, gas: 0, RES: 0, BUS: 0 }
   );
+}
+
+export const gasQuoteOffers = [
+  {
+    code: "AGF_GAS_MANCINI GROUP_HOME FAMILY",
+    commodity: "gas",
+    offerEasy: "Home Family",
+    customerType: "RES",
+    pcv: 8,
+    spread: 0.09
+  },
+  {
+    code: "AGF_GAS_MANCINI GROUP_HOME FIDELITY",
+    commodity: "gas",
+    offerEasy: "Home Fidelity",
+    customerType: "RES",
+    pcv: 8,
+    spread: 0.109
+  },
+  {
+    code: "AGF_GAS_MANCINI GROUP_HOME BASIC",
+    commodity: "gas",
+    offerEasy: "Home Basic",
+    customerType: "RES",
+    pcv: 8,
+    spread: 0.129
+  },
+  {
+    code: "AGF_GAS_MANCINI GROUP_HOME STANDARD",
+    commodity: "gas",
+    offerEasy: "Home Standard",
+    customerType: "RES",
+    pcv: 10,
+    spread: 0.129
+  },
+  {
+    code: "AGF_GAS_MANCINI GROUP_HOME PLUS_0.129",
+    commodity: "gas",
+    offerEasy: "Home Plus",
+    customerType: "RES",
+    pcv: 12,
+    spread: 0.129
+  },
+  {
+    code: "AGF_GAS_MANCINI GROUP_HOME PLUS",
+    commodity: "gas",
+    offerEasy: "Home Plus",
+    customerType: "RES",
+    pcv: 12,
+    spread: 0.149
+  },
+  {
+    code: "AGF_GAS_MANCINI GROUP_BUSINESS FIDELITY",
+    commodity: "gas",
+    offerEasy: "Business Fidelity",
+    customerType: "BUS",
+    pcv: 12,
+    spread: 0.109
+  },
+  {
+    code: "AGF_GAS_MANCINI GROUP_BUSINESS BASIC",
+    commodity: "gas",
+    offerEasy: "Business Basic",
+    customerType: "BUS",
+    pcv: 12,
+    spread: 0.129
+  }
+] satisfies OfferCatalogItem[];
+
+export type ManagedOffer = OfferCatalogItem & { id: string; active: boolean };
+
+export function defaultQuoteOffers(): ManagedOffer[] {
+  const catalog = new Map(offerCatalog.map((offer) => [offer.code, offer]));
+  for (const offer of gasQuoteOffers) catalog.set(offer.code, offer);
+  return [...catalog.values()].map((offer) => ({
+    ...offer, id: offer.code, active: true, pricingType: "variable"
+  }));
+}
+
+// Firestore stores only changed records: retain untouched defaults when reading overrides.
+export function normalizeManagedOffers(offers: ManagedOffer[] = []): ManagedOffer[] {
+  const merged = new Map(defaultQuoteOffers().map((offer) => [offer.id, offer]));
+  for (const offer of offers) merged.set(offer.id, offer);
+  return [...merged.values()];
 }
