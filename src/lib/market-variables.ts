@@ -49,6 +49,18 @@ export const marketVariableDefinitions = [
     label: "PSV",
     commodity: "gas",
     unit: "€/Smc"
+  },
+  {
+    key: "m_gas",
+    label: "M-GAS MET (€/Smc, da €/MWh × 0,0107)",
+    commodity: "gas",
+    unit: "€/Smc"
+  },
+  {
+    key: "mgp_gas",
+    label: "MGP-GAS MET (€/Smc, da €/MWh × 0,0107)",
+    commodity: "gas",
+    unit: "€/Smc"
   }
 ] as const satisfies readonly MarketVariableDefinition[];
 

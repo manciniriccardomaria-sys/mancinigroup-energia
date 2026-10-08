@@ -138,7 +138,7 @@ export type EnergyQuote = {
   annualDifference: number;
   annualSaving: number;
   agencyCommission: number;
-  inputSnapshot: Record<string, string | number | undefined>;
+  inputSnapshot: Record<string, string | number | boolean | undefined>;
   createdAt: string;
   createdBy: string;
 };

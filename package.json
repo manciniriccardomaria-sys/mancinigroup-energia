@@ -10,6 +10,8 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test:operations": "node scripts/test-operations.cjs",
+    "test:met": "node scripts/test-met.cjs",
+    "firebase:load-met": "node scripts/load-met-offers.cjs",
     "firebase:login": "firebase login",
     "firebase:deploy-rules": "firebase deploy --only firestore",
     "firebase:push-store": "node scripts/push-store-to-firebase.mjs",

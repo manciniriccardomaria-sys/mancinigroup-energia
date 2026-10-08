@@ -123,6 +123,8 @@ Per calcolare i 10 mesi il sistema usa la prima presenza reale del POD/PDR tra c
 
 La pagina `/preventivatore` contiene il preventivatore luce/gas e la tabella centrale delle variabili mensili usate dai calcoli.
 
+Il catalogo comprende anche 21 offerte MET rianalizzate dalle CTE originali. Prezzi per fascia, conversione dei prezzi già inclusivi delle perdite, componenti aggiuntive, fasi ProMETto/CER e provvigioni dedicate sono documentati in [OFFERTE_MET.md](OFFERTE_MET.md). Le offerte per fascia richiedono F1/F2/F3 per ciascun mese, compresi gli zeri dichiarati; il salvataggio viene bloccato se mancano. Per il gas MET sono disponibili le variabili M-GAS e MGP-GAS separate dal PSV e il PCS della bolletta.
+
 Il preventivatore riprende solo le formule dei fogli `SIMULATORE_LUCE` e `SIMULATORE_GAS`.
 Il foglio `SIMULATORE_LUCE_VELOCE CASA` non viene usato come sorgente regole.
 

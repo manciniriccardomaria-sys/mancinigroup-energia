@@ -52,7 +52,8 @@ import {
   type LightConsumptionMode,
   type LightLossMode,
   type QuoteCommodity,
-  type QuoteCustomerType
+  type QuoteCustomerType,
+  type QuoteOfferResult
 } from "@/lib/quote-calculator";
 import type {
   AgencyMarginRecord,
@@ -390,6 +391,16 @@ function formatSpread(value: number, digits = 3) {
   }).format(value);
 }
 
+function quotePriceText(offer: QuoteOfferResult) {
+  return offer.priceLabel ?? `${formatSpread(offer.pricingType === "fixed" ? offer.fixedPrice ?? 0 : offer.spread, 3)} €`;
+}
+
+function quotePriceTitle(offer?: QuoteOfferResult) {
+  if (offer?.priceLabel?.startsWith("F1")) return "Corrispettivi per fascia";
+  if (offer?.priceLabel?.includes("fisso dal")) return "Corrispettivo";
+  return offer?.pricingType === "fixed" ? "Prezzo fisso" : "Spread";
+}
+
 function formatInputNumber(value: number) {
   return value ? String(value).replace(".", ",") : "";
 }
@@ -398,6 +409,7 @@ type QuoteNumberField =
   | "currentAveragePrice"
   | "currentPcv"
   | "gasAnnualConsumption"
+  | "gasPcs"
   | "consumptionMonth1"
   | "consumptionMonth2"
   | "f1Month1"
@@ -3225,8 +3237,8 @@ function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
       <p>Fornitura: <strong>{commodityLabels[selected.commodity]} · {selected.customerType}</strong></p><p>Offerta: <strong>{selected.selectedOfferName}</strong></p>
       <p>Consumo periodo: <strong>{selected.totalConsumption} {selected.commodity === "luce" ? "kWh" : "Smc"}</strong></p><p>Consumo annuo: <strong>{selected.annualConsumption} {selected.commodity === "luce" ? "kWh" : "Smc"}</strong></p>
       <p>Spesa attuale: <strong>{formatEuro(selected.currentSpend)}</strong></p><p>Quota consumi proposta: <strong>{formatEuro(selected.quotaConsumi)}</strong></p>
-      <p>Risparmio annuo: <strong>{formatEuro(selected.annualSaving)}</strong></p>{!isPersonalUser(user) && <p>Provvigione agenzia: <strong>{formatEuro(selected.agencyCommission)}</strong></p>}
-      {selected.calculationSnapshot?.selectedOffer && <><p>PCV proposta: <strong>{formatEuro(selected.calculationSnapshot.selectedOffer.pcv)}/mese</strong></p><p>{selected.calculationSnapshot.selectedOffer.pricingType === "fixed" ? "Prezzo fisso" : "Spread"}: <strong>{selected.calculationSnapshot.selectedOffer.pricingType === "fixed" ? selected.calculationSnapshot.selectedOffer.fixedPrice : selected.calculationSnapshot.selectedOffer.spread} {selected.commodity === "luce" ? "€/kWh" : "€/Smc"}</strong></p></>}
+      <p>Risparmio annuo: <strong>{formatEuro(selected.annualSaving)}</strong></p>{!isPersonalUser(user) && <p>Provvigione agenzia: <strong>{selected.calculationSnapshot?.selectedOffer?.commissionKnown === false ? "Da confermare" : formatEuro(selected.agencyCommission)}</strong></p>}
+      {selected.calculationSnapshot?.selectedOffer && <><p>PCV proposta: <strong>{formatEuro(selected.calculationSnapshot.selectedOffer.pcv)}/mese</strong></p><p>{quotePriceTitle(selected.calculationSnapshot.selectedOffer)}: <strong>{quotePriceText(selected.calculationSnapshot.selectedOffer)}</strong></p></>}
     </div>
     {!selected.calculationSnapshot && <p className="muted-text">Preventivo storico: sono disponibili i valori salvati, senza il dettaglio completo della tariffa.</p>}
     <div className="operations-actions"><button className="print-button" onClick={() => window.print()}>Stampa / salva PDF</button><button className="secondary-button" onClick={() => setReopened(selected)}>Crea nuovo da questi dati</button><button className="secondary-button" onClick={() => setSelected(undefined)}>Chiudi dettaglio</button></div>
@@ -3249,13 +3261,23 @@ function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProp
     ...(initialInput ?? createDefaultQuoteInput()),
     sourceId: isPersonalUser(user) ? user.sourceId : initialInput?.sourceId
   }));
-  const [quoteNumberInputs, setQuoteNumberInputs] = useState<Partial<Record<QuoteNumberField, string>>>({});
+  const [quoteNumberInputs, setQuoteNumberInputs] = useState<Partial<Record<QuoteNumberField, string>>>(() => initialInput?.lightBandsComplete
+    ? Object.fromEntries((["f1Month1", "f2Month1", "f3Month1", "f1Month2", "f2Month2", "f3Month2"] as const).map(key => [key, String(initialInput[key]).replace(".", ",")]))
+    : {});
+  const bandsComplete = (quoteInput.secondMonthKey
+    ? ["f1Month1", "f2Month1", "f3Month1", "f1Month2", "f2Month2", "f3Month2"]
+    : ["f1Month1", "f2Month1", "f3Month1"]).every(key => {
+      const field = key as QuoteNumberField;
+      const raw = quoteNumberInputs[field] ?? formatInputNumber(quoteInput[field] ?? 0);
+      const normalized = raw.trim().replace(/\./g, "").replace(",", ".");
+      return /^\d+(?:\.\d+)?$/.test(normalized) && Number.isFinite(Number(normalized));
+    });
   const calculation = useMemo(
-    () => calculateEnergyQuote(quoteInput, store.marketVariables, store.managedOffers),
-    [quoteInput, store.marketVariables, store.managedOffers]
+    () => calculateEnergyQuote({ ...quoteInput, lightBandsComplete: bandsComplete }, store.marketVariables, store.managedOffers),
+    [quoteInput, bandsComplete, store.marketVariables, store.managedOffers]
   );
   const offerChoices = calculation.offers.filter((offer) => offer.customerType === quoteInput.customerType);
-  const comparisonOffers = [...offerChoices].sort((a, b) => b.annualSaving - a.annualSaving);
+  const comparisonOffers = [...offerChoices].sort((a, b) => Number(a.available === false) - Number(b.available === false) || b.annualSaving - a.annualSaving);
   const selectedOffer = calculation.selectedOffer;
   const dynamicMonthOptions = previousQuoteMonthOptions(quoteInput.quoteDate);
   const hasRequiredQuoteData =
@@ -3267,11 +3289,14 @@ function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProp
   const selectedAnnualSaving = quoteReady && selectedOffer ? selectedOffer.annualSaving : undefined;
 
   function updateQuote<K extends keyof EnergyQuoteInput>(key: K, value: EnergyQuoteInput[K]) {
-    setQuoteInput((current) => ({ ...current, [key]: value }));
+    setQuoteInput((current) => {
+      const chosen = key === "selectedOfferCode" ? store.managedOffers.find(offer => offer.code === value) : undefined;
+      return { ...current, [key]: value, ...(chosen?.requiresBands ? { lightConsumptionMode: "fasce" as const } : {}) };
+    });
   }
 
   function quoteNumberValue(key: QuoteNumberField) {
-    return quoteNumberInputs[key] ?? formatInputNumber(quoteInput[key]);
+    return quoteNumberInputs[key] ?? formatInputNumber(quoteInput[key] ?? 0);
   }
 
   function updateQuoteNumber(key: QuoteNumberField, value: string) {
@@ -3340,6 +3365,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProp
         agencyCommission: selectedOffer.agencyCommission,
         inputSnapshot: {
           ...quoteInput,
+          lightBandsComplete: bandsComplete,
           sourceId
         },
         createdBy: user.id
@@ -3415,6 +3441,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProp
             <div className="quote-band">
               <div className="quote-band-title">Anagrafica</div>
               <div className="quote-line-grid five">
+                <label>Decorrenza nuova fornitura<input type="date" value={quoteInput.supplyStartDate || quoteInput.quoteDate} onChange={event => updateQuote("supplyStartDate", event.target.value)} /></label>
                 <label>
                   Data
                   <input
@@ -3535,6 +3562,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProp
                       Calcolo consumi
                       <select
                         value={quoteInput.lightConsumptionMode}
+                        disabled={selectedOffer?.requiresBands && quoteInput.lightConsumptionMode === "fasce"}
                         onChange={(event) => updateQuote("lightConsumptionMode", event.target.value as LightConsumptionMode)}
                       >
                         <option value="totale">Totale mensile</option>
@@ -3569,7 +3597,12 @@ function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProp
                     />
                   </label>
                 )}
+                {quoteInput.commodity === "gas" && selectedOffer?.offerName.startsWith("MET ") && <label>PCS gas (GJ/Smc)<input inputMode="decimal" value={quoteNumberValue("gasPcs")} onChange={event => updateQuoteNumber("gasPcs", event.target.value)} /></label>}
+                {selectedOffer?.offerName.includes("CER MAKE") && <label>Adesione a CER convenzionata<select value={quoteInput.cerMember ? "yes" : "no"} onChange={event => updateQuote("cerMember", event.target.value === "yes")}><option value="no">Da confermare</option><option value="yes">Adesione confermata</option></select></label>}
+                {quoteInput.commodity === "luce" && quoteInput.customerType === "RES" && selectedOffer?.offerName.startsWith("MET ") && <label>Rilevazione almeno oraria<select value={quoteInput.lightHourlyMeter === false ? "no" : "yes"} onChange={event => updateQuote("lightHourlyMeter", event.target.value === "yes")}><option value="yes">Contatore con rilevazione oraria</option><option value="no">Contatore senza rilevazione oraria</option></select></label>}
               </div>
+
+              {selectedOffer?.requiresBands && <p className="muted-text">Questa tariffa richiede F1, F2 e F3 per ogni mese. Compila tutte le fasce, scrivendo 0 dove non ci sono consumi.</p>}
 
               {quoteInput.commodity === "luce" && quoteInput.lightConsumptionMode === "fasce" ? (
                 <div className="quote-fasce-grid refined">
@@ -3578,6 +3611,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProp
                       {key.replace("Month", " mese ")}
                       <input
                         inputMode="decimal"
+                        required={selectedOffer?.requiresBands && (!key.endsWith("Month2") || Boolean(quoteInput.secondMonthKey))}
                         disabled={key.endsWith("Month2") && !quoteInput.secondMonthKey}
                         value={quoteNumberValue(key)}
                         onChange={(event) => updateQuoteNumber(key, event.target.value)}
@@ -3644,8 +3678,8 @@ function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProp
                 <strong>{resultValue(selectedOffer ? formatEuro(selectedOffer.quotaConsumi) : "-")}</strong>
               </div>
               <div className="quote-metric-row proposed">
-                <span>{selectedOffer?.pricingType === "fixed" ? "Prezzo fisso proposto" : "Spread proposto"}</span>
-                <strong>{resultValue(selectedOffer ? `${formatSpread(selectedOffer.pricingType === "fixed" ? selectedOffer.fixedPrice ?? 0 : selectedOffer.spread, 3)} €` : "-")}</strong>
+                <span>{quotePriceTitle(selectedOffer)}</span>
+                <strong>{resultValue(selectedOffer ? quotePriceText(selectedOffer) : "-")}</strong>
               </div>
               <div className="quote-metric-row proposed">
                 <span>PCV proposto</span>
@@ -3674,6 +3708,8 @@ function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProp
                 Stampa
               </button>
             </div>
+            {calculation.warnings.length > 0 && <div role="alert">{calculation.warnings.map(message => <p key={message}>{message}</p>)}</div>}
+            {selectedOffer?.notices?.map(message => <p className="muted-text" key={message}>{message}</p>)}
           </aside>
         </div>
       </section>
@@ -3703,10 +3739,10 @@ function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProp
                   <td>{offer.offerName}</td>
                   <td>{offer.customerType}</td>
                   <td>{formatEuro(offer.pcv)}</td>
-                  <td>{offer.pricingType === "fixed" ? "Fisso " : "Spread "}{formatSpread(offer.pricingType === "fixed" ? offer.fixedPrice ?? 0 : offer.spread, 3)} €</td>
-                  <td>{resultValue(formatEuro(offer.quotaConsumi))}</td>
+                  <td>{quotePriceText(offer)}</td>
+                  <td>{offer.available === false ? "Da completare" : resultValue(formatEuro(offer.quotaConsumi))}{offer.issues?.map(issue => <small key={issue}>{issue}</small>)}</td>
                   <td className={offer.annualSaving >= 0 ? "saving-cell" : "extra-cost-cell"}>
-                    {quoteReady ? formatSavingImpact(offer.annualSaving) : "-"}
+                    {quoteReady && offer.available !== false ? formatSavingImpact(offer.annualSaving) : "-"}
                   </td>
                   <td>
                     <button
@@ -3743,7 +3779,10 @@ function MarketVariablesPanel({ store, user, mutateStore }: ViewProps) {
     const data = formData(event);
     await mutateStore((draft) => {
       for (const definition of marketVariableDefinitions.filter((item) => item.commodity === commodity)) {
+        const raw = String(data.get(definition.key) ?? "").trim();
+        if (!raw) continue;
         const value = numberValue(data, definition.key);
+        if (!Number.isFinite(value)) continue;
         upsertMarketVariableToStore(draft, {
           key: definition.key,
           monthKey,
@@ -3751,7 +3790,7 @@ function MarketVariablesPanel({ store, user, mutateStore }: ViewProps) {
           updatedBy: user.id
         });
       }
-    }, commodity === "luce" ? "Variabili luce aggiornate." : "PSV aggiornato.");
+    }, commodity === "luce" ? "Variabili luce aggiornate." : "Variabili gas aggiornate.");
     for (const input of Array.from(form.querySelectorAll("input"))) {
       input.value = "";
     }
@@ -3974,8 +4013,8 @@ function QuotePrintPage({
           </div>
           <dl>
             <div>
-              <dt>{selectedOffer?.pricingType === "fixed" ? "Prezzo fisso" : "Spread"}</dt>
-              <dd>{selectedOffer ? `${formatSpread(selectedOffer.pricingType === "fixed" ? selectedOffer.fixedPrice ?? 0 : selectedOffer.spread, 3)} €` : "-"}</dd>
+              <dt>{quotePriceTitle(selectedOffer)}</dt>
+              <dd>{selectedOffer ? quotePriceText(selectedOffer) : "-"}</dd>
             </div>
             <div>
               <dt>PCV</dt>
@@ -4046,6 +4085,7 @@ function QuotePrintPage({
         <p className="print-disclaimer">
           <span />
           Stima indicativa basata sui dati inseriti e sui valori di mercato disponibili al momento del preventivo. Gli importi non costituiscono proposta contrattuale e possono variare in funzione dei consumi effettivi, degli oneri di sistema e delle condizioni economiche applicate dal fornitore.
+          {" "}{selectedOffer?.notices?.filter(message => !message.includes("Provvigione") && !message.startsWith("Prezzo 0,")).join(" ")}
         </p>
       </footer>
     </section>

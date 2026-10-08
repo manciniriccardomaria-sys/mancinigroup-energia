@@ -1,5 +1,6 @@
 import { defaultQuoteOffers, lightLossesForOffer, type LightLossConfiguration, type OfferCatalogItem } from "./offers";
 import type { Commodity, MarketVariable } from "./types";
+import { calculateMetOffer, metCommission, metMonthlyPcv, offerPriceLabel } from "./met-calculator";
 
 // Fonte formule: fogli SIMULATORE_LUCE e SIMULATORE_GAS. Il foglio veloce non guida il calcolo.
 export type QuoteCommodity = Exclude<Commodity, "non_definito">;
@@ -32,6 +33,11 @@ export type EnergyQuoteInput = {
   f2Month2: number;
   f3Month2: number;
   gasAnnualConsumption: number;
+  gasPcs?: number;
+  supplyStartDate?: string;
+  cerMember?: boolean;
+  lightBandsComplete?: boolean;
+  lightHourlyMeter?: boolean;
 };
 
 export type QuoteOfferResult = {
@@ -47,6 +53,12 @@ export type QuoteOfferResult = {
   annualSaving: number;
   agencyCommission: number;
   lightLosses?: LightLossConfiguration;
+  priceLabel?: string;
+  available?: boolean;
+  issues?: string[];
+  notices?: string[];
+  requiresBands?: boolean;
+  commissionKnown?: boolean;
   selected: boolean;
 };
 
@@ -141,7 +153,7 @@ function uniqueOffers(commodity: QuoteCommodity, catalog: OfferCatalogItem[]) {
   return sourceOffers
     .filter((offer) => offer.commodity === commodity && offer.active !== false)
     .filter((offer) => {
-      const key = `${offer.customerType}|${offer.offerEasy}|${offer.pcv}|${offer.spread}|${offer.pricingType}|${offer.fixedPrice}|${JSON.stringify(lightLossesForOffer(offer))}`;
+      const key = `${offer.customerType}|${offer.offerEasy}|${offer.pcv}|${offer.spread}|${offer.pricingType}|${offer.fixedPrice}|${JSON.stringify(offer.fixedPrices)}|${JSON.stringify(offer.met)}|${JSON.stringify(lightLossesForOffer(offer))}`;
 
       if (seen.has(key)) {
         return false;
@@ -254,15 +266,29 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
     const fixed = offer.pricingType === "fixed";
     const losses = lightLossesForOffer(offer);
     const offerMarket = periodMarketCost(losses);
-    const quotaConsumi = fixed
-      ? totalConsumption * (losses.fixedPrice ? lossFactor : 1) * (offer.fixedPrice ?? 0) + offerMarket.marketCost - offerMarket.punPeriodCost
+    const met = offer.met ? calculateMetOffer(offer, input, monthConsumptions, variables, lossFactor, annualConsumption) : undefined;
+    const issues = [...(met?.issues ?? [])];
+    if (!met && offer.requiresBands && (input.lightConsumptionMode !== "fasce" || input.lightBandsComplete === false)) {
+      issues.push("Compila i consumi F1, F2 e F3 per questa tariffa.");
+    }
+    if (!met && offer.requiresBands && monthConsumptions.some(item =>
+      [item.consumption.f1, item.consumption.f2, item.consumption.f3].some(value => !Number.isFinite(value) || value < 0))) {
+      issues.push("I consumi delle tre fasce devono essere numeri non negativi.");
+    }
+    const pcv = offer.met ? metMonthlyPcv(offer) : offer.pcv;
+    const quotaConsumi = met ? met.quotaConsumi : fixed
+      ? (offer.fixedPrices ? monthConsumptions.reduce((sum, item) => sum +
+          item.consumption.f1 * offer.fixedPrices!.f1 + item.consumption.f2 * offer.fixedPrices!.f2 + item.consumption.f3 * offer.fixedPrices!.f3, 0)
+          : totalConsumption * (offer.fixedPrice ?? 0)) * (losses.fixedPrice ? lossFactor : 1) + offerMarket.marketCost - offerMarket.punPeriodCost
       : offerMarket.marketCost + totalConsumption * (losses.spread ? lossFactor : 1) * offer.spread;
     // Le quote consumi includono già le perdite previste per ogni componente.
     // Annualizzare la differenza in euro, senza rimuovere di nuovo quelle perdite.
     const annualDifference =
-      ((quotaConsumi - currentSpend) / (totalConsumption || 1)) * annualConsumption +
-      (offer.pcv - input.currentPcv) * 12;
-    const agencyCommission =
+      (met ? met.annualConsumptionCost - currentSpend / (totalConsumption || 1) * annualConsumption :
+        ((quotaConsumi - currentSpend) / (totalConsumption || 1)) * annualConsumption) +
+      (pcv - input.currentPcv) * 12;
+    const commission = offer.met ? metCommission(offer, annualConsumption) : undefined;
+    const agencyCommission = offer.met ? commission ?? 0 :
       offer.fixedAgencyCommission ?? (offer.pcv * 12 * (offer.commissionRate ?? AGENCY_RATE) +
       Math.max(0, (fixed ? 0 : offer.spread) - (offer.commissionBaseSpread ?? LIGHT_COMMISSION_BASE_SPREAD)) * annualConsumption * (offer.commissionRate ?? AGENCY_RATE));
 
@@ -270,7 +296,7 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
       code: offer.code,
       offerName: offer.offerEasy,
       customerType: offer.customerType,
-      pcv: offer.pcv,
+      pcv,
       spread: offer.spread,
       pricingType: offer.pricingType ?? "variable",
       fixedPrice: offer.fixedPrice,
@@ -279,13 +305,21 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
       annualSaving: round2(-annualDifference),
       agencyCommission: round2(agencyCommission),
       lightLosses: losses,
+      priceLabel: met?.priceLabel ?? (offer.fixedPrices ? offerPriceLabel(offer, lossFactor) : undefined),
+      available: issues.length === 0,
+      issues: [...new Set(issues)],
+      notices: met?.notices,
+      requiresBands: offer.requiresBands,
+      commissionKnown: offer.met ? commission !== undefined : true,
       selected: offer.code === offerToSelect?.code
     };
   });
 
+  const selectedResult = results.find((offer) => offer.selected);
+  warnings.push(...(selectedResult?.issues ?? []));
   return {
     ready: totalConsumption > 0 && currentSpend > 0 && offers.length > 0 && warnings.length === 0,
-    warnings,
+    warnings: [...new Set(warnings)],
     source: {
       currentAveragePrice: effectiveAveragePrice,
       currentSpend: round2(currentSpend),
@@ -333,10 +367,14 @@ function calculateGasQuote(input: EnergyQuoteInput, variables: MarketVariable[],
   const offerToSelect = selectedOffer(offers, input.selectedOfferCode, input.customerType);
   const results = offers.map((offer) => {
     const fixed = offer.pricingType === "fixed";
+    const met = offer.met ? calculateMetOffer(offer, input, monthConsumptions.map(item => ({ monthKey: item.monthKey, consumption: { total: item.consumption } })), variables, 1, annualConsumption) : undefined;
+    const pcv = offer.met ? metMonthlyPcv(offer) : offer.pcv;
     const effectiveSpread = fixed ? (offer.fixedPrice ?? 0) - weightedPsv : offer.spread;
-    const annualDifference =
-      (effectiveSpread - currentSpread) * annualConsumption + (offer.pcv - input.currentPcv) * 12;
-    const agencyCommission =
+    const annualDifference = met
+      ? met.annualConsumptionCost - currentSpend / (totalConsumption || 1) * annualConsumption + (pcv - input.currentPcv) * 12
+      : (effectiveSpread - currentSpread) * annualConsumption + (offer.pcv - input.currentPcv) * 12;
+    const commission = offer.met ? metCommission(offer, annualConsumption) : undefined;
+    const agencyCommission = offer.met ? commission ?? 0 :
       offer.fixedAgencyCommission ?? (offer.pcv * 12 * (offer.commissionRate ?? AGENCY_RATE) +
       Math.max(0, (fixed ? 0 : offer.spread) - (offer.commissionBaseSpread ?? GAS_COMMISSION_BASE_SPREAD)) * annualConsumption * (offer.commissionRate ?? AGENCY_RATE));
 
@@ -344,21 +382,28 @@ function calculateGasQuote(input: EnergyQuoteInput, variables: MarketVariable[],
       code: offer.code,
       offerName: offer.offerEasy,
       customerType: offer.customerType,
-      pcv: offer.pcv,
+      pcv,
       spread: offer.spread,
       pricingType: offer.pricingType ?? "variable",
       fixedPrice: offer.fixedPrice,
-      quotaConsumi: fixed ? totalConsumption * (offer.fixedPrice ?? 0) : psvCost + totalConsumption * offer.spread,
+      quotaConsumi: met ? met.quotaConsumi : fixed ? totalConsumption * (offer.fixedPrice ?? 0) : psvCost + totalConsumption * offer.spread,
       annualDifference: round2(annualDifference),
       annualSaving: round2(-annualDifference),
       agencyCommission: round2(agencyCommission),
+      priceLabel: met?.priceLabel,
+      available: !met?.issues.length,
+      issues: met?.issues,
+      notices: met?.notices,
+      commissionKnown: offer.met ? commission !== undefined : true,
       selected: offer.code === offerToSelect?.code
     };
   });
 
+  const selectedResult = results.find((offer) => offer.selected);
+  warnings.push(...(selectedResult?.issues ?? []));
   return {
     ready: totalConsumption > 0 && currentSpend > 0 && offers.length > 0 && warnings.length === 0,
-    warnings,
+    warnings: [...new Set(warnings)],
     source: {
       currentAveragePrice: effectiveAveragePrice,
       currentSpend: round2(currentSpend),
@@ -409,6 +454,11 @@ export function defaultEnergyQuoteInput(input?: Partial<EnergyQuoteInput>): Ener
     f1Month2: safeNumber(input?.f1Month2 ?? 0),
     f2Month2: safeNumber(input?.f2Month2 ?? 0),
     f3Month2: safeNumber(input?.f3Month2 ?? 0),
-    gasAnnualConsumption: safeNumber(input?.gasAnnualConsumption ?? 0)
+    gasAnnualConsumption: safeNumber(input?.gasAnnualConsumption ?? 0),
+    gasPcs: safeNumber(input?.gasPcs ?? 0.03852),
+    supplyStartDate: input?.supplyStartDate,
+    cerMember: input?.cerMember ?? false,
+    lightBandsComplete: input?.lightBandsComplete,
+    lightHourlyMeter: input?.lightHourlyMeter ?? true
   };
 }

@@ -4,10 +4,11 @@ import { useState, type FormEvent } from "react";
 import { BadgeEuro, ClipboardList, Tags } from "lucide-react";
 import { lightLossesForOffer, type LightLossConfiguration, type ManagedOffer } from "@/lib/offers";
 import type { Customer, CustomerTicket, SessionUser, StoreData } from "@/lib/types";
-import { formatDate, formatEuro, normalizePodPdr, parseEuro } from "@/lib/normalize";
+import { formatDate, formatEuro, normalizePodPdr } from "@/lib/normalize";
 import { isPersonalUser } from "@/lib/view-model";
 import { ticketProblems, ticketCustomerDefaults } from "@/lib/customer-tickets";
 import { paymentGate } from "@/lib/payment-gate";
+import { offerPriceLabel, metMonthlyPcv } from "@/lib/met-calculator";
 
 type Props = { store: StoreData; user: SessionUser; mutateStore: (change: (draft: StoreData) => void, message: string) => Promise<boolean> };
 const statuses: Record<CustomerTicket["status"], string> = { aperta: "Aperta", in_lavorazione: "In lavorazione", risolta: "Risolta", chiusa: "Chiusa" };
@@ -90,23 +91,39 @@ export function ManagedOffersView({ store, user, mutateStore }: Props) {
   const [editing, setEditing] = useState<ManagedOffer>();
   const [pricing, setPricing] = useState("variable");
   const [commodity, setCommodity] = useState("luce");
+  const [priceLayout, setPriceLayout] = useState("single");
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  function reset() { setEditing(undefined); setPricing("variable"); setCommodity("luce"); setError(""); }
+  function reset() { setEditing(undefined); setPricing("variable"); setCommodity("luce"); setPriceLayout("single"); setError(""); }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
     const value = (key: string) => String(data.get(key) ?? "").trim();
-    const numeric = (key: string) => parseEuro(value(key));
+    const numeric = (key: string) => Number(value(key).replace(",", "."));
     const code = value("code");
     if (store.managedOffers.some((offer) => offer.code.toLowerCase() === code.toLowerCase() && offer.id !== editing?.id)) { setError("Codice offerta già presente."); return; }
-    const numbers = [numeric("pcv"), numeric(pricing === "fixed" ? "fixedPrice" : "spread"), numeric("commissionRate"), numeric("commissionBaseSpread")];
+    const prices = pricing === "fixed" && priceLayout === "bands" ? [numeric("priceF1"), numeric("priceF2"), numeric("priceF3")] : [numeric(pricing === "fixed" ? "fixedPrice" : "spread")];
+    const numbers = [numeric("pcv"), ...prices, ...(editing?.met ? [numeric("metService"), numeric("metCommercial")] : [numeric("commissionRate"), numeric("commissionBaseSpread")])];
     if (!code || !value("offerEasy") || numbers.some((number) => !Number.isFinite(number) || number < 0) || numeric("commissionRate") > 100 || (value("fixedAgencyCommission") && (!Number.isFinite(numeric("fixedAgencyCommission")) || numeric("fixedAgencyCommission") < 0))) { setError("Inserisci nome, codice e importi validi. La percentuale deve essere tra 0 e 100."); return; }
-    const offer: ManagedOffer = { id: editing?.id ?? crypto.randomUUID(), code, offerEasy: value("offerEasy"), commodity: commodity as ManagedOffer["commodity"], customerType: value("customerType") as ManagedOffer["customerType"], pricingType: pricing as ManagedOffer["pricingType"],
+    if (editing?.met && ["metCommissionFixed", "metCommissionPerUnit"].some(key => value(key) && (!Number.isFinite(numeric(key)) || numeric(key) < 0))) { setError("Inserisci provvigioni MET valide e non negative."); return; }
+    const offer: ManagedOffer = { ...editing, id: editing?.id ?? crypto.randomUUID(), code, offerEasy: value("offerEasy"), commodity: commodity as ManagedOffer["commodity"], customerType: value("customerType") as ManagedOffer["customerType"], pricingType: pricing as ManagedOffer["pricingType"],
       pcv: numeric("pcv"), spread: pricing === "variable" ? numeric("spread") : 0, fixedPrice: pricing === "fixed" ? numeric("fixedPrice") : undefined,
       commissionRate: numeric("commissionRate") / 100, commissionBaseSpread: numeric("commissionBaseSpread"), fixedAgencyCommission: value("fixedAgencyCommission") ? numeric("fixedAgencyCommission") : undefined, active: value("active") === "true",
       ...(commodity === "luce" ? { lightLosses: Object.fromEntries(lossComponents.map(({ key }) => [key, value(`loss-${key}`) === "true"])) as LightLossConfiguration } : {}) };
+    if (pricing === "fixed" && priceLayout === "bands") {
+      offer.fixedPrices = { f1: numeric("priceF1"), f2: numeric("priceF2"), f3: numeric("priceF3") };
+      offer.fixedPrice = undefined;
+      offer.requiresBands = true;
+    } else {
+      offer.fixedPrices = undefined;
+      offer.requiresBands = Boolean(editing?.met?.energyModel === "cer");
+    }
+    if (editing?.met) offer.met = {
+      ...editing.met, monthlyServiceFee: numeric("metService"), commercialPerUnit: numeric("metCommercial"),
+      commissionFixed: value("metCommissionFixed") ? numeric("metCommissionFixed") : undefined,
+      commissionPerUnit: value("metCommissionPerUnit") ? numeric("metCommissionPerUnit") : undefined
+    };
     const success = await mutateStore((draft) => {
       const index = draft.managedOffers.findIndex((item) => item.id === offer.id);
       if (index >= 0) draft.managedOffers[index] = offer; else draft.managedOffers.push(offer);
@@ -119,25 +136,35 @@ export function ManagedOffersView({ store, user, mutateStore }: Props) {
       <p className="muted-text">Luce: prezzo fisso in €/kWh oppure PUN + spread. Gas: prezzo fisso in €/Smc oppure PSV + spread. PCV mensile; per la luce le perdite si configurano per componente.</p>
       <form key={editing?.id ?? "new"} className="form-grid compact" onSubmit={(event) => void submit(event)}>
         <label>Nome offerta<input name="offerEasy" required defaultValue={editing?.offerEasy} /></label><label>Codice offerta<input name="code" required defaultValue={editing?.code} /></label>
-        <label>Fornitura<select value={commodity} onChange={(event) => setCommodity(event.target.value)}><option value="luce">Luce</option><option value="gas">Gas</option></select></label>
+        <label>Fornitura<select value={commodity} disabled={Boolean(editing?.met)} onChange={(event) => { setCommodity(event.target.value); if (event.target.value === "gas") setPriceLayout("single"); }}><option value="luce">Luce</option><option value="gas">Gas</option></select></label>
         <label>Cliente<select name="customerType" defaultValue={editing?.customerType ?? "RES"}><option value="RES">Residenziale</option><option value="BUS">Business</option></select></label>
-        <label>Tipo prezzo<select value={pricing} onChange={(event) => setPricing(event.target.value)}><option value="variable">Variabile ({commodity === "luce" ? "PUN" : "PSV"} + spread)</option><option value="fixed">Fisso</option></select></label>
-        <label>{pricing === "fixed" ? "Prezzo fisso" : "Spread"} ({commodity === "luce" ? "€/kWh" : "€/Smc"})<input name={pricing === "fixed" ? "fixedPrice" : "spread"} type="number" min="0" step="0.000001" required defaultValue={pricing === "fixed" ? editing?.fixedPrice : editing?.spread} key={`${editing?.id}-${pricing}`} /></label>
+        <label>Tipo prezzo<select value={pricing} disabled={Boolean(editing?.met)} onChange={(event) => setPricing(event.target.value)}><option value="variable">Variabile ({commodity === "luce" ? "PUN" : "PSV"} + spread)</option><option value="fixed">Fisso</option></select></label>
+        {pricing === "fixed" && commodity === "luce" && <label>Prezzi energia<select value={priceLayout} onChange={event => setPriceLayout(event.target.value)} disabled={Boolean(editing?.met?.energyModel === "cer")}><option value="single">{editing?.met?.energyModel === "cer" ? "F1 fissa; F2/F3 indicizzate" : "Prezzo unico per tutte le fasce"}</option><option value="bands">Prezzi F1 / F2 / F3 distinti</option></select></label>}
+        {pricing === "fixed" && priceLayout === "bands" ? (["f1", "f2", "f3"] as const).map(band => <label key={band}>Prezzo {band.toUpperCase()} (€/kWh)<input name={`price${band.toUpperCase()}`} type="number" min="0" step="0.000001" required defaultValue={editing?.fixedPrices?.[band]} /></label>) : <label>{editing?.met?.energyModel === "cer" ? "Prezzo fisso F1" : pricing === "fixed" ? "Prezzo fisso" : "Spread"} ({commodity === "luce" ? "€/kWh" : "€/Smc"})<input name={pricing === "fixed" ? "fixedPrice" : "spread"} type="number" min="0" step="0.000001" required defaultValue={pricing === "fixed" ? editing?.fixedPrice : editing?.spread} key={`${editing?.id}-${pricing}`} /></label>}
         <label>PCV (€/mese)<input name="pcv" type="number" min="0" step="0.01" required defaultValue={editing?.pcv} /></label>
+        {editing?.met && <>
+          <p className="muted-text wide-field">Fonte: {editing.met.sourceFile}. Prezzi {commodity === "gas" ? "al netto di IVA e imposte" : editing.met.priceBasis === "gross" ? "già comprensivi delle perdite; il preventivatore li converte al netto" : "al netto delle perdite"}. Durata prezzo: {editing.met.fixedMonths} mesi. {editing.met.financialRate ? `Costo finanziario MET: ${editing.met.financialRate * 100}% dell’indice mensile${editing.met.financialFrom ? ` dal ${editing.met.financialFrom}` : ""}.` : ""}</p>
+          <label>Servizio app (€/mese)<input name="metService" type="number" min="0" step="0.01" defaultValue={editing.met.monthlyServiceFee} /></label>
+          <label>Commercializzazione variabile (€/unità)<input name="metCommercial" type="number" min="0" step="0.000001" defaultValue={editing.met.commercialPerUnit} /></label>
+          <label>Provvigione fissa annua (€)<input name="metCommissionFixed" type="number" min="0" step="0.01" defaultValue={editing.met.commissionFixed} /></label>
+          <label>Provvigione per kWh/Smc (€)<input name="metCommissionPerUnit" type="number" min="0" step="0.000001" defaultValue={editing.met.commissionPerUnit} /></label>
+          <p className="muted-text wide-field">Provvigioni già spettanti all’agenzia: quota fissa + consumo annuo × quota per unità. Lascia vuota la quota fissa se la provvigione è da confermare.</p>
+          {editing.met.notes?.map(note => <p className="muted-text wide-field" key={note}>{note}</p>)}
+        </>}
         {commodity === "luce" && <>
           <p className="muted-text wide-field">Perdite di rete: 10% in bassa tensione, 3,8% in media/alta. Se il prezzo include già le perdite, scegli “Non aggiungere perdite”.</p>
           {lossComponents.map(({ key, label }) => <label key={key}>{label}: perdite<select name={`loss-${key}`} defaultValue={String(lightLossesForOffer(editing ?? {})[key])}><option value="true">Aggiungere perdite</option><option value="false">Non aggiungere perdite</option></select></label>)}
         </>}
         <label>Stato<select name="active" defaultValue={String(editing?.active ?? true)}><option value="true">Attiva</option><option value="false">Disattiva</option></select></label>
-        <label>Quota agenzia (%)<input name="commissionRate" type="number" min="0" max="100" step="0.01" required defaultValue={(editing?.commissionRate ?? 0.6) * 100} /></label>
+        {!editing?.met && <><label>Quota agenzia (%)<input name="commissionRate" type="number" min="0" max="100" step="0.01" required defaultValue={(editing?.commissionRate ?? 0.6) * 100} /></label>
         <label>Soglia spread provvigionale ({commodity === "luce" ? "€/kWh" : "€/Smc"})<input key={commodity} name="commissionBaseSpread" type="number" min="0" step="0.000001" required defaultValue={editing?.commissionBaseSpread ?? (commodity === "luce" ? 0.006 : 0.06)} /></label>
         <label>Provvigione annua fissa agenzia (€; facoltativa)<input name="fixedAgencyCommission" type="number" min="0" step="0.01" defaultValue={editing?.fixedAgencyCommission} /></label>
-        <p className="muted-text wide-field">La provvigione fissa, se inserita, sostituisce la formula su PCV e spread. Per le offerte fisse, senza questo importo, la quota agenzia si applica alla PCV.</p>
+        <p className="muted-text wide-field">La provvigione fissa, se inserita, sostituisce la formula su PCV e spread. Per le offerte fisse, senza questo importo, la quota agenzia si applica alla PCV.</p></>}
         {error && <p role="alert">{error}</p>}<button className="primary-button" type="submit">Salva offerta</button>{editing && <button className="secondary-button" type="button" onClick={reset}>Annulla</button>}
       </form></section>}
     <section className="table-section operations-table"><h2>Offerte ({offers.length})</h2><label>Cerca offerta<input value={search} onChange={(event) => setSearch(event.target.value)} /></label>
       <div className="table-wrap"><table><thead><tr><th>Offerta / codice</th><th>Fornitura</th><th>Cliente</th><th>Tipo</th><th>Prezzo / spread</th><th>PCV mensile</th><th>Stato</th>{canManage && <th>Azioni</th>}</tr></thead><tbody>
-        {offers.map((offer) => <tr key={offer.id}><td>{offer.offerEasy}<small className="offer-code">{offer.code}</small></td><td>{offer.commodity}</td><td>{offer.customerType}</td><td>{offer.pricingType === "fixed" ? "Fisso" : `${offer.commodity === "luce" ? "PUN" : "PSV"} + spread`}</td><td>{offer.pricingType === "fixed" ? offer.fixedPrice : offer.spread} {offer.commodity === "luce" ? "€/kWh" : "€/Smc"}</td><td>{formatEuro(offer.pcv)}</td><td>{offer.active ? "Attiva" : "Disattiva"}</td>{canManage && <td><div className="operations-actions"><button className="secondary-button" onClick={() => { setEditing(offer); setPricing(offer.pricingType ?? "variable"); setCommodity(offer.commodity); setError(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Modifica</button><button className="secondary-button" onClick={() => void mutateStore((draft) => { const item = draft.managedOffers.find((item) => item.id === offer.id); if (item) item.active = !item.active; }, offer.active ? "Offerta disattivata." : "Offerta attivata.")}>{offer.active ? "Disattiva" : "Attiva"}</button></div></td>}</tr>)}
+        {offers.map((offer) => <tr key={offer.id}><td>{offer.offerEasy}<small className="offer-code">{offer.code}</small></td><td>{offer.commodity}</td><td>{offer.customerType}</td><td>{offer.met?.energyModel === "cer" ? "Misto per fascia" : offer.pricingType === "fixed" ? "Fisso" : `${offer.commodity === "luce" ? "PUN" : "PSV"} + spread`}</td><td>{offerPriceLabel(offer)}{offer.met && <small>{offer.met.fixedMonths} mesi · {offer.requiresBands ? "Consumi per fasce obbligatori" : "Prezzo unico"}{offer.met.commissionFixed === undefined ? " · Provvigione da confermare" : ""}</small>}</td><td>{formatEuro(metMonthlyPcv(offer))}{offer.met?.monthlyServiceFee ? <small>Incluso servizio app</small> : null}</td><td>{offer.active ? "Attiva" : "Disattiva"}</td>{canManage && <td><div className="operations-actions"><button className="secondary-button" onClick={() => { setEditing(offer); setPricing(offer.pricingType ?? "variable"); setCommodity(offer.commodity); setPriceLayout(offer.fixedPrices ? "bands" : "single"); setError(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Modifica</button><button className="secondary-button" onClick={() => void mutateStore((draft) => { const item = draft.managedOffers.find((item) => item.id === offer.id); if (item) item.active = !item.active; }, offer.active ? "Offerta disattivata." : "Offerta attivata.")}>{offer.active ? "Disattiva" : "Attiva"}</button></div></td>}</tr>)}
         {!offers.length && <tr><td colSpan={canManage ? 8 : 7} className="empty-state">Nessuna offerta trovata.</td></tr>}
       </tbody></table></div></section>
   </>;

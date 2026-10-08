@@ -1,4 +1,5 @@
 import type { AgencyMarginImportRow, Commodity } from "./types";
+import { metOfferCatalog } from "./met-offers";
 
 type OfferCustomerType = AgencyMarginImportRow["customerType"];
 
@@ -12,6 +13,30 @@ export const defaultLightLosses = {
 };
 
 export type LightLossConfiguration = typeof defaultLightLosses;
+
+export type BandPrices = { f1: number; f2: number; f3: number };
+export type MetOfferTerms = {
+  sourceFile: string;
+  conditionDate: string;
+  fixedMonths: number;
+  priceBasis: "net" | "gross";
+  fixedStartDate?: string;
+  energyModel?: "cer";
+  nonHourlySurcharge?: number;
+  commercialPerUnit: number;
+  monthlyServiceFee: number;
+  financialRate?: number;
+  financialFrom?: string;
+  gasCsc?: number;
+  gasPcsReference?: number;
+  minAnnualConsumption?: number;
+  maxAnnualConsumption?: number;
+  renewalSpread?: number;
+  referenceIndex?: number;
+  commissionFixed?: number;
+  commissionPerUnit?: number;
+  notes?: string[];
+};
 
 export function lightLossesForOffer(offer: { lightLosses?: Partial<LightLossConfiguration> }): LightLossConfiguration {
   return { ...defaultLightLosses, ...offer.lightLosses };
@@ -31,6 +56,10 @@ export type OfferCatalogItem = {
   commissionBaseSpread?: number;
   fixedAgencyCommission?: number;
   lightLosses?: Partial<LightLossConfiguration>;
+  supplier?: "AGF" | "MET";
+  fixedPrices?: BandPrices;
+  requiresBands?: boolean;
+  met?: MetOfferTerms;
 };
 
 export const offerCatalog: OfferCatalogItem[] = [
@@ -381,9 +410,12 @@ export type ManagedOffer = OfferCatalogItem & { id: string; active: boolean };
 export function defaultQuoteOffers(): ManagedOffer[] {
   const catalog = new Map(offerCatalog.map((offer) => [offer.code, offer]));
   for (const offer of gasQuoteOffers) catalog.set(offer.code, offer);
-  return [...catalog.values()].map((offer) => ({
-    ...offer, id: offer.code, active: true, pricingType: "variable"
-  }));
+  return [
+    ...[...catalog.values()].map((offer): ManagedOffer => ({
+      ...offer, id: offer.code, active: true, pricingType: "variable"
+    })),
+    ...metOfferCatalog.map((offer): ManagedOffer => ({ ...offer, id: offer.code, active: offer.active ?? true }))
+  ];
 }
 
 // Firestore stores only changed records: retain untouched defaults when reading overrides.
