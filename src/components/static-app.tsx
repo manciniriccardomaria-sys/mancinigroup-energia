@@ -43,6 +43,7 @@ import { parseAgencyMarginCsv } from "@/lib/import-agency-margins";
 import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth, formatConsumptionMonth } from "@/lib/agency-margin-upload";
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
 import { marketVariableDefinitions } from "@/lib/market-variables";
+import { energyQuoteName } from "@/lib/quote-name";
 import { formatDate, formatDateTime, formatEuro, normalizePodPdr, parseEuro } from "@/lib/normalize";
 import { ManagedOffersView, TicketsView, PaymentGateBadge } from "./operations-views";
 import {
@@ -399,6 +400,24 @@ function quotePriceTitle(offer?: QuoteOfferResult) {
   if (offer?.priceLabel?.startsWith("F1")) return "Corrispettivi per fascia";
   if (offer?.priceLabel?.includes("fisso dal")) return "Corrispettivo";
   return offer?.pricingType === "fixed" ? "Prezzo fisso" : "Spread";
+}
+
+function savedQuoteName(quote: EnergyQuote) {
+  return quote.name ?? energyQuoteName(quote.commodity, quote.customerFirstName, quote.customerLastName);
+}
+
+function printEnergyQuote(name: string) {
+  const previousTitle = document.title;
+  const restoreTitle = () => { document.title = previousTitle; };
+  document.title = name;
+  window.addEventListener("afterprint", restoreTitle, { once: true });
+  try {
+    window.print();
+  } catch (error) {
+    window.removeEventListener("afterprint", restoreTitle);
+    restoreTitle();
+    throw error;
+  }
 }
 
 function formatInputNumber(value: number) {
@@ -3228,11 +3247,12 @@ function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
   const [reopened, setReopened] = useState<EnergyQuote>();
   const quotes = store.energyQuotes.filter((quote) => (!isPersonalUser(user) || quote.createdBy === user.id)
     && (commodity === "tutti" || quote.commodity === commodity)
-    && `${quote.customerFirstName} ${quote.customerLastName} ${quote.customerPhone ?? ""} ${quote.selectedOfferName} ${quote.sourceName ?? ""}`.toLowerCase().includes(search.toLowerCase()))
+    && `${savedQuoteName(quote)} ${quote.customerFirstName} ${quote.customerLastName} ${quote.customerPhone ?? ""} ${quote.selectedOfferName} ${quote.sourceName ?? ""}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => b.quoteDate.localeCompare(a.quoteDate) || b.createdAt.localeCompare(a.createdAt));
   if (reopened) return <><section className="panel print-hidden"><button className="secondary-button" onClick={() => setReopened(undefined)}>Torna all’archivio</button><p>Nuovo preventivo dai dati salvati: il confronto usa le offerte attive e le variabili attuali. Il preventivo originale resta in archivio.</p></section><PreventivatoreView key={reopened.id} store={store} user={user} mutateStore={mutateStore} initialInput={defaultEnergyQuoteInput(reopened.inputSnapshot as Partial<EnergyQuoteInput>)} /></>;
   const detail = selected && <section className={`panel ${selected.calculationSnapshot ? "print-hidden" : "quote-archive-print"}`}>
-    <h2>Preventivo del {formatDate(selected.quoteDate)} · {selected.customerFirstName} {selected.customerLastName}</h2>
+    <h2>{savedQuoteName(selected)}</h2>
+    <p>Data: {formatDate(selected.quoteDate)}</p>
     <div className="operations-detail"><p>Telefono: <strong>{selected.customerPhone || "—"}</strong></p><p>Fonte: <strong>{selected.sourceName || "—"}</strong></p>
       <p>Fornitura: <strong>{commodityLabels[selected.commodity]} · {selected.customerType}</strong></p><p>Offerta: <strong>{selected.selectedOfferName}</strong></p>
       <p>Consumo periodo: <strong>{selected.totalConsumption} {selected.commodity === "luce" ? "kWh" : "Smc"}</strong></p><p>Consumo annuo: <strong>{selected.annualConsumption} {selected.commodity === "luce" ? "kWh" : "Smc"}</strong></p>
@@ -3241,13 +3261,13 @@ function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
       {selected.calculationSnapshot?.selectedOffer && <><p>PCV proposta: <strong>{formatEuro(selected.calculationSnapshot.selectedOffer.pcv)}/mese</strong></p><p>{quotePriceTitle(selected.calculationSnapshot.selectedOffer)}: <strong>{quotePriceText(selected.calculationSnapshot.selectedOffer)}</strong></p></>}
     </div>
     {!selected.calculationSnapshot && <p className="muted-text">Preventivo storico: sono disponibili i valori salvati, senza il dettaglio completo della tariffa.</p>}
-    <div className="operations-actions"><button className="print-button" onClick={() => window.print()}>Stampa / salva PDF</button><button className="secondary-button" onClick={() => setReopened(selected)}>Crea nuovo da questi dati</button><button className="secondary-button" onClick={() => setSelected(undefined)}>Chiudi dettaglio</button></div>
+    <div className="operations-actions"><button className="print-button" onClick={() => printEnergyQuote(savedQuoteName(selected))}>Stampa / salva PDF</button><button className="secondary-button" onClick={() => setReopened(selected)}>Crea nuovo da questi dati</button><button className="secondary-button" onClick={() => setSelected(undefined)}>Chiudi dettaglio</button></div>
   </section>;
   return <>
     <section className="table-section operations-table print-hidden"><h2>Preventivi salvati ({quotes.length})</h2>
-      <div className="operations-filters"><label>Cerca cliente, telefono, fonte o offerta<input value={search} onChange={(event) => setSearch(event.target.value)} /></label><label>Fornitura<select value={commodity} onChange={(event) => setCommodity(event.target.value)}><option value="tutti">Tutte</option><option value="luce">Luce</option><option value="gas">Gas</option></select></label></div>
+      <div className="operations-filters"><label>Cerca preventivo, cliente, telefono, fonte o offerta<input value={search} onChange={(event) => setSearch(event.target.value)} /></label><label>Fornitura<select value={commodity} onChange={(event) => setCommodity(event.target.value)}><option value="tutti">Tutte</option><option value="luce">Luce</option><option value="gas">Gas</option></select></label></div>
       <div className="table-wrap"><table><thead><tr><th>Data</th><th>Cliente</th><th>Telefono</th><th>Fonte</th><th>Fornitura</th><th>Offerta</th><th>Risparmio annuo</th><th>Azioni</th></tr></thead><tbody>
-        {quotes.map((quote) => <tr key={quote.id}><td>{formatDate(quote.quoteDate)}</td><td>{quote.customerFirstName} {quote.customerLastName}</td><td>{quote.customerPhone || "—"}</td><td>{quote.sourceName || "—"}</td><td>{commodityLabels[quote.commodity]}</td><td>{quote.selectedOfferName}</td><td>{formatEuro(quote.annualSaving)}</td><td><button className="secondary-button" onClick={() => setSelected(quote)}>Visualizza</button></td></tr>)}
+        {quotes.map((quote) => <tr key={quote.id}><td>{formatDate(quote.quoteDate)}</td><td>{quote.customerFirstName} {quote.customerLastName}<small>{savedQuoteName(quote)}</small></td><td>{quote.customerPhone || "—"}</td><td>{quote.sourceName || "—"}</td><td>{commodityLabels[quote.commodity]}</td><td>{quote.selectedOfferName}</td><td>{formatEuro(quote.annualSaving)}</td><td><button className="secondary-button" onClick={() => setSelected(quote)}>Visualizza</button></td></tr>)}
         {!quotes.length && <tr><td colSpan={8} className="empty-state">Nessun preventivo trovato.</td></tr>}
       </tbody></table></div>
     </section>
@@ -3703,7 +3723,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProp
                 <Save size={18} />
                 Salva
               </button>
-              <button className="print-button" type="button" disabled={!quoteReady} onClick={() => window.print()}>
+              <button className="print-button" type="button" disabled={!quoteReady} onClick={() => printEnergyQuote(energyQuoteName(quoteInput.commodity, quoteInput.firstName, quoteInput.lastName))}>
                 <Upload size={18} />
                 Stampa
               </button>

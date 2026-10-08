@@ -1,4 +1,5 @@
 import { defaultQuoteOffers, normalizeManagedOffers } from "./offers";
+import { energyQuoteName } from "./quote-name";
 import { getMarketVariableDefinition, marketVariableSeedValues } from "./market-variables";
 import { addMonthsToForecastMonth, simulateFutureCommissions } from "./commission-forecast";
 import {
@@ -1034,6 +1035,7 @@ export function upsertMarketVariableToStore(
 export function addEnergyQuoteToStore(store: StoreData, input: Omit<EnergyQuote, "id" | "createdAt">) {
   store.energyQuotes.unshift({
     ...input,
+    name: energyQuoteName(input.commodity, input.customerFirstName, input.customerLastName),
     id: randomId("quote"),
     createdAt: nowIso()
   });

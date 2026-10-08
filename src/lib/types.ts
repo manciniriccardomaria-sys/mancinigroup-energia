@@ -117,6 +117,7 @@ export type CustomerTicket = {
 
 export type EnergyQuote = {
   calculationSnapshot?: EnergyQuoteCalculation;
+  name?: string;
   id: string;
   quoteDate: string;
   sourceId?: string;
