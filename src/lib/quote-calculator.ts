@@ -1,4 +1,4 @@
-import { defaultQuoteOffers, type OfferCatalogItem } from "./offers";
+import { defaultQuoteOffers, lightLossesForOffer, type LightLossConfiguration, type OfferCatalogItem } from "./offers";
 import type { Commodity, MarketVariable } from "./types";
 
 // Fonte formule: fogli SIMULATORE_LUCE e SIMULATORE_GAS. Il foglio veloce non guida il calcolo.
@@ -46,6 +46,7 @@ export type QuoteOfferResult = {
   annualDifference: number;
   annualSaving: number;
   agencyCommission: number;
+  lightLosses?: LightLossConfiguration;
   selected: boolean;
 };
 
@@ -67,12 +68,12 @@ export type EnergyQuoteCalculation = {
 };
 
 const LIGHT_IMBALANCE = 0.0014;
-const LIGHT_LOW_VOLTAGE_LOSS = 1.104;
+const LIGHT_LOW_VOLTAGE_LOSS = 1.1;
 const LIGHT_MEDIUM_HIGH_LOSS = 1.038;
 const LIGHT_COMMISSION_BASE_SPREAD = 0.006;
 const GAS_SYSTEM_OFFSET = 0.026;
 const GAS_COMMISSION_BASE_SPREAD = 0.06;
-const AGENCY_RATE = 0.3;
+const AGENCY_RATE = 0.6;
 
 
 function round2(value: number) {
@@ -140,7 +141,7 @@ function uniqueOffers(commodity: QuoteCommodity, catalog: OfferCatalogItem[]) {
   return sourceOffers
     .filter((offer) => offer.commodity === commodity && offer.active !== false)
     .filter((offer) => {
-      const key = `${offer.customerType}|${offer.offerEasy}|${offer.pcv}|${offer.spread}|${offer.pricingType}|${offer.fixedPrice}`;
+      const key = `${offer.customerType}|${offer.offerEasy}|${offer.pcv}|${offer.spread}|${offer.pricingType}|${offer.fixedPrice}|${JSON.stringify(lightLossesForOffer(offer))}`;
 
       if (seen.has(key)) {
         return false;
@@ -215,29 +216,31 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
   });
   const totalConsumption = monthConsumptions.reduce((sum, item) => sum + item.consumption.total, 0);
   const periodCount = monthConsumptions.filter((item) => item.consumption.total > 0).length || 1;
-  let punPeriodCost = 0;
-  const marketCost = monthConsumptions.reduce((sum, item) => {
-    const capacity = marketValue(variables, "mercato_capacita", item.monthKey, warnings);
-    const dispatching = marketValue(variables, "dispacciamento", item.monthKey, warnings);
-    const punMono = marketValue(variables, "pun_mono", item.monthKey, warnings);
-    const punF1 = marketValue(variables, "pun_f1", item.monthKey, warnings);
-    const punF2 = marketValue(variables, "pun_f2", item.monthKey, warnings);
-    const punF3 = marketValue(variables, "pun_f3", item.monthKey, warnings);
-    const consumption = item.consumption;
-    const punCost =
-      input.lightConsumptionMode === "fasce"
-        ? (consumption.f1 * punF1 + consumption.f2 * punF2 + consumption.f3 * punF3) * lossFactor
-        : consumption.total * punMono;
-
-    punPeriodCost += punCost;
-    return (
-      sum +
-      punCost +
-      consumption.total * capacity +
-      consumption.total * lossFactor * dispatching +
-      consumption.total * LIGHT_IMBALANCE
-    );
-  }, 0);
+  const monthMarketValues = monthConsumptions.map((item) => ({
+    consumption: item.consumption,
+    capacity: marketValue(variables, "mercato_capacita", item.monthKey, warnings),
+    dispatching: marketValue(variables, "dispacciamento", item.monthKey, warnings),
+    punMono: marketValue(variables, "pun_mono", item.monthKey, warnings),
+    punF1: marketValue(variables, "pun_f1", item.monthKey, warnings),
+    punF2: marketValue(variables, "pun_f2", item.monthKey, warnings),
+    punF3: marketValue(variables, "pun_f3", item.monthKey, warnings)
+  }));
+  function periodMarketCost(losses: LightLossConfiguration) {
+    let punPeriodCost = 0;
+    const marketCost = monthMarketValues.reduce((sum, item) => {
+      const { consumption, capacity, dispatching, punMono, punF1, punF2, punF3 } = item;
+      const punCost = input.lightConsumptionMode === "fasce"
+        ? (consumption.f1 * punF1 + consumption.f2 * punF2 + consumption.f3 * punF3) * (losses.punBands ? lossFactor : 1)
+        : consumption.total * punMono * (losses.punMono ? lossFactor : 1);
+      punPeriodCost += punCost;
+      return sum + punCost +
+        consumption.total * (losses.capacity ? lossFactor : 1) * capacity +
+        consumption.total * (losses.dispatching ? lossFactor : 1) * dispatching +
+        consumption.total * LIGHT_IMBALANCE;
+    }, 0);
+    return { marketCost, punPeriodCost };
+  }
+  const { marketCost } = periodMarketCost(lightLossesForOffer({}));
   const currentSpend =
     input.currentSpend > 0 ? input.currentSpend : input.currentAveragePrice * totalConsumption;
   const effectiveAveragePrice = totalConsumption > 0 ? currentSpend / totalConsumption : input.currentAveragePrice;
@@ -247,16 +250,18 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
   const annualConsumption = referenceMonthlyConsumption * 12;
   const offers = uniqueOffers("luce", catalog).filter((offer) => offer.customerType === input.customerType);
   const offerToSelect = selectedOffer(offers, input.selectedOfferCode, input.customerType);
-  const currentAnnualCommercialCost = input.currentPcv * 12 + annualConsumption * currentSpread;
   const results = offers.map((offer) => {
     const fixed = offer.pricingType === "fixed";
+    const losses = lightLossesForOffer(offer);
+    const offerMarket = periodMarketCost(losses);
     const quotaConsumi = fixed
-      ? totalConsumption * lossFactor * (offer.fixedPrice ?? 0) + marketCost - punPeriodCost
-      : marketCost + totalConsumption * lossFactor * offer.spread;
-    const annualCommercialCost = offer.pcv * 12 + annualConsumption * (fixed
-      ? (quotaConsumi - marketCost) / (totalConsumption * lossFactor || 1)
-      : offer.spread);
-    const annualDifference = annualCommercialCost - currentAnnualCommercialCost;
+      ? totalConsumption * (losses.fixedPrice ? lossFactor : 1) * (offer.fixedPrice ?? 0) + offerMarket.marketCost - offerMarket.punPeriodCost
+      : offerMarket.marketCost + totalConsumption * (losses.spread ? lossFactor : 1) * offer.spread;
+    // Le quote consumi includono già le perdite previste per ogni componente.
+    // Annualizzare la differenza in euro, senza rimuovere di nuovo quelle perdite.
+    const annualDifference =
+      ((quotaConsumi - currentSpend) / (totalConsumption || 1)) * annualConsumption +
+      (offer.pcv - input.currentPcv) * 12;
     const agencyCommission =
       offer.fixedAgencyCommission ?? (offer.pcv * 12 * (offer.commissionRate ?? AGENCY_RATE) +
       Math.max(0, (fixed ? 0 : offer.spread) - (offer.commissionBaseSpread ?? LIGHT_COMMISSION_BASE_SPREAD)) * annualConsumption * (offer.commissionRate ?? AGENCY_RATE));
@@ -273,6 +278,7 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
       annualDifference: round2(annualDifference),
       annualSaving: round2(-annualDifference),
       agencyCommission: round2(agencyCommission),
+      lightLosses: losses,
       selected: offer.code === offerToSelect?.code
     };
   });

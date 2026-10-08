@@ -136,10 +136,14 @@ La formula luce ricostruisce lo spread attuale togliendo dal costo energia i com
 
 La formula gas ricostruisce lo spread attuale togliendo PSV e componente fissa di sistema `0,026`; poi confronta le offerte con `PCV + spread`.
 
+Le perdite luce sono configurabili per componente nel catalogo offerte: PUN monorario, PUN per fasce, spread, prezzo fisso, dispacciamento e capacità. Il coefficiente è 10% in bassa tensione e 3,8% in media/alta. Per le offerte prive di configurazione si mantiene il trattamento AGF: nessuna perdita sul PUN monorario o sulla capacità; perdite applicate a PUN per fasce, spread, prezzo fisso e dispacciamento. Per un prezzo già inclusivo delle perdite scegliere `Non aggiungere perdite` sulla componente pertinente. Lo sbilanciamento resta a 0,0014 €/kWh. La configurazione risolta viene conservata nel risultato del preventivo; i preventivi già salvati mantengono il proprio snapshot.
+
+Il risparmio annuo luce è `(spesa consumi attuale - quota consumi proposta) / consumo periodo * consumo annuo + (PCV attuale - PCV proposta) * 12`. Le spese consumi comprendono già le perdite previste per ogni componente: la loro differenza non viene divisa nuovamente per il coefficiente perdite. La divisione per quel coefficiente resta nella ricostruzione dello spread attuale netto. L'annualizzazione luce mantiene il consumo del primo mese per 12; per un singolo mese il risparmio annuo coincide quindi con il risparmio mensile complessivo moltiplicato per 12. Il calcolo provvigionale resta separato.
+
 La provvigione stimata segue il simulatore:
 
-- luce: `30% * (PCV annua + (spread - 0,006) * consumo annuo)`.
-- gas: `30% * (PCV annua + (spread - 0,060) * consumo annuo)`.
+- luce: `60% * (PCV annua + max(0, spread - 0,006) * consumo annuo)`.
+- gas: `60% * (PCV annua + max(0, spread - 0,060) * consumo annuo)`.
 
 Il pulsante `Salva preventivo` salva il preventivo nello store ricalcolandolo lato server.
 Il pulsante `Stampa preventivo` genera un onepager A4 stampabile con riepilogo cliente, risparmio, confronto attuale/proposto e alternative.

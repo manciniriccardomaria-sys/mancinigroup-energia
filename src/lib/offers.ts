@@ -2,6 +2,21 @@ import type { AgencyMarginImportRow, Commodity } from "./types";
 
 type OfferCustomerType = AgencyMarginImportRow["customerType"];
 
+export const defaultLightLosses = {
+  punMono: false,
+  punBands: true,
+  spread: true,
+  fixedPrice: true,
+  dispatching: true,
+  capacity: false
+};
+
+export type LightLossConfiguration = typeof defaultLightLosses;
+
+export function lightLossesForOffer(offer: { lightLosses?: Partial<LightLossConfiguration> }): LightLossConfiguration {
+  return { ...defaultLightLosses, ...offer.lightLosses };
+}
+
 export type OfferCatalogItem = {
   code: string;
   commodity: Exclude<Commodity, "non_definito">;
@@ -15,6 +30,7 @@ export type OfferCatalogItem = {
   commissionRate?: number;
   commissionBaseSpread?: number;
   fixedAgencyCommission?: number;
+  lightLosses?: Partial<LightLossConfiguration>;
 };
 
 export const offerCatalog: OfferCatalogItem[] = [

@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { BadgeEuro, ClipboardList, Tags } from "lucide-react";
-import type { ManagedOffer } from "@/lib/offers";
+import { lightLossesForOffer, type LightLossConfiguration, type ManagedOffer } from "@/lib/offers";
 import type { Customer, CustomerTicket, SessionUser, StoreData } from "@/lib/types";
 import { formatDate, formatEuro, normalizePodPdr, parseEuro } from "@/lib/normalize";
 import { isPersonalUser } from "@/lib/view-model";
@@ -12,6 +12,14 @@ import { paymentGate } from "@/lib/payment-gate";
 type Props = { store: StoreData; user: SessionUser; mutateStore: (change: (draft: StoreData) => void, message: string) => Promise<boolean> };
 const statuses: Record<CustomerTicket["status"], string> = { aperta: "Aperta", in_lavorazione: "In lavorazione", risolta: "Risolta", chiusa: "Chiusa" };
 const dateToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome" }).format(new Date());
+const lossComponents: { key: keyof LightLossConfiguration; label: string }[] = [
+  { key: "punMono", label: "PUN monorario" },
+  { key: "punBands", label: "PUN per fasce" },
+  { key: "spread", label: "Spread" },
+  { key: "fixedPrice", label: "Prezzo fisso" },
+  { key: "dispatching", label: "Dispacciamento" },
+  { key: "capacity", label: "Corrispettivo capacità" }
+];
 
 export function TicketsView({ store, user, mutateStore, initialCustomer, onClearInitialCustomer }: Props & { initialCustomer?: Customer; onClearInitialCustomer: () => void }) {
   const [editing, setEditing] = useState<CustomerTicket>();
@@ -97,7 +105,8 @@ export function ManagedOffersView({ store, user, mutateStore }: Props) {
     if (!code || !value("offerEasy") || numbers.some((number) => !Number.isFinite(number) || number < 0) || numeric("commissionRate") > 100 || (value("fixedAgencyCommission") && (!Number.isFinite(numeric("fixedAgencyCommission")) || numeric("fixedAgencyCommission") < 0))) { setError("Inserisci nome, codice e importi validi. La percentuale deve essere tra 0 e 100."); return; }
     const offer: ManagedOffer = { id: editing?.id ?? crypto.randomUUID(), code, offerEasy: value("offerEasy"), commodity: commodity as ManagedOffer["commodity"], customerType: value("customerType") as ManagedOffer["customerType"], pricingType: pricing as ManagedOffer["pricingType"],
       pcv: numeric("pcv"), spread: pricing === "variable" ? numeric("spread") : 0, fixedPrice: pricing === "fixed" ? numeric("fixedPrice") : undefined,
-      commissionRate: numeric("commissionRate") / 100, commissionBaseSpread: numeric("commissionBaseSpread"), fixedAgencyCommission: value("fixedAgencyCommission") ? numeric("fixedAgencyCommission") : undefined, active: value("active") === "true" };
+      commissionRate: numeric("commissionRate") / 100, commissionBaseSpread: numeric("commissionBaseSpread"), fixedAgencyCommission: value("fixedAgencyCommission") ? numeric("fixedAgencyCommission") : undefined, active: value("active") === "true",
+      ...(commodity === "luce" ? { lightLosses: Object.fromEntries(lossComponents.map(({ key }) => [key, value(`loss-${key}`) === "true"])) as LightLossConfiguration } : {}) };
     const success = await mutateStore((draft) => {
       const index = draft.managedOffers.findIndex((item) => item.id === offer.id);
       if (index >= 0) draft.managedOffers[index] = offer; else draft.managedOffers.push(offer);
@@ -107,7 +116,7 @@ export function ManagedOffersView({ store, user, mutateStore }: Props) {
   const offers = store.managedOffers.filter((offer) => `${offer.offerEasy} ${offer.code}`.toLowerCase().includes(search.toLowerCase()));
   return <>
     {canManage && <section className="panel"><div className="panel-heading"><h2>{editing ? "Modifica offerta" : "Aggiungi offerta"}</h2><Tags /></div>
-      <p className="muted-text">Luce: prezzo fisso in €/kWh oppure PUN + spread. Gas: prezzo fisso in €/Smc oppure PSV + spread. PCV mensile; oneri e perdite seguono le impostazioni del preventivatore.</p>
+      <p className="muted-text">Luce: prezzo fisso in €/kWh oppure PUN + spread. Gas: prezzo fisso in €/Smc oppure PSV + spread. PCV mensile; per la luce le perdite si configurano per componente.</p>
       <form key={editing?.id ?? "new"} className="form-grid compact" onSubmit={(event) => void submit(event)}>
         <label>Nome offerta<input name="offerEasy" required defaultValue={editing?.offerEasy} /></label><label>Codice offerta<input name="code" required defaultValue={editing?.code} /></label>
         <label>Fornitura<select value={commodity} onChange={(event) => setCommodity(event.target.value)}><option value="luce">Luce</option><option value="gas">Gas</option></select></label>
@@ -115,8 +124,12 @@ export function ManagedOffersView({ store, user, mutateStore }: Props) {
         <label>Tipo prezzo<select value={pricing} onChange={(event) => setPricing(event.target.value)}><option value="variable">Variabile ({commodity === "luce" ? "PUN" : "PSV"} + spread)</option><option value="fixed">Fisso</option></select></label>
         <label>{pricing === "fixed" ? "Prezzo fisso" : "Spread"} ({commodity === "luce" ? "€/kWh" : "€/Smc"})<input name={pricing === "fixed" ? "fixedPrice" : "spread"} type="number" min="0" step="0.000001" required defaultValue={pricing === "fixed" ? editing?.fixedPrice : editing?.spread} key={`${editing?.id}-${pricing}`} /></label>
         <label>PCV (€/mese)<input name="pcv" type="number" min="0" step="0.01" required defaultValue={editing?.pcv} /></label>
+        {commodity === "luce" && <>
+          <p className="muted-text wide-field">Perdite di rete: 10% in bassa tensione, 3,8% in media/alta. Se il prezzo include già le perdite, scegli “Non aggiungere perdite”.</p>
+          {lossComponents.map(({ key, label }) => <label key={key}>{label}: perdite<select name={`loss-${key}`} defaultValue={String(lightLossesForOffer(editing ?? {})[key])}><option value="true">Aggiungere perdite</option><option value="false">Non aggiungere perdite</option></select></label>)}
+        </>}
         <label>Stato<select name="active" defaultValue={String(editing?.active ?? true)}><option value="true">Attiva</option><option value="false">Disattiva</option></select></label>
-        <label>Quota agenzia (%)<input name="commissionRate" type="number" min="0" max="100" step="0.01" required defaultValue={(editing?.commissionRate ?? 0.3) * 100} /></label>
+        <label>Quota agenzia (%)<input name="commissionRate" type="number" min="0" max="100" step="0.01" required defaultValue={(editing?.commissionRate ?? 0.6) * 100} /></label>
         <label>Soglia spread provvigionale ({commodity === "luce" ? "€/kWh" : "€/Smc"})<input key={commodity} name="commissionBaseSpread" type="number" min="0" step="0.000001" required defaultValue={editing?.commissionBaseSpread ?? (commodity === "luce" ? 0.006 : 0.06)} /></label>
         <label>Provvigione annua fissa agenzia (€; facoltativa)<input name="fixedAgencyCommission" type="number" min="0" step="0.01" defaultValue={editing?.fixedAgencyCommission} /></label>
         <p className="muted-text wide-field">La provvigione fissa, se inserita, sostituisce la formula su PCV e spread. Per le offerte fisse, senza questo importo, la quota agenzia si applica alla PCV.</p>
