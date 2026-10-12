@@ -1,5 +1,5 @@
 import { fixedExcelReference as reference } from "./fixed-excel-reference";
-import { excelModel, ExcelFormulaError } from "./excel-formulas";
+import { excelModel } from "./excel-formulas";
 import type { EnergyQuoteCalculation, EnergyQuoteInput, QuoteOfferResult } from "./quote-calculator";
 
 export const FIXED_EXCEL_FILE = reference.fileName;
@@ -54,8 +54,8 @@ export function calculateFixedExcelQuote(input: EnergyQuoteInput): EnergyQuoteCa
     const code = `EXCEL_FIXED_${input.commodity.toUpperCase()}_${input.customerType}_${row}`;
     const differenceCell = `${light ? "H" : "G"}${row}`;
     const issues: string[] = [];
-    const notices: string[] = ["Differenza annua calcolata con le formule e il listino del file Excel di riferimento."];
-    if (!light && row === 38) issues.push("La riga 38 dell’Excel rimanda a celle di listino vuote: offerta da verificare.");
+    const notices: string[] = [];
+    if (!light && row === 38) issues.push("Condizioni tariffarie incomplete: offerta da verificare.");
     let annualDifference = 0, pcv = 0, fixedPrice = 0;
     try {
       pcv = model.number(sheet, `E${row}`);
@@ -64,11 +64,11 @@ export function calculateFixedExcelQuote(input: EnergyQuoteInput): EnergyQuoteCa
       const priceValue = model.value(sheet, `F${row}`);
       fixedPrice = typeof priceValue === "number" ? priceValue : 0;
       annualDifference = model.number(sheet, differenceCell);
-    } catch (error) {
-      issues.push(`La cella ${differenceCell} o i suoi dati nell’Excel restituiscono ${error instanceof ExcelFormulaError ? error.code : "un errore"}.`);
+    } catch {
+      issues.push("Calcolo non disponibile: dati dell’offerta da verificare.");
     }
-    if (light && input.lightConsumptionMode === "totale") notices.push("La formula monoraria dell’Excel riutilizza celle delle fasce: risultato da verificare prima dell’utilizzo.");
-    if (!light && row >= 35) notices.push("Nome offerta riportato come nell’Excel; controlla l’abbinamento con il listino del foglio.");
+    if (light && input.lightConsumptionMode === "totale") notices.push("Confronto monorario da verificare prima dell’utilizzo.");
+    if (!light && row >= 35) notices.push("Verifica la corrispondenza tra l’offerta selezionata e le condizioni tariffarie.");
     const name = model.value(sheet, `D${row}`);
     const priceText = (value: number) => new Intl.NumberFormat("it-IT", { maximumFractionDigits: 6 }).format(value);
     const tariffRow = row - 23;

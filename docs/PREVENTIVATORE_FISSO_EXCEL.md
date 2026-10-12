@@ -8,7 +8,7 @@ La modalità **Fisso** nella pagina Preventivatore usa le formule e i valori del
 
 - Luce: `H50:H53`, oppure `H50:H52` per business.
 - Gas: `G33:G38`; le righe business utilizzabili sono `G33:G34`.
-- `annualDifferenceExact` conserva il valore calcolato prima dell’arrotondamento. `annualDifference` è la differenza a due decimali; `annualSaving` ne inverte il segno. La schermata mostra anche “Differenza annua Excel” con il segno del foglio.
+- `annualDifferenceExact` conserva il valore calcolato prima dell’arrotondamento. `annualDifference` è la differenza a due decimali; `annualSaving` ne inverte il segno. La schermata mostra anche “Differenza annua” con il segno del foglio.
 - Annualizzazione luce: consumi dell’intero periodo / mesi selezionati × 12. Il fattore perdite è quello originale della cella E21 (1,104).
 - Gas: rettifica originale di 0,015 €/Smc e consumo annuo E8. Il PSV non è necessario per queste formule.
 - I nomi dei mesi nel file non contengono l’anno. La CER conserva la media PUN delle celle originali, senza sostituirla con gli indici correnti.

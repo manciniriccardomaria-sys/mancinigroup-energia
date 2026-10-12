@@ -3727,7 +3727,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
                 <strong>{resultValue(isFixedExcel && quoteInput.commodity === "gas" && calculation.source.totalConsumption === 0 ? "Non disponibile" : formatEuro(calculation.source.currentSpend))}</strong>
               </div>
               <div className="quote-metric-row current">
-                <span>{isFixedExcel ? "Differenza annua Excel" : "Spread attuale"}</span>
+                <span>{isFixedExcel ? "Differenza annua" : "Spread attuale"}</span>
                 <strong>{isFixedExcel ? resultValue(formatEuro(selectedOffer?.annualDifference ?? 0)) : resultValue(`${formatSpread(calculation.source.currentSpread, 3)} €`)}</strong>
               </div>
               <div className="quote-metric-row current">

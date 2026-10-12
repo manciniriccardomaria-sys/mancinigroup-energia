@@ -22,7 +22,7 @@ for (const scenario of fixed.cases) {
     assert.ok(offer, `${scenario.name}, row ${row}`);
     if (typeof expected === 'string') {
       assert.equal(offer.available, false);
-      assert.ok(offer.issues.some((issue) => issue.includes(expected)));
+      assert.ok(offer.issues.some((issue) => issue.includes('Calcolo non disponibile')));
       continue;
     }
     assert.equal(offer.available, true, `${scenario.name}, row ${row}: ${offer.issues}`);
