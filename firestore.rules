@@ -182,6 +182,42 @@ service cloud.firestore {
       allow read, write: if hasFullDataAccess();
     }
 
+    match /quoteBillFiles/{fileId} {
+      function ownsBill(data) {
+        return isPersonalProfile() && data.ownerId == access().id && data.sourceId == access().sourceId;
+      }
+
+      function validBill() {
+        return request.resource.data.keys().hasOnly([
+          'id', 'originalName', 'mimeType', 'size', 'chunkCount', 'uploadedAt', 'uploadedBy', 'ownerId', 'sourceId', 'ready'
+        ]) && request.resource.data.id == fileId &&
+          request.resource.data.originalName is string &&
+          request.resource.data.mimeType in ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'] &&
+          request.resource.data.size is int && request.resource.data.size > 0 && request.resource.data.size <= 10485760 &&
+          request.resource.data.chunkCount is int && request.resource.data.chunkCount > 0 && request.resource.data.chunkCount <= 20 &&
+          request.resource.data.ownerId is string && request.resource.data.ready is bool;
+      }
+
+      allow read, delete: if hasFullDataAccess() || ownsBill(resource.data);
+      allow create: if validBill() && request.resource.data.ready == false && (
+        hasFullDataAccess() || (ownsBill(request.resource.data) && request.resource.data.uploadedBy == access().id)
+      );
+      allow update: if validBill() && (hasFullDataAccess() || ownsBill(resource.data)) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ready']) && request.resource.data.ready == true;
+
+      match /chunks/{chunkId} {
+        function bill() {
+          return get(/databases/$(database)/documents/quoteBillFiles/$(fileId)).data;
+        }
+
+        allow read, delete: if hasFullDataAccess() || ownsBill(bill());
+        allow create: if (hasFullDataAccess() || ownsBill(bill())) && bill().ready == false &&
+          request.resource.data.keys().hasOnly(['data']) && request.resource.data.data is string &&
+          request.resource.data.data.size() <= 699052 && int(chunkId) >= 0 && int(chunkId) < bill().chunkCount;
+        allow update: if false;
+      }
+    }
+
     match /appMeta/{documentId} {
       allow read, write: if hasFullDataAccess();
     }

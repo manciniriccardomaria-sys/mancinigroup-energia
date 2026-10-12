@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { AppNavigation } from "./app-navigation";
 import { PendingQuotesPanel } from "./pending-quotes-panel";
+import { QuoteBillAttachments } from "./quote-bill-attachments";
 import { FixedExcelInputs, type FixedExcelNumberField } from "./fixed-excel-inputs";
 import { completePendingQuote } from "@/lib/pending-quotes";
 import {
@@ -3238,6 +3239,7 @@ function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
   const [selected, setSelected] = useState<EnergyQuote>();
   const [reopened, setReopened] = useState<EnergyQuote>();
   const [preparing, setPreparing] = useState<PendingEnergyQuote>();
+  const preparedQuote = preparing?.completedQuoteId ? store.energyQuotes.find((quote) => quote.id === preparing.completedQuoteId) : undefined;
   const quotes = store.energyQuotes.filter((quote) => (!isPersonalUser(user) || quote.createdBy === user.id)
     && (commodity === "tutti" || quote.commodity === commodity)
     && `${savedQuoteName(quote)} ${quote.customerFirstName} ${quote.customerLastName} ${quote.customerPhone ?? ""} ${quote.selectedOfferName} ${quote.sourceName ?? ""}`.toLowerCase().includes(search.toLowerCase()))
@@ -3248,11 +3250,12 @@ function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
       <button className="secondary-button" type="button" onClick={() => setPreparing(undefined)}>Torna ai preventivi</button>
       <h2>Preventivo da fare: {preparing.firstName} {preparing.lastName}</h2>
       {preparing.notes && <p className="pending-quote-note-cell">{preparing.notes}</p>}
-      <p>Salvando il preventivo, la richiesta viene completata e il risultato compare nei preventivi salvati.</p>
+      <QuoteBillAttachments quote={preparing} />
+      <p>Il salvataggio collega il risultato alla richiesta e aggiorna le richieste da preventivare allo stato Preventivato.</p>
     </section>
     <PreventivatoreView key={preparing.id} store={store} user={user} mutateStore={mutateStore}
       pendingQuoteId={preparing.id} onSaved={() => setPreparing(undefined)}
-      initialInput={{ ...createDefaultQuoteInput(false), firstName: preparing.firstName, lastName: preparing.lastName,
+      initialInput={{ ...(preparedQuote ? defaultEnergyQuoteInput(preparedQuote.inputSnapshot as Partial<EnergyQuoteInput>) : createDefaultQuoteInput(false)), firstName: preparing.firstName, lastName: preparing.lastName,
         phone: preparing.phone, commodity: preparing.commodity, customerType: preparing.customerType, sourceId: preparing.sourceId }} />
   </>;
   const detail = selected && <section className={`panel ${selected.calculationSnapshot ? "print-hidden" : "quote-archive-print"}`}>

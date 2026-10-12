@@ -29,14 +29,17 @@ export function FixedExcelInputs({ input, offers, selectedOffer, monthOptions, n
         <label>Tipo tariffa attuale<select value={input.lightConsumptionMode} onChange={(event) => onChange("lightConsumptionMode", event.target.value as LightConsumptionMode)}><option value="fasce">A fasce</option><option value="totale">Monoraria</option></select></label>
         <label>Fattore perdite<input value="1,104" readOnly /></label>
       </div>
-      {input.lightConsumptionMode === "fasce" ? <div className="quote-line-grid four secondary">
+      {input.lightConsumptionMode === "fasce" ? <>
+      <div className="quote-line-grid three secondary">
         {numericField("excelCurrentF1Price", "Prezzo attuale F1 (€/kWh)")}
-        {numericField("excelConsumptionF1", "Consumi F1 del periodo (kWh)")}
         {numericField("excelCurrentF2Price", "Prezzo attuale F2 (€/kWh)")}
-        {numericField("excelConsumptionF2", "Consumi F2 del periodo (kWh)")}
         {numericField("excelCurrentF3Price", "Prezzo attuale F3 (€/kWh)")}
+      </div>
+      <div className="quote-line-grid three secondary">
+        {numericField("excelConsumptionF1", "Consumi F1 del periodo (kWh)")}
+        {numericField("excelConsumptionF2", "Consumi F2 del periodo (kWh)")}
         {numericField("excelConsumptionF3", "Consumi F3 del periodo (kWh)")}
-      </div> : <div className="quote-line-grid four secondary">
+      </div></> : <div className="quote-line-grid four secondary">
         {numericField("excelCurrentMonoPrice", "Prezzo attuale monorario (€/kWh)")}
         {numericField("excelMonoConsumption", "Consumi monorari del periodo (kWh)")}
       </div>}

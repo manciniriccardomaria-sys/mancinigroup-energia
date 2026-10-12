@@ -410,8 +410,13 @@ textarea:focus {
 .workspace-links a { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 700; }
 .workspace-links a:hover, .workspace-links a[aria-current="page"] { color: var(--green-dark); text-decoration: underline; }
 .pending-quotes-panel { border-top: 4px solid #234fa3; }
+.pending-quotes-panel table { min-width: 1050px; }
+.pending-quotes-panel td select { width: 200px; }
 .pending-quotes-panel .eyebrow { display: flex; align-items: center; gap: 6px; }
 .pending-quote-form { margin: 18px 0; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; }
+.pending-quote-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.quote-bill-list { display: grid; gap: 6px; min-width: 150px; max-width: 240px; }
+.quote-bill-list button { justify-content: flex-start; overflow-wrap: anywhere; white-space: normal; text-align: left; }
 .pending-quote-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 16px 0; }
 .pending-quote-notes { grid-column: 1 / -1; }
 .pending-quote-search { max-width: 460px; margin: 18px 0; }
@@ -1661,6 +1666,10 @@ td small {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.quote-line-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .quote-line-grid.two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -2270,6 +2279,7 @@ td small {
   .quote-line-grid.five,
   .quote-line-grid.four,
   .quote-line-grid.two,
+  .quote-line-grid.three,
   .quote-comparison-strip,
   .recap-filters,
   .trend-filter-stack,

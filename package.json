@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test:operations": "node scripts/test-operations.cjs",
     "test:pending-quotes": "node scripts/test-pending-quotes.cjs",
+    "test:quote-bills": "node scripts/test-quote-bills.cjs",
     "test:fixed-excel": "node scripts/test-fixed-excel.cjs",
     "test:met": "node scripts/test-met.cjs",
     "firebase:load-met": "node scripts/load-met-offers.cjs",

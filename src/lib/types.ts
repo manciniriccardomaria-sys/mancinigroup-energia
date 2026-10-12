@@ -144,6 +144,18 @@ export type EnergyQuote = {
   createdBy: string;
 };
 
+export type PendingQuoteStatus = "da_preventivare" | "preventivato" | "inviato_alla_fonte" | "convertito";
+
+export type QuoteBillAttachment = {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  chunkCount: number;
+  uploadedAt: string;
+  uploadedBy: string;
+};
+
 export type PendingEnergyQuote = {
   id: string;
   firstName: string;
@@ -155,6 +167,12 @@ export type PendingEnergyQuote = {
   notes?: string;
   dueDate?: string;
   completedQuoteId?: string;
+  status?: PendingQuoteStatus;
+  attachments?: QuoteBillAttachment[];
+  podPdr?: string;
+  convertedCustomerId?: string;
+  convertedAt?: string;
+  updatedAt?: string;
   createdAt: string;
   createdBy: string;
 };

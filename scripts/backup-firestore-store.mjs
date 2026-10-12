@@ -14,7 +14,8 @@ if (getApps().length === 0) {
   });
 }
 
-const { store, totalRecords } = await readFirestoreCollections(getFirestore());
+const db = getFirestore();
+const { store, totalRecords } = await readFirestoreCollections(db);
 
 if (totalRecords === 0) {
   throw new Error("Store Firestore vuoto: esegui prima il seed iniziale.");
@@ -22,8 +23,17 @@ if (totalRecords === 0) {
 
 await mkdir("backups", { recursive: true });
 
+// Bill payloads are kept outside the main store so ordinary page loads only
+// fetch their metadata. Include the payloads in the backup for recovery.
+const billManifests = await db.collection("quoteBillFiles").get();
+const quoteBillFiles = [];
+for (const manifest of billManifests.docs) {
+  const chunks = await manifest.ref.collection("chunks").get();
+  quoteBillFiles.push({ ...manifest.data(), chunks: chunks.docs.map((chunk) => ({ id: chunk.id, ...chunk.data() })) });
+}
+
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const outputPath = `backups/firestore-store-${stamp}.json`;
 
-await writeFile(outputPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+await writeFile(outputPath, `${JSON.stringify({ ...store, quoteBillFiles }, null, 2)}\n`, "utf8");
 console.log(`Backup Firestore salvato in ${outputPath}`);
