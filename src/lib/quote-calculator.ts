@@ -1,6 +1,7 @@
 import { defaultQuoteOffers, lightLossesForOffer, type LightLossConfiguration, type OfferCatalogItem } from "./offers";
 import type { Commodity, MarketVariable } from "./types";
 import { calculateMetOffer, metCommission, metMonthlyPcv, offerPriceLabel } from "./met-calculator";
+import { calculateFixedExcelQuote } from "./fixed-excel-calculator";
 
 // Fonte formule: fogli SIMULATORE_LUCE e SIMULATORE_GAS. Il foglio veloce non guida il calcolo.
 export type QuoteCommodity = Exclude<Commodity, "non_definito">;
@@ -9,6 +10,15 @@ export type LightConsumptionMode = "totale" | "fasce";
 export type LightLossMode = "bassa" | "media_alta";
 
 export type EnergyQuoteInput = {
+  calculationModel?: "catalog" | "fixed_excel";
+  excelCurrentMonoPrice?: number;
+  excelCurrentF1Price?: number;
+  excelCurrentF2Price?: number;
+  excelCurrentF3Price?: number;
+  excelConsumptionF1?: number;
+  excelConsumptionF2?: number;
+  excelConsumptionF3?: number;
+  excelMonoConsumption?: number;
   quoteDate: string;
   sourceId?: string;
   firstName: string;
@@ -59,6 +69,10 @@ export type QuoteOfferResult = {
   notices?: string[];
   requiresBands?: boolean;
   commissionKnown?: boolean;
+  quotaConsumiKnown?: boolean;
+  tariffKnown?: boolean;
+  excelDifferenceCell?: string;
+  annualDifferenceExact?: number;
   selected: boolean;
 };
 
@@ -424,6 +438,7 @@ export function calculateEnergyQuote(
   variables: MarketVariable[],
   catalog: OfferCatalogItem[] = defaultQuoteOffers()
 ): EnergyQuoteCalculation {
+  if (input.calculationModel === "fixed_excel") return calculateFixedExcelQuote(input);
   return input.commodity === "gas"
     ? calculateGasQuote(input, variables, catalog)
     : calculateLightQuote(input, variables, catalog);
@@ -431,6 +446,15 @@ export function calculateEnergyQuote(
 
 export function defaultEnergyQuoteInput(input?: Partial<EnergyQuoteInput>): EnergyQuoteInput {
   return {
+    calculationModel: input?.calculationModel,
+    excelCurrentMonoPrice: input?.excelCurrentMonoPrice,
+    excelCurrentF1Price: input?.excelCurrentF1Price,
+    excelCurrentF2Price: input?.excelCurrentF2Price,
+    excelCurrentF3Price: input?.excelCurrentF3Price,
+    excelConsumptionF1: input?.excelConsumptionF1,
+    excelConsumptionF2: input?.excelConsumptionF2,
+    excelConsumptionF3: input?.excelConsumptionF3,
+    excelMonoConsumption: input?.excelMonoConsumption,
     quoteDate: input?.quoteDate ?? new Date().toISOString().slice(0, 10),
     sourceId: input?.sourceId,
     firstName: input?.firstName ?? "",

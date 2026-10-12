@@ -3134,3 +3134,6 @@ td small {
 .operations-table > .operations-filters { padding: 0 22px; }
 .operations-table > label { margin: 16px 22px; }
 .operations-table .offer-code { display: block; margin-top: 4px; }
+
+.quote-mode-selector { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }
+.quote-mode-selector .active { background: #234fa3; border-color: #234fa3; color: #fff; }

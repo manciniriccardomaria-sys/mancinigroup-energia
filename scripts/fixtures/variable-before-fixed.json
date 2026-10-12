@@ -1,0 +1,1045 @@
+{
+  "baselineCommit": "8df7ba973f1a4bd4e89c34fcb75f865259c4fc94",
+  "variables": [
+    {
+      "monthKey": "2026-07",
+      "key": "pun_mono",
+      "value": 0.15
+    },
+    {
+      "monthKey": "2026-07",
+      "key": "pun_f1",
+      "value": 0.14
+    },
+    {
+      "monthKey": "2026-07",
+      "key": "pun_f2",
+      "value": 0.17
+    },
+    {
+      "monthKey": "2026-07",
+      "key": "pun_f3",
+      "value": 0.13
+    },
+    {
+      "monthKey": "2026-07",
+      "key": "mercato_capacita",
+      "value": 0.004
+    },
+    {
+      "monthKey": "2026-07",
+      "key": "dispacciamento",
+      "value": 0.01
+    },
+    {
+      "monthKey": "2026-07",
+      "key": "psv",
+      "value": 0.42
+    },
+    {
+      "monthKey": "2026-08",
+      "key": "pun_mono",
+      "value": 0.15
+    },
+    {
+      "monthKey": "2026-08",
+      "key": "pun_f1",
+      "value": 0.14
+    },
+    {
+      "monthKey": "2026-08",
+      "key": "pun_f2",
+      "value": 0.17
+    },
+    {
+      "monthKey": "2026-08",
+      "key": "pun_f3",
+      "value": 0.13
+    },
+    {
+      "monthKey": "2026-08",
+      "key": "mercato_capacita",
+      "value": 0.004
+    },
+    {
+      "monthKey": "2026-08",
+      "key": "dispacciamento",
+      "value": 0.01
+    },
+    {
+      "monthKey": "2026-08",
+      "key": "psv",
+      "value": 0.42
+    }
+  ],
+  "cases": [
+    {
+      "name": "luce-res-mono",
+      "input": {
+        "quoteDate": "2026-10-12",
+        "monthKey": "2026-07",
+        "currentAveragePrice": 0.25,
+        "currentPcv": 12,
+        "consumptionMonth1": 500,
+        "gasAnnualConsumption": 1300
+      },
+      "expected": {
+        "ready": true,
+        "warnings": [],
+        "source": {
+          "currentAveragePrice": 0.25,
+          "currentSpend": 125,
+          "currentSpread": 0.076,
+          "currentPcv": 12,
+          "totalConsumption": 500,
+          "averageMonthlyConsumption": 500,
+          "annualConsumption": 6000,
+          "periodCount": 1
+        },
+        "selectedOffer": {
+          "code": "AGF_EE_MANCINI GROUP_HOME BASIC",
+          "offerName": "Home Basic",
+          "customerType": "RES",
+          "pcv": 10,
+          "spread": 0.025,
+          "pricingType": "variable",
+          "quotaConsumi": 96.95,
+          "annualDifference": -360.6,
+          "annualSaving": 360.6,
+          "agencyCommission": 140.4,
+          "lightLosses": {
+            "punMono": false,
+            "punBands": true,
+            "spread": true,
+            "fixedPrice": true,
+            "dispatching": true,
+            "capacity": false
+          },
+          "available": true,
+          "issues": [],
+          "commissionKnown": true,
+          "selected": true
+        },
+        "offers": [
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME BASIC",
+            "offerName": "Home Basic",
+            "customerType": "RES",
+            "pcv": 10,
+            "spread": 0.025,
+            "pricingType": "variable",
+            "quotaConsumi": 96.95,
+            "annualDifference": -360.6,
+            "annualSaving": 360.6,
+            "agencyCommission": 140.4,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": true
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME FAMILY",
+            "offerName": "Home Family",
+            "customerType": "RES",
+            "pcv": 6,
+            "spread": 0.015,
+            "pricingType": "variable",
+            "quotaConsumi": 91.45,
+            "annualDifference": -474.6,
+            "annualSaving": 474.6,
+            "agencyCommission": 75.6,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME FIDELITY",
+            "offerName": "Home Fidelity",
+            "customerType": "RES",
+            "pcv": 8.5,
+            "spread": 0.02,
+            "pricingType": "variable",
+            "quotaConsumi": 94.2,
+            "annualDifference": -411.6,
+            "annualSaving": 411.6,
+            "agencyCommission": 111.6,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME PLUS",
+            "offerName": "Home Plus",
+            "customerType": "RES",
+            "pcv": 12,
+            "spread": 0.035,
+            "pricingType": "variable",
+            "quotaConsumi": 102.45,
+            "annualDifference": -270.6,
+            "annualSaving": 270.6,
+            "agencyCommission": 190.8,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME STANDARD",
+            "offerName": "Home Standard",
+            "customerType": "RES",
+            "pcv": 10,
+            "spread": 0.03,
+            "pricingType": "variable",
+            "quotaConsumi": 99.7,
+            "annualDifference": -327.6,
+            "annualSaving": 327.6,
+            "agencyCommission": 158.4,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "luce-bus-fasce-due",
+      "input": {
+        "quoteDate": "2026-10-12",
+        "monthKey": "2026-07",
+        "currentAveragePrice": 0.25,
+        "currentPcv": 12,
+        "consumptionMonth1": 500,
+        "gasAnnualConsumption": 1300,
+        "customerType": "BUS",
+        "lightConsumptionMode": "fasce",
+        "secondMonthKey": "2026-08",
+        "f1Month1": 50,
+        "f2Month1": 100,
+        "f3Month1": 350,
+        "f1Month2": 80,
+        "f2Month2": 120,
+        "f3Month2": 600
+      },
+      "expected": {
+        "ready": true,
+        "warnings": [],
+        "source": {
+          "currentAveragePrice": 0.25,
+          "currentSpend": 325,
+          "currentSpread": 0.07459440559440557,
+          "currentPcv": 12,
+          "totalConsumption": 1300,
+          "averageMonthlyConsumption": 500,
+          "annualConsumption": 6000,
+          "periodCount": 2
+        },
+        "selectedOffer": {
+          "code": "AGF_EE_MANCINI GROUP_BUSINESS BASIC",
+          "offerName": "Business Basic",
+          "customerType": "BUS",
+          "pcv": 12,
+          "spread": 0.02,
+          "pricingType": "variable",
+          "quotaConsumi": 246.93,
+          "annualDifference": -360.32,
+          "annualSaving": 360.32,
+          "agencyCommission": 136.8,
+          "lightLosses": {
+            "punMono": false,
+            "punBands": true,
+            "spread": true,
+            "fixedPrice": true,
+            "dispatching": true,
+            "capacity": false
+          },
+          "available": true,
+          "issues": [],
+          "commissionKnown": true,
+          "selected": true
+        },
+        "offers": [
+          {
+            "code": "AGF_EE_MANCINI GROUP_BUSINESS BASIC",
+            "offerName": "Business Basic",
+            "customerType": "BUS",
+            "pcv": 12,
+            "spread": 0.02,
+            "pricingType": "variable",
+            "quotaConsumi": 246.93,
+            "annualDifference": -360.32,
+            "annualSaving": 360.32,
+            "agencyCommission": 136.8,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": true
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_BUSINESS FIDELITY",
+            "offerName": "Business Fidelity",
+            "customerType": "BUS",
+            "pcv": 12,
+            "spread": 0.018,
+            "pricingType": "variable",
+            "quotaConsumi": 244.07000000000002,
+            "annualDifference": -373.52,
+            "annualSaving": 373.52,
+            "agencyCommission": 129.6,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_BUSINESS FIDELITY 15",
+            "offerName": "Business Fidelity 15",
+            "customerType": "BUS",
+            "pcv": 12,
+            "spread": 0.015,
+            "pricingType": "variable",
+            "quotaConsumi": 239.78000000000003,
+            "annualDifference": -393.32,
+            "annualSaving": 393.32,
+            "agencyCommission": 118.8,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_COND. STANDARD_2025",
+            "offerName": "Condomini Standard",
+            "customerType": "BUS",
+            "pcv": 14,
+            "spread": 0.03,
+            "pricingType": "variable",
+            "quotaConsumi": 261.23,
+            "annualDifference": -270.32,
+            "annualSaving": 270.32,
+            "agencyCommission": 187.2,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_RIS_STUDI PROFESSIONALI",
+            "offerName": "Ris Studi Professionali",
+            "customerType": "BUS",
+            "pcv": 10,
+            "spread": 0.02,
+            "pricingType": "variable",
+            "quotaConsumi": 246.93,
+            "annualDifference": -384.32,
+            "annualSaving": 384.32,
+            "agencyCommission": 122.4,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "luce-res-due-fallback",
+      "input": {
+        "quoteDate": "2026-10-12",
+        "monthKey": "2026-07",
+        "currentAveragePrice": 0.25,
+        "currentPcv": 12,
+        "consumptionMonth1": 500,
+        "gasAnnualConsumption": 1300,
+        "secondMonthKey": "2026-08",
+        "consumptionMonth2": 0
+      },
+      "expected": {
+        "ready": true,
+        "warnings": [],
+        "source": {
+          "currentAveragePrice": 0.25,
+          "currentSpend": 125,
+          "currentSpread": 0.07600000000000003,
+          "currentPcv": 12,
+          "totalConsumption": 500,
+          "averageMonthlyConsumption": 250,
+          "annualConsumption": 3000,
+          "periodCount": 2
+        },
+        "selectedOffer": {
+          "code": "AGF_EE_MANCINI GROUP_HOME BASIC",
+          "offerName": "Home Basic",
+          "customerType": "RES",
+          "pcv": 10,
+          "spread": 0.025,
+          "pricingType": "variable",
+          "quotaConsumi": 96.94999999999999,
+          "annualDifference": -192.3,
+          "annualSaving": 192.3,
+          "agencyCommission": 106.2,
+          "lightLosses": {
+            "punMono": false,
+            "punBands": true,
+            "spread": true,
+            "fixedPrice": true,
+            "dispatching": true,
+            "capacity": false
+          },
+          "available": true,
+          "issues": [],
+          "commissionKnown": true,
+          "selected": true
+        },
+        "offers": [
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME BASIC",
+            "offerName": "Home Basic",
+            "customerType": "RES",
+            "pcv": 10,
+            "spread": 0.025,
+            "pricingType": "variable",
+            "quotaConsumi": 96.94999999999999,
+            "annualDifference": -192.3,
+            "annualSaving": 192.3,
+            "agencyCommission": 106.2,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": true
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME FAMILY",
+            "offerName": "Home Family",
+            "customerType": "RES",
+            "pcv": 6,
+            "spread": 0.015,
+            "pricingType": "variable",
+            "quotaConsumi": 91.44999999999999,
+            "annualDifference": -273.3,
+            "annualSaving": 273.3,
+            "agencyCommission": 59.4,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME FIDELITY",
+            "offerName": "Home Fidelity",
+            "customerType": "RES",
+            "pcv": 8.5,
+            "spread": 0.02,
+            "pricingType": "variable",
+            "quotaConsumi": 94.19999999999999,
+            "annualDifference": -226.8,
+            "annualSaving": 226.8,
+            "agencyCommission": 86.4,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME PLUS",
+            "offerName": "Home Plus",
+            "customerType": "RES",
+            "pcv": 12,
+            "spread": 0.035,
+            "pricingType": "variable",
+            "quotaConsumi": 102.44999999999999,
+            "annualDifference": -135.3,
+            "annualSaving": 135.3,
+            "agencyCommission": 138.6,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME STANDARD",
+            "offerName": "Home Standard",
+            "customerType": "RES",
+            "pcv": 10,
+            "spread": 0.03,
+            "pricingType": "variable",
+            "quotaConsumi": 99.69999999999999,
+            "annualDifference": -175.8,
+            "annualSaving": 175.8,
+            "agencyCommission": 115.2,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "luce-res-zero-f1",
+      "input": {
+        "quoteDate": "2026-10-12",
+        "monthKey": "2026-07",
+        "currentAveragePrice": 0.25,
+        "currentPcv": 12,
+        "consumptionMonth1": 500,
+        "gasAnnualConsumption": 1300,
+        "lightConsumptionMode": "fasce",
+        "f1Month1": 0,
+        "f2Month1": 100,
+        "f3Month1": 400
+      },
+      "expected": {
+        "ready": true,
+        "warnings": [],
+        "source": {
+          "currentAveragePrice": 0.25,
+          "currentSpend": 125,
+          "currentSpread": 0.07436363636363635,
+          "currentPcv": 12,
+          "totalConsumption": 500,
+          "averageMonthlyConsumption": 500,
+          "annualConsumption": 6000,
+          "periodCount": 1
+        },
+        "selectedOffer": {
+          "code": "AGF_EE_MANCINI GROUP_HOME BASIC",
+          "offerName": "Home Basic",
+          "customerType": "RES",
+          "pcv": 10,
+          "spread": 0.025,
+          "pricingType": "variable",
+          "quotaConsumi": 97.85000000000001,
+          "annualDifference": -349.8,
+          "annualSaving": 349.8,
+          "agencyCommission": 140.4,
+          "lightLosses": {
+            "punMono": false,
+            "punBands": true,
+            "spread": true,
+            "fixedPrice": true,
+            "dispatching": true,
+            "capacity": false
+          },
+          "available": true,
+          "issues": [],
+          "commissionKnown": true,
+          "selected": true
+        },
+        "offers": [
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME BASIC",
+            "offerName": "Home Basic",
+            "customerType": "RES",
+            "pcv": 10,
+            "spread": 0.025,
+            "pricingType": "variable",
+            "quotaConsumi": 97.85000000000001,
+            "annualDifference": -349.8,
+            "annualSaving": 349.8,
+            "agencyCommission": 140.4,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": true
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME FAMILY",
+            "offerName": "Home Family",
+            "customerType": "RES",
+            "pcv": 6,
+            "spread": 0.015,
+            "pricingType": "variable",
+            "quotaConsumi": 92.35000000000001,
+            "annualDifference": -463.8,
+            "annualSaving": 463.8,
+            "agencyCommission": 75.6,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME FIDELITY",
+            "offerName": "Home Fidelity",
+            "customerType": "RES",
+            "pcv": 8.5,
+            "spread": 0.02,
+            "pricingType": "variable",
+            "quotaConsumi": 95.10000000000001,
+            "annualDifference": -400.8,
+            "annualSaving": 400.8,
+            "agencyCommission": 111.6,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME PLUS",
+            "offerName": "Home Plus",
+            "customerType": "RES",
+            "pcv": 12,
+            "spread": 0.035,
+            "pricingType": "variable",
+            "quotaConsumi": 103.35000000000001,
+            "annualDifference": -259.8,
+            "annualSaving": 259.8,
+            "agencyCommission": 190.8,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_EE_MANCINI GROUP_HOME STANDARD",
+            "offerName": "Home Standard",
+            "customerType": "RES",
+            "pcv": 10,
+            "spread": 0.03,
+            "pricingType": "variable",
+            "quotaConsumi": 100.60000000000001,
+            "annualDifference": -316.8,
+            "annualSaving": 316.8,
+            "agencyCommission": 158.4,
+            "lightLosses": {
+              "punMono": false,
+              "punBands": true,
+              "spread": true,
+              "fixedPrice": true,
+              "dispatching": true,
+              "capacity": false
+            },
+            "available": true,
+            "issues": [],
+            "commissionKnown": true,
+            "selected": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "gas-res",
+      "input": {
+        "quoteDate": "2026-10-12",
+        "monthKey": "2026-07",
+        "currentAveragePrice": 0.85,
+        "currentPcv": 12,
+        "consumptionMonth1": 500,
+        "gasAnnualConsumption": 1300,
+        "commodity": "gas"
+      },
+      "expected": {
+        "ready": true,
+        "warnings": [],
+        "source": {
+          "currentAveragePrice": 0.85,
+          "currentSpend": 425,
+          "currentSpread": 0.40399999999999997,
+          "currentPcv": 12,
+          "totalConsumption": 500,
+          "averageMonthlyConsumption": 500,
+          "annualConsumption": 1300,
+          "periodCount": 1
+        },
+        "selectedOffer": {
+          "code": "AGF_GAS_MANCINI GROUP_HOME BASIC",
+          "offerName": "Home Basic",
+          "customerType": "RES",
+          "pcv": 8,
+          "spread": 0.129,
+          "pricingType": "variable",
+          "quotaConsumi": 274.5,
+          "annualDifference": -405.5,
+          "annualSaving": 405.5,
+          "agencyCommission": 111.42,
+          "available": true,
+          "commissionKnown": true,
+          "selected": true
+        },
+        "offers": [
+          {
+            "code": "AGF_GAS_MANCINI GROUP_HOME BASIC",
+            "offerName": "Home Basic",
+            "customerType": "RES",
+            "pcv": 8,
+            "spread": 0.129,
+            "pricingType": "variable",
+            "quotaConsumi": 274.5,
+            "annualDifference": -405.5,
+            "annualSaving": 405.5,
+            "agencyCommission": 111.42,
+            "available": true,
+            "commissionKnown": true,
+            "selected": true
+          },
+          {
+            "code": "AGF_GAS_MANCINI GROUP_HOME FAMILY",
+            "offerName": "Home Family",
+            "customerType": "RES",
+            "pcv": 8,
+            "spread": 0.09,
+            "pricingType": "variable",
+            "quotaConsumi": 255,
+            "annualDifference": -456.2,
+            "annualSaving": 456.2,
+            "agencyCommission": 81,
+            "available": true,
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_GAS_RAGNO_HOME FAMILY PLUS_2025",
+            "offerName": "Home Family Plus",
+            "customerType": "RES",
+            "pcv": 12,
+            "spread": 0.08,
+            "pricingType": "variable",
+            "quotaConsumi": 250,
+            "annualDifference": -421.2,
+            "annualSaving": 421.2,
+            "agencyCommission": 102,
+            "available": true,
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_GAS_MANCINI GROUP_HOME FIDELITY",
+            "offerName": "Home Fidelity",
+            "customerType": "RES",
+            "pcv": 8,
+            "spread": 0.109,
+            "pricingType": "variable",
+            "quotaConsumi": 264.5,
+            "annualDifference": -431.5,
+            "annualSaving": 431.5,
+            "agencyCommission": 95.82,
+            "available": true,
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_GAS_MANCINI GROUP_HOME LIGHT",
+            "offerName": "Home Light",
+            "customerType": "RES",
+            "pcv": 8,
+            "spread": 0.129,
+            "pricingType": "variable",
+            "quotaConsumi": 274.5,
+            "annualDifference": -405.5,
+            "annualSaving": 405.5,
+            "agencyCommission": 111.42,
+            "available": true,
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_GAS_MANCINI GROUP_HOME PLUS_0.129",
+            "offerName": "Home Plus",
+            "customerType": "RES",
+            "pcv": 12,
+            "spread": 0.129,
+            "pricingType": "variable",
+            "quotaConsumi": 274.5,
+            "annualDifference": -357.5,
+            "annualSaving": 357.5,
+            "agencyCommission": 140.22,
+            "available": true,
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_GAS_MANCINI GROUP_HOME PLUS",
+            "offerName": "Home Plus",
+            "customerType": "RES",
+            "pcv": 12,
+            "spread": 0.149,
+            "pricingType": "variable",
+            "quotaConsumi": 284.5,
+            "annualDifference": -331.5,
+            "annualSaving": 331.5,
+            "agencyCommission": 155.82,
+            "available": true,
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_GAS_MANCINI GROUP_HOME STANDARD",
+            "offerName": "Home Standard",
+            "customerType": "RES",
+            "pcv": 10,
+            "spread": 0.129,
+            "pricingType": "variable",
+            "quotaConsumi": 274.5,
+            "annualDifference": -381.5,
+            "annualSaving": 381.5,
+            "agencyCommission": 125.82,
+            "available": true,
+            "commissionKnown": true,
+            "selected": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "gas-bus-due",
+      "input": {
+        "quoteDate": "2026-10-12",
+        "monthKey": "2026-07",
+        "currentAveragePrice": 0.95,
+        "currentPcv": 12,
+        "consumptionMonth1": 500,
+        "gasAnnualConsumption": 1300,
+        "commodity": "gas",
+        "customerType": "BUS",
+        "secondMonthKey": "2026-08",
+        "consumptionMonth2": 600
+      },
+      "expected": {
+        "ready": true,
+        "warnings": [],
+        "source": {
+          "currentAveragePrice": 0.95,
+          "currentSpend": 1045,
+          "currentSpread": 0.504,
+          "currentPcv": 12,
+          "totalConsumption": 1100,
+          "averageMonthlyConsumption": 550,
+          "annualConsumption": 1300,
+          "periodCount": 2
+        },
+        "selectedOffer": {
+          "code": "AGF_GAS_MANCINI GROUP_BUSINESS BASIC",
+          "offerName": "Business Basic",
+          "customerType": "BUS",
+          "pcv": 12,
+          "spread": 0.129,
+          "pricingType": "variable",
+          "quotaConsumi": 603.9,
+          "annualDifference": -487.5,
+          "annualSaving": 487.5,
+          "agencyCommission": 140.22,
+          "available": true,
+          "commissionKnown": true,
+          "selected": true
+        },
+        "offers": [
+          {
+            "code": "AGF_GAS_MANCINI GROUP_BUSINESS BASIC",
+            "offerName": "Business Basic",
+            "customerType": "BUS",
+            "pcv": 12,
+            "spread": 0.129,
+            "pricingType": "variable",
+            "quotaConsumi": 603.9,
+            "annualDifference": -487.5,
+            "annualSaving": 487.5,
+            "agencyCommission": 140.22,
+            "available": true,
+            "commissionKnown": true,
+            "selected": true
+          },
+          {
+            "code": "AGF_GAS_MANCINI GROUP_BUSINESS FIDELITY",
+            "offerName": "Business Fidelity",
+            "customerType": "BUS",
+            "pcv": 12,
+            "spread": 0.109,
+            "pricingType": "variable",
+            "quotaConsumi": 581.9,
+            "annualDifference": -513.5,
+            "annualSaving": 513.5,
+            "agencyCommission": 124.62,
+            "available": true,
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_GAS_MANCINI GROUP_BUSINESS STANDARD",
+            "offerName": "Business Standard",
+            "customerType": "BUS",
+            "pcv": 10,
+            "spread": 0.15,
+            "pricingType": "variable",
+            "quotaConsumi": 627,
+            "annualDifference": -484.2,
+            "annualSaving": 484.2,
+            "agencyCommission": 142.2,
+            "available": true,
+            "commissionKnown": true,
+            "selected": false
+          },
+          {
+            "code": "AGF_GAS_MANCINI GROUP_COND. STANDARD_2025",
+            "offerName": "Condomini Standard",
+            "customerType": "BUS",
+            "pcv": 16,
+            "spread": 0.22,
+            "pricingType": "variable",
+            "quotaConsumi": 704,
+            "annualDifference": -321.2,
+            "annualSaving": 321.2,
+            "agencyCommission": 240,
+            "available": true,
+            "commissionKnown": true,
+            "selected": false
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,301 @@
+{
+  "sourceFile": "SIMULATORE PER FASCE BOLLETTE NUOVE DIC 25.xlsx",
+  "sha256": "d8d1b236aaa55703b3c77eb509dc3033e481970c87137f7af7bb3532ec7167ea",
+  "oracle": "Original worksheet formulas in disposable copies, with all imported formula caches removed, fully recalculated and saved with LibreOfficeDev 26.8.",
+  "cases": [
+    {
+      "name": "luce-res-1-mese",
+      "input": {
+        "calculationModel": "fixed_excel",
+        "quoteDate": "2026-10-12",
+        "commodity": "luce",
+        "customerType": "RES",
+        "monthKey": "2026-08",
+        "currentAveragePrice": 0.3,
+        "currentPcv": 12,
+        "lightConsumptionMode": "fasce",
+        "excelCurrentF1Price": 0.2,
+        "excelCurrentF2Price": 0.22,
+        "excelCurrentF3Price": 0.18,
+        "excelConsumptionF1": 50,
+        "excelConsumptionF2": 30,
+        "excelConsumptionF3": 20
+      },
+      "expected": {
+        "50": -222.8532,
+        "51": -154.4532,
+        "52": -118.4532,
+        "53": -218.64272784
+      }
+    },
+    {
+      "name": "luce-bus-1-mese",
+      "input": {
+        "calculationModel": "fixed_excel",
+        "quoteDate": "2026-10-12",
+        "commodity": "luce",
+        "customerType": "BUS",
+        "monthKey": "2026-08",
+        "currentAveragePrice": 0.25,
+        "currentPcv": 15,
+        "lightConsumptionMode": "fasce",
+        "excelCurrentF1Price": 0.2,
+        "excelCurrentF2Price": 0.22,
+        "excelCurrentF3Price": 0.18,
+        "excelConsumptionF1": 772,
+        "excelConsumptionF2": 563,
+        "excelConsumptionF3": 1064
+      },
+      "expected": {
+        "50": -1594.669068,
+        "51": -1473.993468,
+        "52": -2455.203468
+      }
+    },
+    {
+      "name": "luce-res-2-mesi",
+      "input": {
+        "calculationModel": "fixed_excel",
+        "quoteDate": "2026-10-12",
+        "commodity": "luce",
+        "customerType": "RES",
+        "monthKey": "2026-08",
+        "currentAveragePrice": 0.3,
+        "currentPcv": 12,
+        "lightConsumptionMode": "fasce",
+        "excelCurrentF1Price": 0.2,
+        "excelCurrentF2Price": 0.22,
+        "excelCurrentF3Price": 0.18,
+        "excelConsumptionF1": 500,
+        "excelConsumptionF2": 300,
+        "excelConsumptionF3": 200,
+        "secondMonthKey": "2026-09"
+      },
+      "expected": {
+        "50": -706.266,
+        "51": -580.266,
+        "52": -544.266,
+        "53": -949.2136392
+      }
+    },
+    {
+      "name": "luce-bus-luglio-2-mesi",
+      "input": {
+        "calculationModel": "fixed_excel",
+        "quoteDate": "2026-10-12",
+        "commodity": "luce",
+        "customerType": "BUS",
+        "monthKey": "2026-07",
+        "currentAveragePrice": 0.3,
+        "currentPcv": 12,
+        "lightConsumptionMode": "fasce",
+        "excelCurrentF1Price": 0.2,
+        "excelCurrentF2Price": 0.22,
+        "excelCurrentF3Price": 0.18,
+        "excelConsumptionF1": 300,
+        "excelConsumptionF2": 500,
+        "excelConsumptionF3": 200,
+        "secondMonthKey": "2026-08"
+      },
+      "expected": {
+        "50": -226.584,
+        "51": -201.204,
+        "52": -553.164
+      }
+    },
+    {
+      "name": "luce-res-zero-f1",
+      "input": {
+        "calculationModel": "fixed_excel",
+        "quoteDate": "2026-10-12",
+        "commodity": "luce",
+        "customerType": "RES",
+        "monthKey": "2026-08",
+        "currentAveragePrice": 0.3,
+        "currentPcv": 12,
+        "lightConsumptionMode": "fasce",
+        "excelCurrentF1Price": 0.2,
+        "excelCurrentF2Price": 0.22,
+        "excelCurrentF3Price": 0.18,
+        "excelConsumptionF1": 0,
+        "excelConsumptionF2": 30,
+        "excelConsumptionF3": 20
+      },
+      "expected": {
+        "50": -162.4266,
+        "51": -101.2266,
+        "52": -65.2266,
+        "53": -111.64412784
+      }
+    },
+    {
+      "name": "luce-res-residuo-zero",
+      "input": {
+        "calculationModel": "fixed_excel",
+        "quoteDate": "2026-10-12",
+        "commodity": "luce",
+        "customerType": "RES",
+        "monthKey": "2026-08",
+        "currentAveragePrice": 0.12,
+        "currentPcv": 12,
+        "lightConsumptionMode": "fasce",
+        "excelCurrentF1Price": 0.2,
+        "excelCurrentF2Price": 0.22,
+        "excelCurrentF3Price": 0.18,
+        "excelConsumptionF1": 50,
+        "excelConsumptionF2": 30,
+        "excelConsumptionF3": 20
+      },
+      "expected": {
+        "50": -150.6096,
+        "51": -82.2096,
+        "52": -46.2096,
+        "53": -146.39912784
+      }
+    },
+    {
+      "name": "luce-res-pcv-zero",
+      "input": {
+        "calculationModel": "fixed_excel",
+        "quoteDate": "2026-10-12",
+        "commodity": "luce",
+        "customerType": "RES",
+        "monthKey": "2026-08",
+        "currentAveragePrice": 0.3,
+        "currentPcv": 0,
+        "lightConsumptionMode": "fasce",
+        "excelCurrentF1Price": 0.2,
+        "excelCurrentF2Price": 0.22,
+        "excelCurrentF3Price": 0.18,
+        "excelConsumptionF1": 50,
+        "excelConsumptionF2": 30,
+        "excelConsumptionF3": 20
+      },
+      "expected": {
+        "50": -78.8531999999999,
+        "51": -10.4532,
+        "52": 25.5468,
+        "53": -74.64272784
+      }
+    },
+    {
+      "name": "luce-res-monoraria",
+      "input": {
+        "calculationModel": "fixed_excel",
+        "quoteDate": "2026-10-12",
+        "commodity": "luce",
+        "customerType": "RES",
+        "monthKey": "2026-08",
+        "currentAveragePrice": 0.3,
+        "currentPcv": 12,
+        "lightConsumptionMode": "totale",
+        "excelCurrentMonoPrice": 0.2,
+        "excelMonoConsumption": 100
+      },
+      "expected": {
+        "50": -366.96,
+        "51": -312.96,
+        "52": -276.96,
+        "53": "#VALUE!"
+      }
+    },
+    {
+      "name": "luce-bus-monoraria",
+      "input": {
+        "calculationModel": "fixed_excel",
+        "quoteDate": "2026-10-12",
+        "commodity": "luce",
+        "customerType": "BUS",
+        "monthKey": "2026-08",
+        "currentAveragePrice": 0.3,
+        "currentPcv": 12,
+        "lightConsumptionMode": "totale",
+        "excelCurrentMonoPrice": 0.2,
+        "excelMonoConsumption": 100
+      },
+      "expected": {
+        "50": -228.96,
+        "51": -228.96,
+        "52": -408.96
+      }
+    },
+    {
+      "name": "gas-res",
+      "input": {
+        "calculationModel": "fixed_excel",
+        "quoteDate": "2026-10-12",
+        "commodity": "gas",
+        "customerType": "RES",
+        "monthKey": "2026-08",
+        "currentAveragePrice": 0.9,
+        "currentPcv": 10,
+        "lightConsumptionMode": "fasce",
+        "excelCurrentF1Price": 0.2,
+        "excelCurrentF2Price": 0.22,
+        "excelCurrentF3Price": 0.18,
+        "excelConsumptionF1": 50,
+        "excelConsumptionF2": 30,
+        "excelConsumptionF3": 20,
+        "gasAnnualConsumption": 1000
+      },
+      "expected": {
+        "33": -219,
+        "34": -89.0000000000001,
+        "35": -52.0000000000001,
+        "36": 21,
+        "37": -15
+      }
+    },
+    {
+      "name": "gas-bus",
+      "input": {
+        "calculationModel": "fixed_excel",
+        "quoteDate": "2026-10-12",
+        "commodity": "gas",
+        "customerType": "BUS",
+        "monthKey": "2026-08",
+        "currentAveragePrice": 0.9,
+        "currentPcv": 10,
+        "lightConsumptionMode": "fasce",
+        "excelCurrentF1Price": 0.2,
+        "excelCurrentF2Price": 0.22,
+        "excelCurrentF3Price": 0.18,
+        "excelConsumptionF1": 50,
+        "excelConsumptionF2": 30,
+        "excelConsumptionF3": 20,
+        "gasAnnualConsumption": 5000
+      },
+      "expected": {
+        "33": -279,
+        "34": -315
+      }
+    },
+    {
+      "name": "gas-res-pcv-zero",
+      "input": {
+        "calculationModel": "fixed_excel",
+        "quoteDate": "2026-10-12",
+        "commodity": "gas",
+        "customerType": "RES",
+        "monthKey": "2026-08",
+        "currentAveragePrice": 0.7,
+        "currentPcv": 0,
+        "lightConsumptionMode": "fasce",
+        "excelCurrentF1Price": 0.2,
+        "excelCurrentF2Price": 0.22,
+        "excelCurrentF3Price": 0.18,
+        "excelConsumptionF1": 50,
+        "excelConsumptionF2": 30,
+        "excelConsumptionF3": 20,
+        "gasAnnualConsumption": 1200
+      },
+      "expected": {
+        "33": 110.4,
+        "34": 258,
+        "35": 295.2,
+        "36": 366,
+        "37": 330
+      }
+    }
+  ]
+}
