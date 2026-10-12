@@ -1,6 +1,8 @@
-import Link from "next/link";
+import { AppNavigation } from "./app-navigation";
 import {
   BarChart3,
+  Calculator,
+  ReceiptText,
   ClipboardList,
   FilePlus2,
   Home,
@@ -20,7 +22,9 @@ const navItems = [
   { href: "/dashboard", label: "Home", icon: Home, roles: ["admin", "frontline", "agent"] },
   { href: "/customers/new", label: "Pre-associa", icon: FilePlus2, roles: ["admin", "operativo"] },
   { href: "/customers", label: "Clienti", icon: UsersRound, roles: ["admin", "frontline", "agent"] },
-  { href: "/caricamenti", label: "Caricamenti", operationalLabel: "Abbinamenti", icon: ClipboardList, roles: ["admin", "operativo"] },
+  { href: "/caricamenti", label: "Associa", icon: ClipboardList, roles: ["admin", "operativo"] },
+  { href: "/saved-quotes", label: "Preventivi", icon: ReceiptText },
+  { href: "/preventivatore", label: "Preventivatore", icon: Calculator },
   { href: "/offers", label: "Offerte", icon: Tags },
   { href: "/sources", label: "Fonti", icon: UserRoundPlus, roles: ["admin", "operativo"] },
   { href: "/users", label: "Utenti", icon: UserCog, adminOnly: true },
@@ -59,18 +63,14 @@ export function AppChrome({
         </div>
       </header>
 
-      <nav className="nav-grid" aria-label="Navigazione principale">
-        {navItems.filter((item) => (!item.adminOnly || user.role === "admin") && (!item.roles || item.roles.includes(user.role))).map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <Link key={item.href} className="nav-button" href={item.href}>
-              <Icon size={18} aria-hidden="true" />
-              {user.role === "operativo" && item.operationalLabel ? item.operationalLabel : item.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <AppNavigation
+        primaryItems={["/dashboard", "/caricamenti", "/saved-quotes", "/preventivatore"].flatMap((href) =>
+          navItems.filter((item) => item.href === href && (!item.roles || item.roles.includes(user.role)))
+            .map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={22} aria-hidden="true" /> })))}
+        menuItems={["/offers", "/sources", "/commissions", "/commission-rules", "/users"].flatMap((href) =>
+          navItems.filter((item) => item.href === href && (!item.adminOnly || user.role === "admin") && (!item.roles || item.roles.includes(user.role)))
+            .map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={18} aria-hidden="true" /> })))}
+      />
 
       {children}
     </main>

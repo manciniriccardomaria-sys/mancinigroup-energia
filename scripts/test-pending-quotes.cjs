@@ -1,0 +1,42 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const ts = require("typescript");
+require.extensions[".ts"] = (module, filename) => {
+  module._compile(ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }
+  }).outputText, filename);
+};
+const { normalizeStore, cloneStore, addEnergyQuoteToStore } = require("../src/lib/client-store.ts");
+const { savePendingQuote, visiblePendingQuotes, completePendingQuote } = require("../src/lib/pending-quotes.ts");
+const admin = { id: "admin", role: "admin" };
+const agent = { id: "agent", role: "agent", sourceId: "source-agent" };
+const other = { id: "other", role: "frontline", sourceId: "source-other" };
+const store = normalizeStore({});
+assert.deepEqual(store.pendingEnergyQuotes, []);
+assert.throws(() => savePendingQuote(store, agent, { firstName: "", lastName: "Rossi", commodity: "luce", customerType: "RES" }));
+savePendingQuote(store, agent, { firstName: " Mario ", lastName: " Rossi ", phone: " 123 ", commodity: "gas", customerType: "BUS", sourceId: "forbidden", notes: " Recuperare bolletta ", dueDate: "2026-10-20" });
+const request = store.pendingEnergyQuotes[0];
+assert.equal(request.sourceId, agent.sourceId);
+assert.equal(request.firstName, "Mario");
+assert.equal(request.notes, "Recuperare bolletta");
+assert.equal(visiblePendingQuotes(store, other).length, 0);
+assert.equal(visiblePendingQuotes(store, admin).length, 1);
+assert.throws(() => savePendingQuote(store, other, request, request.id));
+assert.throws(() => completePendingQuote(store, other, request.id, "unknown"));
+savePendingQuote(store, admin, { ...request, phone: "456" }, request.id);
+assert.equal(store.pendingEnergyQuotes.length, 1);
+assert.equal(request.phone, "456");
+assert.equal(request.createdBy, agent.id);
+savePendingQuote(store, agent, { ...request, createdBy: other.id, completedQuoteId: "forbidden" }, request.id);
+assert.equal(request.createdBy, agent.id);
+assert.equal(request.completedQuoteId, undefined);
+const roundTrip = normalizeStore(JSON.parse(JSON.stringify(cloneStore(store))));
+assert.deepEqual(roundTrip.pendingEnergyQuotes[0], request);
+addEnergyQuoteToStore(store, { commodity: request.commodity, customerFirstName: request.firstName, customerLastName: request.lastName, createdBy: agent.id, inputSnapshot: {} });
+completePendingQuote(store, agent, request.id, store.energyQuotes[0].id);
+assert.equal(request.completedQuoteId, store.energyQuotes[0].id);
+assert.equal(store.pendingEnergyQuotes.filter((item) => !item.completedQuoteId).length, 0);
+assert.equal(store.energyQuotes.length, 1);
+assert.throws(() => completePendingQuote(store, agent, request.id, store.energyQuotes[0].id));
+assert.throws(() => savePendingQuote(store, agent, request, request.id));
+console.log("Pending quotes checks passed: migration, persistence, editing, ownership, completion.");

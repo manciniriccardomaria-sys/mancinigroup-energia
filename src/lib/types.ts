@@ -144,6 +144,21 @@ export type EnergyQuote = {
   createdBy: string;
 };
 
+export type PendingEnergyQuote = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  commodity: "luce" | "gas";
+  customerType: "RES" | "BUS";
+  sourceId?: string;
+  notes?: string;
+  dueDate?: string;
+  completedQuoteId?: string;
+  createdAt: string;
+  createdBy: string;
+};
+
 export type UploadedFileRecord = {
   id: string;
   originalName: string;
@@ -328,6 +343,7 @@ export type StoreData = {
   agencyMarginRecords: AgencyMarginRecord[];
   marketVariables: MarketVariable[];
   energyQuotes: EnergyQuote[];
+  pendingEnergyQuotes: PendingEnergyQuote[];
   customerTickets: CustomerTicket[];
   managedOffers: ManagedOffer[];
   users: User[];

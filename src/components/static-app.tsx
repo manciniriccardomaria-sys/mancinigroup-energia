@@ -1,6 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import { AppNavigation } from "./app-navigation";
+import { PendingQuotesPanel } from "./pending-quotes-panel";
+import { completePendingQuote } from "@/lib/pending-quotes";
 import {
   BadgeEuro,
   BarChart3,
@@ -65,6 +68,7 @@ import type {
   Customer,
   CustomerStatus,
   EnergyQuote,
+  PendingEnergyQuote,
   SessionUser,
   Source,
   SourceKind,
@@ -142,7 +146,6 @@ const navItems: Array<{
   href: string;
   view: StaticView;
   label: string;
-  operationalLabel?: string;
   icon: ReactNode;
   adminOnly?: boolean;
   roles?: UserRole[];
@@ -153,12 +156,11 @@ const navItems: Array<{
   {
     href: "/caricamenti/",
     view: "caricamenti",
-    label: "Caricamenti",
-    operationalLabel: "Abbinamenti",
+    label: "Associa",
     icon: <ClipboardList size={18} />,
     roles: ["admin", "operativo"]
   },
-  { href: "/saved-quotes/", view: "saved-quotes", label: "Preventivi salvati", icon: <ReceiptText size={18} /> },
+  { href: "/saved-quotes/", view: "saved-quotes", label: "Preventivi", icon: <ReceiptText size={18} /> },
   { href: "/tickets/", view: "tickets", label: "Ticket clienti", icon: <MessageCircle size={18} /> },
   { href: "/offers/", view: "offers", label: "Offerte", icon: <Tags size={18} /> },
   { href: "/sources/", view: "sources", label: "Fonti", icon: <UserPlus size={18} />, roles: ["admin", "operativo"] },
@@ -210,10 +212,6 @@ function canUseNavItem(user: SessionUser, item: (typeof navItems)[number]) {
   }
 
   return !item.roles || item.roles.includes(user.role);
-}
-
-function navLabel(item: (typeof navItems)[number], user: SessionUser) {
-  return user.role === "operativo" && item.operationalLabel ? item.operationalLabel : item.label;
 }
 
 function canUseView(user: SessionUser, view: StaticView) {
@@ -1150,35 +1148,25 @@ function AppChrome({
           </button>
         </div>
       </header>
-      <nav className="nav-grid">
-        {navItems
-          .filter((item) => canUseNavItem(user, item))
-          .map((item) => (
-            <a
-              className={`nav-button ${item.view === view ? "active" : ""}`}
-              href={item.href}
-              key={item.view}
-              onClick={(event) => {
-                if (
-                  event.defaultPrevented ||
-                  event.metaKey ||
-                  event.ctrlKey ||
-                  event.shiftKey ||
-                  event.altKey ||
-                  event.button !== 0
-                ) {
-                  return;
-                }
-
-                event.preventDefault();
-                onNavigate(item.view, item.href);
-              }}
-            >
-              {item.icon}
-              {navLabel(item, user)}
-            </a>
+      <AppNavigation
+        primaryItems={["dashboard", "caricamenti", "saved-quotes", "preventivatore"].flatMap((target) =>
+          navItems.filter((item) => item.view === target && canUseNavItem(user, item)))}
+        menuItems={["offers", "sources", "commissions", "commission-rules", "users"].flatMap((target) =>
+          navItems.filter((item) => item.view === target && canUseNavItem(user, item)))}
+        activeHref={navItems.find((item) => item.view === view)?.href}
+        onNavigate={(href) => onNavigate(viewFromPath(href), href)}
+      />
+      {(["dashboard", "caricamenti", "customers-new", "customers", "tickets"] as StaticView[]).includes(view) && (
+        <nav className="workspace-links print-hidden" aria-label="Gestione clienti">
+          {navItems.filter((item) => ["customers-new", "customers", "tickets"].includes(item.view) && canUseNavItem(user, item)).map((item) => (
+            <a key={item.view} href={item.href} aria-current={item.view === view ? "page" : undefined} onClick={(event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+              event.preventDefault();
+              onNavigate(item.view, item.href);
+            }}>{item.icon}{item.label}</a>
           ))}
-      </nav>
+        </nav>
+      )}
       {flash && <div className={`alert ${flash.type}`}>{flash.message}</div>}
       {children}
     </main>
@@ -3245,11 +3233,24 @@ function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
   const [commodity, setCommodity] = useState("tutti");
   const [selected, setSelected] = useState<EnergyQuote>();
   const [reopened, setReopened] = useState<EnergyQuote>();
+  const [preparing, setPreparing] = useState<PendingEnergyQuote>();
   const quotes = store.energyQuotes.filter((quote) => (!isPersonalUser(user) || quote.createdBy === user.id)
     && (commodity === "tutti" || quote.commodity === commodity)
     && `${savedQuoteName(quote)} ${quote.customerFirstName} ${quote.customerLastName} ${quote.customerPhone ?? ""} ${quote.selectedOfferName} ${quote.sourceName ?? ""}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => b.quoteDate.localeCompare(a.quoteDate) || b.createdAt.localeCompare(a.createdAt));
   if (reopened) return <><section className="panel print-hidden"><button className="secondary-button" onClick={() => setReopened(undefined)}>Torna all’archivio</button><p>Nuovo preventivo dai dati salvati: il confronto usa le offerte attive e le variabili attuali. Il preventivo originale resta in archivio.</p></section><PreventivatoreView key={reopened.id} store={store} user={user} mutateStore={mutateStore} initialInput={defaultEnergyQuoteInput(reopened.inputSnapshot as Partial<EnergyQuoteInput>)} /></>;
+  if (preparing) return <>
+    <section className="panel print-hidden">
+      <button className="secondary-button" type="button" onClick={() => setPreparing(undefined)}>Torna ai preventivi</button>
+      <h2>Preventivo da fare: {preparing.firstName} {preparing.lastName}</h2>
+      {preparing.notes && <p className="pending-quote-note-cell">{preparing.notes}</p>}
+      <p>Salvando il preventivo, la richiesta viene completata e il risultato compare nei preventivi salvati.</p>
+    </section>
+    <PreventivatoreView key={preparing.id} store={store} user={user} mutateStore={mutateStore}
+      pendingQuoteId={preparing.id} onSaved={() => setPreparing(undefined)}
+      initialInput={{ ...createDefaultQuoteInput(false), firstName: preparing.firstName, lastName: preparing.lastName,
+        phone: preparing.phone, commodity: preparing.commodity, customerType: preparing.customerType, sourceId: preparing.sourceId }} />
+  </>;
   const detail = selected && <section className={`panel ${selected.calculationSnapshot ? "print-hidden" : "quote-archive-print"}`}>
     <h2>{savedQuoteName(selected)}</h2>
     <p>Data: {formatDate(selected.quoteDate)}</p>
@@ -3264,6 +3265,7 @@ function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
     <div className="operations-actions"><button className="print-button" onClick={() => printEnergyQuote(savedQuoteName(selected))}>Stampa / salva PDF</button><button className="secondary-button" onClick={() => setReopened(selected)}>Crea nuovo da questi dati</button><button className="secondary-button" onClick={() => setSelected(undefined)}>Chiudi dettaglio</button></div>
   </section>;
   return <>
+    <PendingQuotesPanel store={store} user={user} mutateStore={mutateStore} onPrepare={setPreparing} />
     <section className="table-section operations-table print-hidden"><h2>Preventivi salvati ({quotes.length})</h2>
       <div className="operations-filters"><label>Cerca preventivo, cliente, telefono, fonte o offerta<input value={search} onChange={(event) => setSearch(event.target.value)} /></label><label>Fornitura<select value={commodity} onChange={(event) => setCommodity(event.target.value)}><option value="tutti">Tutte</option><option value="luce">Luce</option><option value="gas">Gas</option></select></label></div>
       <div className="table-wrap"><table><thead><tr><th>Data</th><th>Cliente</th><th>Telefono</th><th>Fonte</th><th>Fornitura</th><th>Offerta</th><th>Risparmio annuo</th><th>Azioni</th></tr></thead><tbody>
@@ -3276,7 +3278,7 @@ function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
   </>;
 }
 
-function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProps & { initialInput?: EnergyQuoteInput }) {
+function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuoteId, onSaved }: ViewProps & { initialInput?: EnergyQuoteInput; pendingQuoteId?: string; onSaved?: () => void }) {
   const [quoteInput, setQuoteInput] = useState<EnergyQuoteInput>(() => ({
     ...(initialInput ?? createDefaultQuoteInput()),
     sourceId: isPersonalUser(user) ? user.sourceId : initialInput?.sourceId
@@ -3390,8 +3392,13 @@ function PreventivatoreView({ store, user, mutateStore, initialInput }: ViewProp
         },
         createdBy: user.id
       });
+      if (pendingQuoteId) completePendingQuote(draft, user, pendingQuoteId, draft.energyQuotes[0].id);
     }, "Preventivo salvato.");
     if (!saved) return;
+    if (onSaved) {
+      onSaved();
+      return;
+    }
     setQuoteInput({
       ...createDefaultQuoteInput(false),
       sourceId: isPersonalUser(user) ? user.sourceId : undefined

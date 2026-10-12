@@ -312,9 +312,10 @@ textarea:focus {
 
 .nav-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(172px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.6fr);
+  align-items: center;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 
 .nav-button,
@@ -354,6 +355,86 @@ textarea:focus {
   border-color: var(--green);
   background: #e6f5ee;
   color: var(--green-dark);
+}
+
+.application-navigation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.application-navigation .nav-grid {
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-grid.nav-count-3 { grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.6fr); }
+.nav-grid.nav-count-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); }
+.nav-grid.nav-count-1 { grid-template-columns: minmax(0, 1fr); }
+
+.nav-button.nav-featured {
+  min-height: 76px;
+  padding: 12px 20px;
+  border-color: #234fa3;
+  background: #234fa3;
+  color: #fff;
+  font-size: 1.28rem;
+  box-shadow: 0 8px 20px rgba(35, 79, 163, 0.18);
+}
+
+.nav-featured svg { width: 25px; height: 25px; }
+.nav-button.nav-featured:hover, .nav-button.nav-featured.active { background: #193e85; border-color: #193e85; color: #fff; }
+.nav-button.nav-featured.active { outline: 3px solid #b5c9f1; outline-offset: 2px; }
+
+.hamburger-menu { position: relative; flex: 0 0 auto; }
+.hamburger-toggle { min-width: 104px; padding: 0 14px; cursor: pointer; list-style: none; }
+.hamburger-toggle::-webkit-details-marker { display: none; }
+.hamburger-menu[open] .hamburger-toggle { border-color: var(--green); background: #e6f5ee; }
+.hamburger-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 220px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(25, 34, 42, 0.16);
+}
+.hamburger-link { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 10px 12px; border-radius: 6px; color: var(--ink); font-weight: 700; text-decoration: none; }
+.hamburger-link:hover, .hamburger-link.active { background: #e6f5ee; color: var(--green-dark); }
+.workspace-links { display: flex; flex-wrap: wrap; gap: 16px; margin: -8px 0 24px; }
+.workspace-links a { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 700; }
+.workspace-links a:hover, .workspace-links a[aria-current="page"] { color: var(--green-dark); text-decoration: underline; }
+.pending-quotes-panel { border-top: 4px solid #234fa3; }
+.pending-quotes-panel .eyebrow { display: flex; align-items: center; gap: 6px; }
+.pending-quote-form { margin: 18px 0; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; }
+.pending-quote-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 16px 0; }
+.pending-quote-notes { grid-column: 1 / -1; }
+.pending-quote-search { max-width: 460px; margin: 18px 0; }
+.pending-quote-note-cell { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 360px; }
+
+@media (max-width: 1000px) {
+  .application-navigation { align-items: flex-start; }
+  .application-navigation .nav-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nav-button.nav-featured { min-height: 64px; padding: 10px 12px; font-size: 1.12rem; }
+  .pending-quote-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .application-navigation { gap: 8px; }
+  .application-navigation .nav-grid { gap: 8px; }
+  .hamburger-toggle { min-width: 48px; padding: 0 10px; }
+  .hamburger-toggle span { display: none; }
+  .application-navigation .nav-button { font-size: 0.86rem; gap: 6px; }
+  .application-navigation .nav-featured { font-size: 0.98rem; padding: 10px 8px; }
+  .nav-featured svg { width: 20px; height: 20px; }
+  .pending-quotes-panel .section-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .pending-quote-fields { grid-template-columns: minmax(0, 1fr); }
+  .pending-quote-form { padding: 14px; }
 }
 
 .user-pill {
@@ -2401,6 +2482,7 @@ td small {
   }
 
   .topbar,
+  .application-navigation,
   .nav-grid,
   .market-entry-grid,
   .market-recap,

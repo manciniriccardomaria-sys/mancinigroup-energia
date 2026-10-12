@@ -12,6 +12,7 @@ export const storeCollectionKeys = [
   "agencyMarginRecords",
   "marketVariables",
   "energyQuotes",
+  "pendingEnergyQuotes",
   "customerTickets",
   "managedOffers",
   "users"

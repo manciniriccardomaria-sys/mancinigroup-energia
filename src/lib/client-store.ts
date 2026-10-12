@@ -308,6 +308,7 @@ export function createDefaultClientStore(adminEmail: string, adminName = "Admin 
     productionMetrics: seedProductionMetrics,
     marketVariables: seedMarketVariables(adminUser.id, createdAt),
     energyQuotes: [],
+    pendingEnergyQuotes: [],
     customerTickets: [],
     managedOffers: defaultQuoteOffers(),
     uploadedFiles: [],
@@ -333,6 +334,7 @@ export function normalizeStore(data: Partial<StoreData>, adminEmail?: string): S
   base.agencyMarginRecords ??= [];
   base.marketVariables ??= fallback.marketVariables;
   base.energyQuotes ??= [];
+  base.pendingEnergyQuotes ??= [];
   base.customerTickets ??= [];
   base.managedOffers = normalizeManagedOffers(base.managedOffers);
   base.users ??= fallback.users;

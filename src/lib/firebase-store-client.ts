@@ -29,6 +29,7 @@ const collectionKeys = [
   "agencyMarginRecords",
   "marketVariables",
   "energyQuotes",
+  "pendingEnergyQuotes",
   "customerTickets",
   "managedOffers",
   "users"
@@ -54,6 +55,7 @@ function emptyStore(): StoreData {
     agencyMarginRecords: [],
     marketVariables: [],
     energyQuotes: [],
+    pendingEnergyQuotes: [],
     customerTickets: [],
     managedOffers: [],
     users: []
@@ -106,7 +108,7 @@ export async function readFirestoreStoreForProfile(db: Firestore, profile: Acces
 
   const sourceId = profile.sourceId!;
   const sourceSnapshot = await getDoc(doc(db, STORE_ROOT, "sources", "items", sourceId));
-  const [customers, commissionEntries, commissionPayments, commissionForecasts, loadingRecords, marketVariables, energyQuotes, customerTickets, managedOffers] =
+  const [customers, commissionEntries, commissionPayments, commissionForecasts, loadingRecords, marketVariables, energyQuotes, pendingEnergyQuotes, customerTickets, managedOffers] =
     await Promise.all([
       readScopedCollection(db, "customers", "sourceId", sourceId),
       readScopedCollection(db, "commissionEntries", "sourceId", sourceId),
@@ -117,6 +119,7 @@ export async function readFirestoreStoreForProfile(db: Firestore, profile: Acces
         snapshot.docs.map((item) => item.data())
       ),
       readScopedCollection(db, "energyQuotes", "createdBy", profile.id),
+      readScopedCollection(db, "pendingEnergyQuotes", "createdBy", profile.id),
       readScopedCollection(db, "customerTickets", "sourceId", sourceId),
       getDocs(collection(db, STORE_ROOT, "managedOffers", "items")).then((snapshot) => snapshot.docs.map((item) => item.data()))
     ]);
@@ -131,6 +134,7 @@ export async function readFirestoreStoreForProfile(db: Firestore, profile: Acces
     loadingRecords: loadingRecords as StoreData["loadingRecords"],
     marketVariables: marketVariables as StoreData["marketVariables"],
     energyQuotes: energyQuotes as StoreData["energyQuotes"],
+    pendingEnergyQuotes: pendingEnergyQuotes as StoreData["pendingEnergyQuotes"],
     customerTickets: customerTickets as StoreData["customerTickets"],
     managedOffers: managedOffers as StoreData["managedOffers"],
     users: [

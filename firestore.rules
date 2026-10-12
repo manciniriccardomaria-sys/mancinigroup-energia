@@ -132,6 +132,24 @@ service cloud.firestore {
       );
     }
 
+    match /appData/pendingEnergyQuotes/items/{documentId} {
+      allow read: if hasFullDataAccess() || (isPersonalProfile() && resource.data.createdBy == access().id);
+      allow create: if hasFullDataAccess() || (
+        isPersonalProfile() &&
+        request.resource.data.createdBy == access().id &&
+        request.resource.data.sourceId == access().sourceId
+      );
+      allow update: if hasFullDataAccess() || (
+        isPersonalProfile() &&
+        resource.data.createdBy == access().id &&
+        request.resource.data.createdBy == access().id &&
+        request.resource.data.sourceId == access().sourceId
+      );
+      allow delete: if hasFullDataAccess() || (
+        isPersonalProfile() && resource.data.createdBy == access().id
+      );
+    }
+
     match /appData/managedOffers/items/{documentId} {
       allow read: if hasActiveAccess();
       allow write: if hasFullDataAccess();

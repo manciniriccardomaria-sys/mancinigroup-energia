@@ -664,6 +664,7 @@ async function defaultStore(): Promise<StoreData> {
     productionMetrics: seedProductionMetrics,
     marketVariables: seedMarketVariables(adminUser.id, now),
     energyQuotes: [],
+    pendingEnergyQuotes: [],
     customerTickets: [],
     managedOffers: defaultQuoteOffers(),
     uploadedFiles: [],
@@ -690,6 +691,7 @@ function needsMigration(data: Partial<StoreData>) {
     !Array.isArray(data.productionMetrics) ||
     !Array.isArray(data.marketVariables) ||
     !Array.isArray(data.energyQuotes) ||
+    !Array.isArray(data.pendingEnergyQuotes) ||
     !Array.isArray(data.customerTickets) ||
     !Array.isArray(data.managedOffers) ||
     (Array.isArray(data.marketVariables) && hasLegacyMarketSeedVariables(data.marketVariables)) ||
@@ -721,6 +723,7 @@ function migrateStore(data: Partial<StoreData>): StoreData {
   base.productionMetrics ??= seedProductionMetrics;
   base.marketVariables ??= [];
   base.energyQuotes ??= [];
+  base.pendingEnergyQuotes ??= [];
   base.customerTickets ??= [];
   base.managedOffers = normalizeManagedOffers(base.managedOffers);
   base.loadingRecords ??= [];
