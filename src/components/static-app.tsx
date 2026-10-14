@@ -49,11 +49,11 @@ import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth, formatCo
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
 import { marketVariableDefinitions } from "@/lib/market-variables";
 import { energyQuoteName } from "@/lib/quote-name";
-import { quoteCostComparison } from "@/lib/quote-costs";
 import { formatDate, formatDateTime, formatEuro, normalizePodPdr, parseEuro } from "@/lib/normalize";
 import { ManagedOffersView, TicketsView, PaymentGateBadge } from "./operations-views";
 import {
   calculateEnergyQuote,
+  quoteSavingForPeriod,
   defaultEnergyQuoteInput,
   type EnergyQuoteInput,
   type LightConsumptionMode,
@@ -3241,7 +3241,6 @@ function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
   const [reopened, setReopened] = useState<EnergyQuote>();
   const [preparing, setPreparing] = useState<PendingEnergyQuote>();
   const preparedQuote = preparing?.completedQuoteId ? store.energyQuotes.find((quote) => quote.id === preparing.completedQuoteId) : undefined;
-  const savedCosts = selected?.calculationSnapshot ? quoteCostComparison(selected.calculationSnapshot) : undefined;
   const quotes = store.energyQuotes.filter((quote) => (!isPersonalUser(user) || quote.createdBy === user.id)
     && (commodity === "tutti" || quote.commodity === commodity)
     && `${savedQuoteName(quote)} ${quote.customerFirstName} ${quote.customerLastName} ${quote.customerPhone ?? ""} ${quote.selectedOfferName} ${quote.sourceName ?? ""}`.toLowerCase().includes(search.toLowerCase()))
@@ -3266,8 +3265,7 @@ function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
     <div className="operations-detail"><p>Telefono: <strong>{selected.customerPhone || "—"}</strong></p><p>Fonte: <strong>{selected.sourceName || "—"}</strong></p>
       <p>Fornitura: <strong>{commodityLabels[selected.commodity]} · {selected.customerType}</strong></p><p>Offerta: <strong>{selected.selectedOfferName}</strong></p>
       <p>Consumo periodo: <strong>{selected.inputSnapshot.calculationModel === "fixed_excel" && selected.commodity === "gas" ? "Non disponibile" : `${selected.totalConsumption} ${selected.commodity === "luce" ? "kWh" : "Smc"}`}</strong></p><p>Consumo annuo: <strong>{selected.annualConsumption} {selected.commodity === "luce" ? "kWh" : "Smc"}</strong></p>
-      <p>Quota consumi attuale{savedCosts?.annual ? " annua" : ""}: <strong>{savedCosts?.currentCostKnown === false ? "Non disponibile" : formatEuro(selected.currentSpend)}</strong></p><p>Quota consumi proposta{savedCosts?.annual ? " annua" : ""}: <strong>{selected.calculationSnapshot?.selectedOffer?.quotaConsumiKnown === false ? "Da verificare" : formatEuro(selected.quotaConsumi)}</strong></p>
-      {savedCosts && <><p>Costo attuale {savedCosts.annual ? "annuo" : "del periodo"}: <strong>{savedCosts.currentCostKnown ? formatEuro(savedCosts.currentCost) : "Non disponibile"}</strong></p><p>Costo nostra offerta {savedCosts.annual ? "annuo" : "del periodo"}: <strong>{savedCosts.proposedCostKnown ? formatEuro(savedCosts.proposedCost) : "Da verificare"}</strong></p></>}
+      <p>Spesa attuale: <strong>{selected.calculationSnapshot?.selectedOffer?.quotaConsumiKnown === false && selected.totalConsumption === 0 ? "Non disponibile" : formatEuro(selected.currentSpend)}</strong></p><p>Quota consumi proposta: <strong>{selected.calculationSnapshot?.selectedOffer?.quotaConsumiKnown === false ? "Da verificare" : formatEuro(selected.quotaConsumi)}</strong></p>
       <p>Risparmio annuo: <strong>{formatEuro(selected.annualSaving)}</strong></p>{!isPersonalUser(user) && <p>Provvigione agenzia: <strong>{selected.calculationSnapshot?.selectedOffer?.commissionKnown === false ? "Da confermare" : formatEuro(selected.agencyCommission)}</strong></p>}
       {selected.calculationSnapshot?.selectedOffer && <><p>PCV proposta: <strong>{formatEuro(selected.calculationSnapshot.selectedOffer.pcv)}/mese</strong></p><p>{quotePriceTitle(selected.calculationSnapshot.selectedOffer)}: <strong>{quotePriceText(selected.calculationSnapshot.selectedOffer)}</strong></p></>}
     </div>
@@ -3315,7 +3313,6 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
   const offerChoices = calculation.offers.filter((offer) => offer.customerType === quoteInput.customerType);
   const comparisonOffers = [...offerChoices].sort((a, b) => Number(a.available === false) - Number(b.available === false) || b.annualSaving - a.annualSaving);
   const selectedOffer = calculation.selectedOffer;
-  const costs = quoteCostComparison(calculation);
   const dynamicMonthOptions = previousQuoteMonthOptions(quoteInput.quoteDate);
   const hasRequiredQuoteData =
     quoteInput.currentAveragePrice > 0 &&
@@ -3729,19 +3726,13 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
             </div>
 
             <div className="quote-metric-grid">
-              {isFixedExcel && <>
+              {isFixedExcel && quoteInput.commodity === "luce" && <div className="quote-metric-row proposed">
+                <span>Risparmio su questa bolletta</span>
+                <strong>{resultValue(selectedOffer ? formatSavingImpact(quoteSavingForPeriod(selectedOffer.annualSaving, calculation.source.periodCount)) : "-")}</strong>
+              </div>}
               <div className="quote-metric-row current">
-                <span>Costo attuale {costs.annual ? "annuo" : "del periodo"}</span>
-                <strong>{resultValue(costs.currentCostKnown ? formatEuro(costs.currentCost) : "Non disponibile")}</strong>
-              </div>
-              <div className="quote-metric-row proposed">
-                <span>Costo nostra offerta {costs.annual ? "annuo" : "del periodo"}</span>
-                <strong>{resultValue(costs.proposedCostKnown ? formatEuro(costs.proposedCost) : "Da verificare")}</strong>
-              </div>
-              </>}
-              <div className="quote-metric-row current">
-                <span>Quota consumi attuale{costs.annual ? " annua" : ""}</span>
-                <strong>{resultValue(costs.currentCostKnown ? formatEuro(calculation.source.currentSpend) : "Non disponibile")}</strong>
+                <span>Quota consumi attuale</span>
+                <strong>{resultValue(isFixedExcel && quoteInput.commodity === "gas" && calculation.source.totalConsumption === 0 ? "Non disponibile" : formatEuro(calculation.source.currentSpend))}</strong>
               </div>
               <div className="quote-metric-row current">
                 <span>{isFixedExcel ? "Differenza annua" : "Spread attuale"}</span>
@@ -3752,7 +3743,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
                 <strong>{resultValue(formatEuro(calculation.source.currentPcv))}</strong>
               </div>
               <div className="quote-metric-row proposed">
-                <span>Quota proposta{costs.annual ? " annua" : ""}</span>
+                <span>Quota proposta</span>
                 <strong>{resultValue(selectedOffer?.quotaConsumiKnown === false ? "Da verificare" : selectedOffer ? formatEuro(selectedOffer.quotaConsumi) : "-")}</strong>
               </div>
               <div className="quote-metric-row proposed">
@@ -3806,8 +3797,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
                 <th>Cliente</th>
                 <th>PCV</th>
                 <th>Prezzo / spread</th>
-                <th>Quota consumi{costs.annual ? " annua" : ""}</th>
-                {isFixedExcel && <th>Costo nostra offerta {costs.annual ? "annuo" : "del periodo"}</th>}
+                <th>Quota consumi</th>
                 <th>Risparmio annuo</th>
                 <th />
               </tr>
@@ -3820,7 +3810,6 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
                   <td>{offer.tariffKnown === false ? "Da verificare" : formatEuro(offer.pcv)}</td>
                   <td>{quotePriceText(offer)}</td>
                   <td>{offer.available === false ? "Da completare" : resultValue(offer.quotaConsumiKnown === false ? "Da verificare" : formatEuro(offer.quotaConsumi))}{offer.issues?.map(issue => <small key={issue}>{issue}</small>)}</td>
-                  {isFixedExcel && <td>{offer.available === false ? "Da completare" : resultValue(formatEuro(quoteCostComparison(calculation, offer).proposedCost))}</td>}
                   <td className={offer.annualSaving >= 0 ? "saving-cell" : "extra-cost-cell"}>
                     {quoteReady && offer.available !== false ? formatSavingImpact(offer.annualSaving) : "-"}
                   </td>
@@ -3837,7 +3826,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
               ))}
               {comparisonOffers.length === 0 && (
                 <tr>
-                  <td className="empty-state" colSpan={isFixedExcel ? 8 : 7}>Nessuna offerta disponibile per questa tipologia.</td>
+                  <td className="empty-state" colSpan={7}>Nessuna offerta disponibile per questa tipologia.</td>
                 </tr>
               )}
             </tbody>
@@ -3988,17 +3977,25 @@ function QuotePrintPage({
   selectedOffer: ReturnType<typeof calculateEnergyQuote>["selectedOffer"];
 }) {
   const saving = selectedOffer?.annualSaving ?? 0;
-  const costs = quoteCostComparison(calculation, selectedOffer);
-  const { proposedCostKnown, currentCostKnown } = costs;
+  const isFixedExcel = input.calculationModel === "fixed_excel";
+  const annualOnly = isFixedExcel && input.commodity === "gas";
+  const proposedCostKnown = selectedOffer?.quotaConsumiKnown !== false;
+  const currentCostKnown = input.calculationModel !== "fixed_excel" || calculation.source.totalConsumption > 0;
   const unit = input.commodity === "luce" ? "kWh" : "Smc";
   const averageUnit = input.commodity === "luce" ? "€/kWh" : "€/Smc";
   const commodityLabel = commodityLabels[input.commodity];
   const profileLabel = customerTypeLabel(input.customerType);
   const clientName = [input.firstName, input.lastName].filter(Boolean).join(" ") || "Cliente";
   const periodLabel = input.calculationModel === "fixed_excel" && input.commodity === "gas" ? "Confronto sul consumo annuo" : formatQuotePeriodLabel(input.monthKey, input.secondMonthKey);
-  const currentOfferCost = roundCurrency(costs.currentCost);
-  const proposedOfferCost = roundCurrency(costs.proposedCost);
-  const billImpact = selectedOffer ? costs.saving : 0;
+  const periodCount = Math.max(1, calculation.source.periodCount);
+  const currentOfferCost = roundCurrency(calculation.source.currentPcv * periodCount + calculation.source.currentSpend);
+  const proposedOfferCost = selectedOffer
+    ? roundCurrency(selectedOffer.pcv * periodCount + selectedOffer.quotaConsumi)
+    : 0;
+  const billImpact = selectedOffer ? isFixedExcel
+    ? annualOnly ? saving : quoteSavingForPeriod(saving, periodCount)
+    : currentOfferCost - proposedOfferCost : 0;
+  const billImpactKnown = Boolean(selectedOffer) && selectedOffer?.available !== false && (isFixedExcel || proposedCostKnown);
   const impactClass = selectedOffer && saving < 0 ? "loss" : "saving";
 
   return (
@@ -4051,8 +4048,8 @@ function QuotePrintPage({
           </span>
         </div>
         <aside>
-          <p>{costs.annual ? "Su base annua" : "Su questa bolletta"}</p>
-          <strong>{selectedOffer && proposedCostKnown ? formatPrintBillImpact(billImpact) : "Da verificare"}</strong>
+          <p>{annualOnly ? "Su base annua" : "Su questa bolletta"}</p>
+          <strong>{billImpactKnown ? formatPrintBillImpact(billImpact) : "Da verificare"}</strong>
           <span>{periodLabel}</span>
         </aside>
       </section>
@@ -4062,7 +4059,7 @@ function QuotePrintPage({
           <p className="print-card-kicker">Offerta attuale</p>
           <h3>Fornitore in essere</h3>
           <div className="print-offer-cost">
-            {currentCostKnown ? formatEuro(currentOfferCost) : "Non disponibile"} <span>/ {costs.annual ? "anno" : "bolletta"}</span>
+            {currentCostKnown ? formatEuro(currentOfferCost) : "Non disponibile"} <span>/ bolletta</span>
           </div>
           <dl>
             <div>
@@ -4070,7 +4067,7 @@ function QuotePrintPage({
               <dd>{input.calculationModel === "fixed_excel" ? "Fisso" : `${formatSpread(calculation.source.currentSpread, 3)} €`}</dd>
             </div>
             <div>
-              <dt>PCV mensile</dt>
+              <dt>PCV</dt>
               <dd>{formatEuro(calculation.source.currentPcv)}</dd>
             </div>
             <div>
@@ -4088,7 +4085,7 @@ function QuotePrintPage({
           </div>
           <h3>{selectedOffer?.offerName ?? "-"}</h3>
           <div className="print-offer-cost">
-            {!proposedCostKnown ? "Da verificare" : selectedOffer ? formatEuro(proposedOfferCost) : "-"} <span>/ {costs.annual ? "anno" : "bolletta"}</span>
+            {!proposedCostKnown ? "Da verificare" : selectedOffer ? formatEuro(proposedOfferCost) : "-"} <span>/ bolletta</span>
           </div>
           <dl>
             <div>
@@ -4096,7 +4093,7 @@ function QuotePrintPage({
               <dd>{selectedOffer ? quotePriceText(selectedOffer) : "-"}</dd>
             </div>
             <div>
-              <dt>PCV mensile</dt>
+              <dt>PCV</dt>
               <dd>{selectedOffer ? formatEuro(selectedOffer.pcv) : "-"}</dd>
             </div>
             <div>

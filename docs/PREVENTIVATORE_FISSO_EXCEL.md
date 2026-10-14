@@ -1,41 +1,42 @@
-# Preventivatore fisso: costi e risparmio
+# Calcolo fisso conforme al simulatore Excel
 
-La modalità **Fisso** usa il listino e le componenti dei fogli `SIMULATORE_LUCE FISSO`, `SIMULATORE_GAS FISSO` e `PUN` del file `SIMULATORE PER FASCE BOLLETTE NUOVE DIC 25.xlsx`. Le celle originali, le formule e l’hash restano in `src/lib/fixed-excel-reference.ts`.
+La modalità **Fisso** nella pagina Preventivatore usa le formule e i valori del file `SIMULATORE PER FASCE BOLLETTE NUOVE DIC 25.xlsx`, fogli `SIMULATORE_LUCE FISSO` e `SIMULATORE_GAS FISSO`, con le dipendenze del foglio `PUN`.
 
-Il calcolo parte dai due costi, non dalla formula della differenza dell’Excel:
+`src/lib/fixed-excel-reference.ts` conserva le celle originali (incluse formule), il nome del file e il suo SHA-256. La modalità non usa gli override del catalogo corrente o le variabili Firestore, perché differenze di listino/indici impedirebbero la parità col file ricevuto. I nuovi preventivi della modalità Variabile mostrano le offerte variabili del catalogo; il fisso si prepara dalla modalità Fisso. Le funzioni di calcolo esistenti del catalogo rimangono invariate; i vecchi snapshot conservano il loro modello e i valori archiviati.
 
-1. Quota consumi attuale = prezzo medio della bolletta × consumo del confronto.
-2. Quota proposta = consumi × prezzi dell’offerta + componenti tariffarie del simulatore.
-3. Costo attuale/proposto = rispettiva quota consumi + PCV mensile × mesi del confronto.
-4. Risparmio annuo = (costo attuale − costo proposto) × 12 / mesi del confronto.
+## Risultato di riferimento
 
-Luce usa il periodo selezionato (uno/due mesi); gas usa il consumo annuo e 12 mensilità di PCV. `source.costBasis` distingue `period` da `annual`. I costi sono mostrati nel riepilogo, nella tabella offerte, nel dettaglio salvato e nella stampa. La quota consumi resta separata dal costo comprensivo di PCV. La precisione interna viene conservata fino alla visualizzazione in euro; `annualDifferenceExact` conserva la differenza annua non arrotondata.
+- Luce: `H50:H53`, oppure `H50:H52` per business.
+- Gas: `G33:G38`; le righe business utilizzabili sono `G33:G34`.
+- `annualDifferenceExact` conserva il valore calcolato prima dell’arrotondamento. `annualDifference` è la differenza a due decimali; `annualSaving` ne inverte il segno. La schermata mostra anche “Differenza annua” con il segno del foglio.
+- Il risparmio sulla bolletta luce, nel riepilogo e nella stampa, è `annualSaving / (12 / mesi in bolletta)`: con due mesi si divide per 6, con un mese per 12. Non richiede la quota proposta, che resta da verificare secondo la fonte. Il gas del modello usa il solo consumo annuo: la stampa indica il confronto su base annua.
+- Annualizzazione luce: consumi dell’intero periodo / mesi selezionati × 12. Il fattore perdite è quello originale della cella E21 (1,104).
+- Gas: rettifica originale di 0,015 €/Smc e consumo annuo E8. Il PSV non è necessario per queste formule.
+- I nomi dei mesi nel file non contengono l’anno. La CER conserva la media PUN delle celle originali, senza sostituirla con gli indici correnti.
 
-Esempio luce: 100 kWh, prezzo medio attuale 0,30 €/kWh, PCV attuale 12 €/mese, Family Power Fix, agosto, un mese. Costo attuale 42,00 €; quota proposta 19,9289 €; PCV proposta 3,50 €; costo proposto 23,4289 €; risparmio annuo 222,85 €.
+## Corrispondenza input
 
-Esempio gas: 1.000 Smc annui, prezzo medio attuale 0,90 €/Smc, PCV attuale 10 €/mese, Family Gas Fix. Costo annuo attuale 1.020 €; quota proposta 747 €; PCV annua proposta 54 €; costo annuo proposto 801 €; risparmio annuo 219 €.
+| Dato | Luce | Gas |
+|---|---|---|
+| Prezzo medio quota consumi | E4 | E4 |
+| PCV mensile attuale | F4 | F4 |
+| Mesi | E6, F6 | Non necessari |
+| Tipologia tariffa attuale | E8 | Non necessaria |
+| Prezzi attuali F1/F2/F3 | E14:E16 | Non necessari |
+| Consumi F1/F2/F3 dell’intero periodo | F14:F16 | Non necessari |
+| Prezzo/consumo monorario | E11/F11 | Non necessari |
+| Consumo annuo | Dal periodo selezionato | E8 |
 
-## Componenti e input
+I dati dei due modelli sono conservati separatamente quando si cambia modalità. Per distinguere un dato mancante dallo zero, le nuove fasce devono essere compilate esplicitamente; la PCV zero è ammessa nel percorso Excel.
 
-- Luce: prezzi delle righe tariffarie E27:G30, perdite E21 (1,104), componenti G24/G25 e sbilanciamento I27:I30. E27:G29 dividono già i prezzi comprensivi di perdite per E21: la moltiplicazione nel costo ripristina il prezzo lordo una sola volta. Per la CER lo sbilanciamento si applica a F2/F3, con le perdite del file.
-- I prezzi uniformi residenziali si possono calcolare anche con il solo consumo monorario. Business e CER richiedono F1/F2/F3: non viene inventata una ripartizione delle fasce. Le fasce eventualmente rimaste da un preventivo precedente non entrano nel calcolo monorario.
-- Gas: prezzo F33:F37 più la componente originale di 0,015 €/Smc. Il prezzo medio attuale resta quello effettivamente inserito dalla bolletta. La componente viene imputata al costo proposto, mantenendo la stessa differenza delle formule originali.
-- Consumo annuo luce = consumo del periodo / mesi × 12. Gas usa direttamente il consumo annuo inserito.
-- Listino e indici restano quelli del file, senza override da Firestore. I mesi del file non contengono l’anno; la CER conserva la media PUN originale.
-- I dati Fisso/Variabile rimangono separati. Le fasce devono essere compilate esplicitamente, inclusi gli zeri; PCV zero è ammessa.
+## Incompletezze della fonte
 
-## Correzioni rispetto alla differenza originale
+Le quote consumi luce G50:G52 utilizzano prezzi business anche quando le etichette indicano residenziale; non sono un totale coerente con le differenze annue della colonna H. Nel gas le provvigioni H33:H38 e la personalizzata G39/H39 hanno riferimenti `#REF!`. La riga gas 38 usa celle di listino vuote; è bloccata. La CER monoraria restituisce `#VALUE!` quando il foglio restituisce una stringa vuota in un’operazione numerica.
 
-Le colonne G50:G52 del foglio luce usavano prezzi business anche per le offerte residenziali e applicavano perdite incoerenti. Ora il costo deriva dalla riga tariffaria dell’offerta selezionata.
+Questi risultati vengono mostrati come non disponibili/da verificare, anziché come importi zero. Anche stampa e dettaglio dei preventivi salvati rispettano gli indicatori `quotaConsumiKnown` e `commissionKnown`. Le formule valide della differenza annua restano quelle originali, incluse le particolarità del ramo monorario e della tabella PUN; nessuna correzione al file è implicita.
 
-Le formule H50:H52 del ramo monorario usavano celle di consumo delle fasce vuote o residue; ora usano il consumo monorario per le offerte con prezzo uniforme. Il residuo attuale E17 veniva troncato a zero e poteva far confrontare un costo attuale maggiore di quello realmente inserito. Ora il riferimento è sempre prezzo medio attuale × consumo. Il risparmio può quindi cambiare in questi casi; la parità con le formule incoerenti non è più un obiettivo.
+## Verifica della parità
 
-Per le righe gas 35:37 i nomi sono ricavati dalle stesse righe di listino dei prezzi, evitando le vecchie etichette HOME BASIC/STANDARD/PLUS. Resta l’avviso di verifica della corrispondenza delle condizioni del file.
+`pnpm test:fixed-excel` confronta 44 risultati su 12 scenari (RES/BUS, uno/due mesi, fasce/monoraria, fasce a zero, residuo a zero, PCV zero, luce/gas). I risultati di riferimento sono stati ottenuti ricalcolando copie temporanee delle formule originali con LibreOfficeDev 26.8, dopo la rimozione delle cache delle formule. Il file originale non è stato modificato. La stessa suite verifica gli errori della fonte e confronta sei scenari variabili con i risultati della versione pubblicata prima dell’integrazione.
 
-La riga gas 38 ha condizioni vuote e resta bloccata. Le provvigioni incomplete non vengono presentate come zero certo (`commissionKnown: false`). Un’offerta senza le fasce necessarie è indisponibile e non salvabile/stampabile. I vecchi preventivi conservano gli snapshot originali: per ottenere i nuovi costi si usa **Crea nuovo da questi dati**.
-
-## Verifica
-
-`pnpm test:fixed-excel` verifica dieci esempi numerici di costi e risparmi, 31 differenze coerenti con il foglio originale, sei scenari variabili invariati, la relazione tra costi e risparmio in tutti gli scenari validi, snapshot salvati, dati mancanti, fasce residue e offerte incomplete.
-
-Le fixture originali in `scripts/fixtures/fixed-excel-cases.json` restano invariate come documentazione del simulatore. I rami corretti vengono verificati con importi espliciti ricavati dalle componenti tariffarie, senza usare la differenza originale come origine del costo.
+Le fixture sono in `scripts/fixtures/fixed-excel-cases.json` e `scripts/fixtures/variable-before-fixed.json`. I test non dipendono dall’installazione di Excel/LibreOffice o dal file presente in Downloads. In caso di sostituzione del file di riferimento, rigenerare insieme celle, hash e casi numerici mediante un ricalcolo indipendente delle nuove formule; non usare le vecchie cache come risultati attesi.

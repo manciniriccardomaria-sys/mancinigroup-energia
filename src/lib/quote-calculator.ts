@@ -80,7 +80,6 @@ export type EnergyQuoteCalculation = {
   ready: boolean;
   warnings: string[];
   source: {
-    costBasis?: "period" | "annual";
     currentAveragePrice: number;
     currentSpend: number;
     currentSpread: number;
@@ -93,6 +92,10 @@ export type EnergyQuoteCalculation = {
   selectedOffer?: QuoteOfferResult;
   offers: QuoteOfferResult[];
 };
+
+export function quoteSavingForPeriod(annualSaving: number, periodMonths: number): number {
+  return annualSaving / (12 / periodMonths);
+}
 
 const LIGHT_IMBALANCE = 0.0014;
 const LIGHT_LOW_VOLTAGE_LOSS = 1.1;

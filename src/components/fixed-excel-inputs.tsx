@@ -45,6 +45,6 @@ export function FixedExcelInputs({ input, offers, selectedOffer, monthOptions, n
       </div>}
       <p className="muted-text">Inserisci i consumi dell’intero periodo della bolletta.</p>
     </>}
-    <p className="muted-text">Il confronto comprende quota consumi e PCV{input.commodity === "gas" ? " su base annua" : " per il periodo indicato"}. Il risparmio annuo deriva dalla differenza tra i due costi.</p>
+    <p className="muted-text">Gli importi non disponibili sono indicati come da verificare.</p>
   </div>;
 }
