@@ -80,6 +80,7 @@ export type EnergyQuoteCalculation = {
   ready: boolean;
   warnings: string[];
   source: {
+    costBasis?: "period" | "annual";
     currentAveragePrice: number;
     currentSpend: number;
     currentSpread: number;

@@ -20,9 +20,9 @@ export function calculateFixedExcelQuote(input: EnergyQuoteInput): EnergyQuoteCa
     F4: input.currentPcv,
     [light ? "D26" : "D32"]: input.customerType === "RES" ? "RESIDENZIALE" : "BUSINESS"
   };
-  if (!(input.currentAveragePrice > 0)) warnings.push("Inserisci il prezzo medio della quota consumi della bolletta.");
+  if (!Number.isFinite(input.currentAveragePrice) || !(input.currentAveragePrice > 0)) warnings.push("Inserisci il prezzo medio della quota consumi della bolletta.");
   if (!Number.isFinite(input.currentPcv) || input.currentPcv < 0) warnings.push("Inserisci una PCV mensile non negativa.");
-  const periodCount = light ? 1 + Number(Boolean(input.secondMonthKey)) : 1;
+  const periodCount = light ? 1 + Number(Boolean(input.secondMonthKey)) : 12;
   // The gas sheet uses annual consumption only; monthly quantities from the
   // other mode must not become a fictional gas bill on screen or in print.
   let totalConsumption = 0;
@@ -46,32 +46,61 @@ export function calculateFixedExcelQuote(input: EnergyQuoteInput): EnergyQuoteCa
     if (!(totalConsumption > 0)) warnings.push("Inserisci i consumi del periodo.");
   } else {
     overrides.E8 = input.gasAnnualConsumption;
-    if (!(input.gasAnnualConsumption > 0)) warnings.push("Inserisci il consumo annuo gas.");
+    if (!Number.isFinite(input.gasAnnualConsumption) || !(input.gasAnnualConsumption > 0)) warnings.push("Inserisci il consumo annuo gas.");
   }
   const model = excelModel(reference.sheets, { [sheet]: overrides });
+  const comparisonConsumption = light ? totalConsumption : input.gasAnnualConsumption;
+  const currentSpend = input.currentAveragePrice * comparisonConsumption;
+  const currentOfferCost = currentSpend + input.currentPcv * periodCount;
   const rows = light ? [50, 51, 52, ...(input.customerType === "RES" ? [53] : [])] : [33, 34, ...(input.customerType === "RES" ? [35, 36, 37, 38] : [])];
   const offers: QuoteOfferResult[] = rows.map((row) => {
     const code = `EXCEL_FIXED_${input.commodity.toUpperCase()}_${input.customerType}_${row}`;
-    const differenceCell = `${light ? "H" : "G"}${row}`;
     const issues: string[] = [];
     const notices: string[] = [];
     if (!light && row === 38) issues.push("Condizioni tariffarie incomplete: offerta da verificare.");
-    let annualDifference = 0, pcv = 0, fixedPrice = 0;
+    const requiresBands = light && (input.customerType === "BUS" || row === 53);
+    if (requiresBands && input.lightConsumptionMode !== "fasce") {
+      issues.push("Compila i consumi F1, F2 e F3 per questa tariffa.");
+    }
+    let annualDifference = 0, pcv = 0, fixedPrice = 0, quotaConsumi = 0;
+    const tariffRow = row - 23;
     try {
       pcv = model.number(sheet, `E${row}`);
       // Business light price labels contain the text "A FASCE" in F50:F52;
       // this label must not prevent evaluating the valid H-column formula.
       const priceValue = model.value(sheet, `F${row}`);
       fixedPrice = typeof priceValue === "number" ? priceValue : 0;
-      annualDifference = model.number(sheet, differenceCell);
+      if (issues.length === 0) {
+        if (light) {
+          const losses = model.number(sheet, "E21");
+          const f1 = model.number(sheet, `E${tariffRow}`);
+          const f2 = model.number(sheet, `F${tariffRow}`);
+          const f3 = model.number(sheet, `G${tariffRow}`);
+          const imbalance = model.number(sheet, `I${tariffRow}`);
+          const energyCost = input.lightConsumptionMode === "fasce"
+            ? f1 * (input.excelConsumptionF1 ?? 0) + f2 * (input.excelConsumptionF2 ?? 0) + f3 * (input.excelConsumptionF3 ?? 0)
+            : f1 * totalConsumption;
+          // CER applies imbalance to F2/F3 only; other tariffs apply it to
+          // all consumption. E27:G29 already remove the workbook's losses.
+          const imbalanceCost = row === 53
+            ? imbalance * ((input.excelConsumptionF2 ?? 0) + (input.excelConsumptionF3 ?? 0)) * losses
+            : imbalance * totalConsumption;
+          quotaConsumi = energyCost * losses + imbalanceCost +
+            totalConsumption * (model.number(sheet, "G24") + model.number(sheet, "G25"));
+        } else {
+          // Keep the simulator's 0.015 €/Smc component on the proposed
+          // cost, so the actual bill's average price remains unchanged.
+          quotaConsumi = (fixedPrice + 0.015) * comparisonConsumption;
+        }
+        const proposedOfferCost = quotaConsumi + pcv * periodCount;
+        annualDifference = (proposedOfferCost - currentOfferCost) * 12 / periodCount;
+      }
     } catch {
       issues.push("Calcolo non disponibile: dati dell’offerta da verificare.");
     }
-    if (light && input.lightConsumptionMode === "totale") notices.push("Confronto monorario da verificare prima dell’utilizzo.");
     if (!light && row >= 35) notices.push("Verifica la corrispondenza tra l’offerta selezionata e le condizioni tariffarie.");
-    const name = model.value(sheet, `D${row}`);
+    const name = model.value(sheet, `D${!light && row >= 35 && row <= 37 ? row - 13 : row}`);
     const priceText = (value: number) => new Intl.NumberFormat("it-IT", { maximumFractionDigits: 6 }).format(value);
-    const tariffRow = row - 23;
     const priceLabel = light && input.customerType === "BUS"
       ? `F1 ${priceText(model.number(sheet, `E${tariffRow}`))} · F2 ${priceText(model.number(sheet, `F${tariffRow}`))} · F3 ${priceText(model.number(sheet, `G${tariffRow}`))} €/kWh`
       : `${priceText(fixedPrice)} ${light ? "€/kWh" : "€/Smc"}`;
@@ -84,8 +113,9 @@ export function calculateFixedExcelQuote(input: EnergyQuoteInput): EnergyQuoteCa
       pricingType: "fixed",
       fixedPrice,
       priceLabel,
-      quotaConsumi: 0,
-      quotaConsumiKnown: false,
+      quotaConsumi,
+      quotaConsumiKnown: issues.length === 0,
+      requiresBands,
       tariffKnown: light || row !== 38,
       annualDifference: rounded(annualDifference),
       annualDifferenceExact: annualDifference,
@@ -95,7 +125,6 @@ export function calculateFixedExcelQuote(input: EnergyQuoteInput): EnergyQuoteCa
       available: issues.length === 0,
       issues,
       notices,
-      excelDifferenceCell: `${sheet}!${differenceCell}`,
       selected: code === input.selectedOfferCode
     };
   });
@@ -106,8 +135,9 @@ export function calculateFixedExcelQuote(input: EnergyQuoteInput): EnergyQuoteCa
     ready: warnings.length === 0,
     warnings,
     source: {
+      costBasis: light ? "period" : "annual",
       currentAveragePrice: input.currentAveragePrice,
-      currentSpend: rounded(input.currentAveragePrice * totalConsumption),
+      currentSpend,
       currentSpread: 0,
       currentPcv: input.currentPcv,
       totalConsumption,
