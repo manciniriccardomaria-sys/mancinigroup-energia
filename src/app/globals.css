@@ -3147,3 +3147,22 @@ td small {
 
 .quote-mode-selector { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }
 .quote-mode-selector .active { background: #234fa3; border-color: #234fa3; color: #fff; }
+
+.quote-header-with-help { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.quote-instructions-toggle { display: inline-flex; align-items: center; gap: 8px; width: fit-content; }
+.quote-instructions-toggle[aria-expanded="true"] { background: #234fa3; border-color: #234fa3; color: #fff; }
+.quote-instructions { min-width: 0; padding: 20px 24px; border: 1px solid #cfdbef; border-radius: 8px; background: #f4f7fc; color: #243b55; }
+.quote-instructions h3 { margin: 0 0 16px; font-size: 1.1rem; }
+.quote-instructions h4 { margin: 16px 0 8px; font-size: .95rem; }
+.quote-instructions p { margin: 8px 0; font-size: .9rem; line-height: 1.55; }
+.quote-instructions-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.quote-instructions-grid h4 { margin-top: 0; }
+.quote-instructions-table-wrap { max-width: 100%; overflow-x: auto; }
+.quote-instructions table { width: 100%; border-collapse: collapse; background: #fff; font-size: .88rem; }
+.quote-instructions th, .quote-instructions td { padding: 10px 12px; border: 1px solid #dbe4ef; text-align: left; white-space: normal; vertical-align: top; line-height: 1.45; }
+.quote-instructions th { background: #e9eff9; color: #243b55; }
+@media (max-width: 680px) {
+  .quote-header-with-help, .quote-instructions-grid { grid-template-columns: minmax(0, 1fr); }
+  .quote-instructions { padding: 16px; }
+  .quote-instructions-grid { gap: 16px; }
+}

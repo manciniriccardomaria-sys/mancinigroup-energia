@@ -39,14 +39,33 @@ const business24 = find('BUSINESS POWER FIX 24 MESI');
 assert.deepEqual(business24.fixedPrices, { f1: 0.1651, f2: 0.1713, f3: 0.1519 });
 const result = quote(business24);
 assert.equal(result.ready, true);
-close(result.selectedOffer.quotaConsumi, 610.88607459);
-assert.equal(result.selectedOffer.annualSaving, 113.81);
+close(result.selectedOffer.quotaConsumi, 607.04713459);
+assert.equal(result.selectedOffer.annualSaving, 159.87);
 assert.equal(result.selectedOffer.agencyCommission, 105.81);
 assert.equal(result.selectedOffer.commissionKnown, true);
 assert.match(result.selectedOffer.priceLabel, /F1 0,1651.*F2 0,1713.*F3 0,1519/);
 // Il 2% è dell'indice mensile: non un importo fisso di 0,02 €/kWh.
 const withoutFinance = quote({ ...business24, met: { ...business24.met, financialRate: 0 } });
 close(result.selectedOffer.quotaConsumi - withoutFinance.selectedOffer.quotaConsumi, 8.61238768);
+// CTE business: sbilanciamento incluso. Non aggiungere la componente AGF.
+// Bolletta Lasorsa: 2.399 kWh, quote consumi Enel 423,52 euro e PCV 15 euro/mese.
+const lasorsa = {
+  ...bill, secondMonthKey: '2026-08', currentSpend: 423.52,
+  currentAveragePrice: 423.52 / 2399, currentPcv: 15,
+  f1Month1: 375, f2Month1: 266, f3Month1: 463,
+  f1Month2: 397, f2Month2: 297, f3Month2: 601
+};
+const august = { pun_mono: 0.18, pun_f1: 0.17452, pun_f2: 0.20435,
+  pun_f3: 0.17172, mercato_capacita: 0.006288, dispacciamento: 0.010501 };
+const lasorsaRefs = [...variables, ...Object.entries(august).map(([key, value]) => ({ key, value, monthKey: '2026-08' }))];
+const lasorsaQuote = quote(business24, lasorsa, lasorsaRefs);
+close(lasorsaQuote.selectedOffer.quotaConsumi, 499.8647261);
+assert.equal(lasorsaQuote.source.annualConsumption, 14394); // 2.399 kWh / 2 mesi × 12.
+assert.equal(lasorsaQuote.selectedOffer.annualSaving, -494.07); // (499,8647261 - 423,52) × 6 + 36 euro PCV.
+// Anche il solo prezzo energia MET con perdite supera il prezzo medio Enel,
+// che comprende già energia, perdite, dispacciamento e sbilanciamento.
+const metEnergyOnly = (772 * 0.1651 + 563 * 0.1713 + 1064 * 0.1519) * 1.1;
+assert.ok(metEnergyOnly > 423.52);
 const reshuffled = quote(business24, { ...bill, f1Month1: 859.3, f3Month1: 611.2 });
 assert.notEqual(reshuffled.selectedOffer.quotaConsumi, result.selectedOffer.quotaConsumi);
 assert.equal(quote(business24, { ...bill, lightConsumptionMode: 'totale' }).ready, false);

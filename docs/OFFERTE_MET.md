@@ -6,13 +6,13 @@ Fonti: 21 CTE originali del 24/09/2026 e 02/10/2026 e Provvigioni_offerte_MET.xl
 
 - Luce: quando la CTE indica i prezzi netti, si usano quei valori originali. Quando indica soltanto il prezzo comprensivo delle perdite, si conserva l’originale e si divide per il fattore perdite prima di applicare il modello del simulatore, evitando una seconda maggiorazione. Fattori: 1,10 BT e 1,038 MT/AT.
 - Nessuna media preimpostata: F1/F2/F3 vengono pesati sui consumi effettivi del cliente. Tutte e tre le fasce sono obbligatorie per ogni mese delle sei business luce e della CER; lo zero deve essere dichiarato. Un prezzo unico vale per tutte le fasce.
-- Capacità, dispacciamento e sbilanciamento mantengono le regole del simulatore concordate; sbilanciamento 0,0014 €/kWh. PUN monorario AGF senza maggiorazione per perdite.
+- Capacità e dispacciamento mantengono le regole del simulatore concordate. Lo sbilanciamento domestico è 0,0014 €/kWh; per MET business è già incluso nel prezzo energia e non si aggiunge nuovamente. PUN monorario AGF senza maggiorazione per perdite.
 - Solo le CTE MET che lo prevedono ricevono il costo finanziario: 2% del PUN mensile per la luce, 2% di MGP-GAS per il gas. Per CALENDAR decorre dal 01/01/2028.
 - Gas: prezzi, CSC e commercializzazione variabile si adeguano al PCS locale rispetto a 0,03852 GJ/Smc. M-GAS e MGP-GAS sono variabili separate dal PSV, da inserire in €/Smc (valori GME in €/MWh × 0,0107). Gli indici necessari mancanti bloccano il preventivo per l’offerta interessata.
 - Le quote mensili domestiche includono il servizio app da 1 €. La tabella sotto comprende tale servizio. Le provvigioni MET sono già dell’agenzia: quota fissa annua + quantità annua × quota variabile, senza ulteriore 60%.
 - ProMETto: fase a indice + spread prima del 01/01/2027, poi prezzo fisso già scontato. La proiezione annua combina le due fasi in funzione della decorrenza. Provvigioni da confermare, mai presentate come zero certo.
 - CER: F1 fissa per 120 mesi, F2/F3 a PUN con perdite + 0,0088 €/kWh; richiede adesione a CER convenzionata e BT. La maggiorazione 0,003 €/kWh per contatore senza rilevazione oraria si applica ai consumi indicizzati domestici quando pertinente.
-- La stima annua mantiene gli indici storici del periodo e la profilazione inserita; per la luce resta l’annualizzazione del primo mese × 12. Il risparmio confronta le spese consumi complete e le quote fisse senza dividere nuovamente per le perdite. Gli snapshot precedenti restano immutati.
+- La stima annua mantiene gli indici storici del periodo e la profilazione inserita; dal 20 ottobre 2026 la luce usa il consumo medio dei mesi selezionati × 12, sia nel percorso Variabile sia nel Fisso. Un mese resta invariato; con due mesi si usa la loro media, contando anche un mese dichiarato a zero. Il risparmio confronta le spese consumi complete e le quote fisse senza dividere nuovamente per le perdite. Gli snapshot precedenti restano immutati.
 
 ## Catalogo verificato
 
@@ -52,6 +52,6 @@ Ammissibilità: BUSINESS POWER FIX 12/24 fino a 50.000 kWh/anno; ONE/2YOU/4YOU f
 
 ## Verifica e caricamento
 
-Eseguire npm run test:operations, npm run test:met, npm run typecheck e npm run lint. Il test della bolletta La Deliziosa con input 0,226239, consumi F1 611,2 / F2 1271,6 / F3 859,3 e variabili luglio già nel gestionale produce per BUSINESS POWER FIX 24 MESI: quota consumi 610,88607459 €, risparmio annuo 113,81 €, provvigione annua 105,81 €.
+Eseguire npm run test:operations, npm run test:met, npm run typecheck e npm run lint. Il test della bolletta La Deliziosa con input 0,226239, consumi F1 611,2 / F2 1271,6 / F3 859,3 e variabili luglio già nel gestionale produce per BUSINESS POWER FIX 24 MESI: quota consumi 607,04713459 €, risparmio annuo 159,87 €, provvigione annua 105,81 €.
 
 Lo script npm run firebase:load-met mostra prima un dry run. Con -- --apply crea soltanto le offerte MET mancanti con ID uguale al codice ufficiale, salva un backup locale delle offerte esistenti e verifica i record scritti. Non modifica gli override già presenti, i clienti, gli archivi o le offerte AGF.

@@ -10,7 +10,7 @@ export type LightConsumptionMode = "totale" | "fasce";
 export type LightLossMode = "bassa" | "media_alta";
 
 export type EnergyQuoteInput = {
-  calculationModel?: "catalog" | "fixed_excel";
+  calculationModel?: "catalog" | "catalog_fixed" | "fixed_excel";
   excelCurrentMonoPrice?: number;
   excelCurrentF1Price?: number;
   excelCurrentF2Price?: number;
@@ -245,7 +245,7 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
     };
   });
   const totalConsumption = monthConsumptions.reduce((sum, item) => sum + item.consumption.total, 0);
-  const periodCount = monthConsumptions.filter((item) => item.consumption.total > 0).length || 1;
+  const periodCount = months.length || 1;
   const monthMarketValues = monthConsumptions.map((item) => ({
     consumption: item.consumption,
     capacity: marketValue(variables, "mercato_capacita", item.monthKey, warnings),
@@ -276,8 +276,8 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
   const effectiveAveragePrice = totalConsumption > 0 ? currentSpend / totalConsumption : input.currentAveragePrice;
   const currentSpread =
     totalConsumption > 0 ? (currentSpend - marketCost) / (totalConsumption * lossFactor) : 0;
-  const referenceMonthlyConsumption = monthConsumptions[0]?.consumption.total ?? 0;
-  const annualConsumption = referenceMonthlyConsumption * 12;
+  const averageMonthlyConsumption = totalConsumption / periodCount;
+  const annualConsumption = averageMonthlyConsumption * 12;
   const offers = uniqueOffers("luce", catalog).filter((offer) => offer.customerType === input.customerType);
   const offerToSelect = selectedOffer(offers, input.selectedOfferCode, input.customerType);
   const results = offers.map((offer) => {
@@ -344,7 +344,7 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
       currentSpread,
       currentPcv: input.currentPcv,
       totalConsumption,
-      averageMonthlyConsumption: referenceMonthlyConsumption,
+      averageMonthlyConsumption,
       annualConsumption,
       periodCount
     },
@@ -390,6 +390,8 @@ function calculateGasQuote(input: EnergyQuoteInput, variables: MarketVariable[],
     const effectiveSpread = fixed ? (offer.fixedPrice ?? 0) - weightedPsv : offer.spread;
     const annualDifference = met
       ? met.annualConsumptionCost - currentSpend / (totalConsumption || 1) * annualConsumption + (pcv - input.currentPcv) * 12
+      : input.calculationModel === "catalog_fixed"
+      ? ((fixed ? offer.fixedPrice ?? 0 : weightedPsv + offer.spread) - effectiveAveragePrice) * annualConsumption + (offer.pcv - input.currentPcv) * 12
       : (effectiveSpread - currentSpread) * annualConsumption + (offer.pcv - input.currentPcv) * 12;
     const commission = offer.met ? metCommission(offer, annualConsumption) : undefined;
     const agencyCommission = offer.met ? commission ?? 0 :
@@ -443,9 +445,15 @@ export function calculateEnergyQuote(
   catalog: OfferCatalogItem[] = defaultQuoteOffers()
 ): EnergyQuoteCalculation {
   if (input.calculationModel === "fixed_excel") return calculateFixedExcelQuote(input);
+  // La stessa selezione si applica alla schermata e al ricalcolo lato server.
+  const offers = input.calculationModel === "catalog_fixed"
+    ? catalog.filter(offer => offer.pricingType === "fixed")
+    : input.calculationModel === "catalog"
+    ? catalog.filter(offer => offer.pricingType !== "fixed")
+    : catalog;
   return input.commodity === "gas"
-    ? calculateGasQuote(input, variables, catalog)
-    : calculateLightQuote(input, variables, catalog);
+    ? calculateGasQuote(input, variables, offers)
+    : calculateLightQuote(input, variables, offers);
 }
 
 export function defaultEnergyQuoteInput(input?: Partial<EnergyQuoteInput>): EnergyQuoteInput {

@@ -114,9 +114,11 @@ export function calculateMetOffer(
       } else {
         energy = q * netLightPrice(offer.fixedPrice ?? 0) * fixedLossFactor;
       }
-      // Mantiene capacità, dispacciamento e sbilanciamento del simulatore concordato.
+      // Le CTE MET business includono già lo sbilanciamento nel prezzo energia.
+      // La componente AGF di 0,0014 €/kWh non va aggiunta una seconda volta.
+      const imbalance = offer.customerType === "BUS" ? 0 : 0.0014;
       energy += q * (index("mercato_capacita", monthKey) * (losses.capacity ? lossFactor : 1) +
-        index("dispacciamento", monthKey) * (losses.dispatching ? lossFactor : 1) + 0.0014);
+        index("dispacciamento", monthKey) * (losses.dispatching ? lossFactor : 1) + imbalance);
     } else {
       let gasPrice = offer.fixedPrice ?? 0;
       if (beforeFixed || renewal) {

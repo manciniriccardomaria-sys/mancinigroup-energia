@@ -84,6 +84,29 @@ const twoMonthVariables = [...variables, ...variables.map(item => ({ ...item, mo
 const twoMonths = calculateEnergyQuote({ ...input, secondMonthKey: '2026-02', consumptionMonth2: 100, currentSpend: 50 }, twoMonthVariables, [base]);
 assert.equal(twoMonths.selectedOffer.annualSaving, variable.selectedOffer.annualSaving);
 
+// Due mesi diversi: la proiezione e le provvigioni usano la media del periodo.
+const unevenInput = { ...input, calculationModel: 'catalog', secondMonthKey: '2026-02', consumptionMonth2: 300, currentSpend: 100, currentPcv: 8 };
+const uneven = calculateEnergyQuote(unevenInput, twoMonthVariables, [base]);
+assert.equal(uneven.source.averageMonthlyConsumption, 200);
+assert.equal(uneven.source.annualConsumption, 2400);
+assert.equal(uneven.selectedOffer.annualSaving, 291.12); // (100 - 51,48) euro nel bimestre × 6.
+assert.equal(uneven.selectedOffer.agencyCommission, 77.76);
+const reversed = calculateEnergyQuote({ ...unevenInput, consumptionMonth1: 300, consumptionMonth2: 100 }, twoMonthVariables, [base]);
+assert.equal(reversed.selectedOffer.annualSaving, uneven.selectedOffer.annualSaving);
+const unevenBands = calculateEnergyQuote({ ...unevenInput, lightConsumptionMode: 'fasce',
+  f1Month1: 20, f2Month1: 30, f3Month1: 50, f1Month2: 60, f2Month2: 90, f3Month2: 150
+}, twoMonthVariables, [base]);
+assert.equal(unevenBands.source.annualConsumption, 2400);
+assert.equal(unevenBands.selectedOffer.annualSaving, 267.12); // (100 - 55,48) × 6.
+// Un mese dichiarato a zero conta comunque nei due mesi del periodo.
+const zeroMonth = calculateEnergyQuote({ ...unevenInput, lightConsumptionMode: 'fasce', currentSpend: 25,
+  f1Month1: 20, f2Month1: 30, f3Month1: 50, f1Month2: 0, f2Month2: 0, f3Month2: 0
+}, twoMonthVariables, [base]);
+assert.equal(zeroMonth.source.periodCount, 2);
+assert.equal(zeroMonth.source.averageMonthlyConsumption, 50);
+assert.equal(zeroMonth.source.annualConsumption, 600);
+assert.equal(zeroMonth.selectedOffer.annualSaving, 66.78); // (25 - 13,87) × 6.
+
 const defaults = defaultQuoteOffers();
 assert.ok(offerCatalog.every((offer) => defaults.some((item) => item.code === offer.code)));
 const override = { ...defaults[0], active: false };

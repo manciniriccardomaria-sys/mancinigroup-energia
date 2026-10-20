@@ -127,8 +127,10 @@ function quoteInputFromForm(formData: FormData) {
   const customerType = asString(formData, "customerType") === "BUS" ? "BUS" : "RES";
   const lightConsumptionMode = asString(formData, "lightConsumptionMode") === "fasce" ? "fasce" : "totale";
   const lightLossMode = asString(formData, "lightLossMode") === "media_alta" ? "media_alta" : "bassa";
+  const model = asString(formData, "calculationModel");
 
   return defaultEnergyQuoteInput({
+    calculationModel: model === "catalog_fixed" || model === "catalog" ? model : undefined,
     quoteDate: asString(formData, "quoteDate"),
     sourceId: asString(formData, "sourceId") || undefined,
     firstName: asString(formData, "firstName"),
@@ -158,6 +160,7 @@ function quoteInputFromForm(formData: FormData) {
 
 function quoteSearchParams(formData: FormData, type: "success" | "error", message: string) {
   const keys = [
+    "calculationModel",
     "quoteDate",
     "sourceId",
     "firstName",
@@ -696,6 +699,7 @@ export async function saveEnergyQuoteAction(formData: FormData) {
     annualSaving: selectedOffer.annualSaving,
     agencyCommission: selectedOffer.agencyCommission,
     inputSnapshot: {
+      calculationModel: input.calculationModel,
       quoteDate: input.quoteDate,
       sourceId: input.sourceId,
       firstName: input.firstName,

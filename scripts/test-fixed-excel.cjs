@@ -43,7 +43,25 @@ assert.equal(Number(quoteSavingForPeriod(twoMonthResult.selectedOffer.annualSavi
 const catalog = defaultQuoteOffers().filter((offer) => !offer.met);
 for (const scenario of variable.cases) {
   const result = calculateEnergyQuote(defaultEnergyQuoteInput(scenario.input), variable.variables, catalog);
-  assert.deepEqual(JSON.parse(JSON.stringify(result)), scenario.expected, `Variable regression: ${scenario.name}`);
+  const expected = structuredClone(scenario.expected);
+  if (scenario.name === 'luce-bus-fasce-due') {
+    // La fixture storica resta intatta. Per 500 + 800 kWh il nuovo annuo è
+    // 7.800 kWh; differenza consumi del bimestre × 6, più differenza PCV × 12.
+    expected.source.averageMonthlyConsumption = 650;
+    expected.source.annualConsumption = 7800;
+    const updated = {
+      'AGF_EE_MANCINI GROUP_BUSINESS BASIC': [468.42, 151.92],
+      'AGF_EE_MANCINI GROUP_BUSINESS FIDELITY': [485.58, 142.56],
+      'AGF_EE_MANCINI GROUP_BUSINESS FIDELITY 15': [511.32, 128.52],
+      'AGF_EE_MANCINI GROUP_COND. STANDARD_2025': [358.62, 213.12],
+      'AGF_EE_MANCINI GROUP_RIS_STUDI PROFESSIONALI': [492.42, 137.52]
+    };
+    for (const offer of [...expected.offers, expected.selectedOffer]) {
+      const [annualSaving, agencyCommission] = updated[offer.code];
+      Object.assign(offer, { annualSaving, annualDifference: -annualSaving, agencyCommission });
+    }
+  }
+  assert.deepEqual(JSON.parse(JSON.stringify(result)), expected, `Variable regression: ${scenario.name}`);
 }
 const gas = fixed.cases.find((scenario) => scenario.name === 'gas-res').input;
 assert.equal(calculateEnergyQuote(defaultEnergyQuoteInput({ ...gas, gasAnnualConsumption: 0 }), []).ready, false);
@@ -60,4 +78,4 @@ const model = excelModel({ Test: { A1: '=IF(1=1,12,#REF!)', A2: '=1/0', A3: '=SU
 assert.equal(model.number('Test', 'A1'), 12);
 assert.equal(model.number('Test', 'A3'), 5);
 assert.throws(() => model.number('Test', 'A2'), (error) => error instanceof ExcelFormulaError && error.code === '#DIV/0!');
-console.log(`Fixed Excel checks passed: ${comparisons} worksheet outputs, ${variable.cases.length} unchanged variable scenarios, missing inputs and incomplete references.`);
+console.log(`Fixed Excel checks passed: ${comparisons} worksheet outputs, 5 unchanged variable scenarios and 1 updated two-month projection, missing inputs and incomplete references.`);
