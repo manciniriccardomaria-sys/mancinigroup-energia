@@ -23,6 +23,7 @@ export function QuoteInstructions({ id, commodity, legacy }: {
           <div>
             <h4>2. Copia i dati della bolletta attuale</h4>
             <p><strong>Quota Consumi:</strong> inserisci il prezzo medio della vendita {light ? "energia in €/kWh" : "gas in €/Smc"}. Se hai solo la spesa consumi in euro, dividila per i consumi del periodo. La PCV va conteggiata a parte.</p>
+            {light && <p>Se la bolletta attuale è <strong>fissa a fasce</strong>, scegli “Fissa a fasce: inserisco i prezzi F1/F2/F3” nel campo <strong>Tariffa attuale</strong>. Inserisci i suoi tre prezzi, i consumi di ciascun mese, il trattamento delle perdite e gli altri costi variabili di vendita. Il prezzo medio viene calcolato automaticamente.</p>}
             <p><strong>Quota Fissa:</strong> inserisci la PCV attuale in €/mese. Se è indicata come totale di due mesi, dividila per due. Seleziona i mesi effettivi della bolletta.</p>
           </div>
         </div>
@@ -34,7 +35,7 @@ export function QuoteInstructions({ id, commodity, legacy }: {
               <tbody>
                 <tr><td>Monoraria</td><td>Monoraria</td><td>“Totale mensile”: kWh totali di ogni mese.</td></tr>
                 <tr><td>Monoraria</td><td>A fasce</td><td>“Fasce F1/F2/F3”: servono i consumi delle tre fasce, anche se il prezzo attuale è unico.</td></tr>
-                <tr><td>A fasce</td><td>Monoraria</td><td>“Totale mensile”: inserisci la somma F1 + F2 + F3 di ogni mese.</td></tr>
+                <tr><td>A fasce</td><td>Monoraria</td><td>Con il prezzo medio usa il totale mensile. Con i prezzi fissi attuali mantieni F1/F2/F3: il totale viene calcolato automaticamente.</td></tr>
                 <tr><td>A fasce</td><td>A fasce</td><td>“Fasce F1/F2/F3”: riporta ogni fascia separatamente per ciascun mese.</td></tr>
               </tbody>
             </table>

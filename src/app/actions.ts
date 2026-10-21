@@ -10,7 +10,7 @@ import { parseAgencyMarginCsv } from "@/lib/import-agency-margins";
 import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth } from "@/lib/agency-margin-upload";
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
 import { isMarketVariableKey, marketVariableDefinitions } from "@/lib/market-variables";
-import { parseEuro } from "@/lib/normalize";
+import { parseEuro, parseQuoteUnitPrice } from "@/lib/normalize";
 import { verifyPassword } from "@/lib/passwords";
 import { calculateEnergyQuote, defaultEnergyQuoteInput } from "@/lib/quote-calculator";
 import {
@@ -128,6 +128,10 @@ function quoteInputFromForm(formData: FormData) {
   const lightConsumptionMode = asString(formData, "lightConsumptionMode") === "fasce" ? "fasce" : "totale";
   const lightLossMode = asString(formData, "lightLossMode") === "media_alta" ? "media_alta" : "bassa";
   const model = asString(formData, "calculationModel");
+  const currentLightPricing = asString(formData, "currentLightPricing") === "fixed_bands" ? "fixed_bands" : "average";
+  const priceLosses = asString(formData, "currentFixedPricesIncludeLosses");
+  const optionalPrice = (key: string) => parseQuoteUnitPrice(asString(formData, key));
+  const bandFields = ["f1Month1", "f2Month1", "f3Month1", ...(asString(formData, "secondMonthKey") ? ["f1Month2", "f2Month2", "f3Month2"] : [])];
 
   return defaultEnergyQuoteInput({
     calculationModel: model === "catalog_fixed" || model === "catalog" ? model : undefined,
@@ -144,6 +148,14 @@ function quoteInputFromForm(formData: FormData) {
     currentAveragePrice: parsePlainNumber(asString(formData, "currentAveragePrice")),
     currentSpend: parsePlainNumber(asString(formData, "currentSpend")),
     currentPcv: parsePlainNumber(asString(formData, "currentPcv")),
+    currentLightPricing,
+    currentFixedF1Price: optionalPrice("currentFixedF1Price"),
+    currentFixedF2Price: optionalPrice("currentFixedF2Price"),
+    currentFixedF3Price: optionalPrice("currentFixedF3Price"),
+    currentFixedPricesIncludeLosses: priceLosses === "included" || priceLosses === "true" ? true : priceLosses === "excluded" || priceLosses === "false" ? false : undefined,
+    currentOtherVariablePrice: optionalPrice("currentOtherVariablePrice"),
+    lightBandsComplete: commodity === "luce" && (lightConsumptionMode === "fasce" || currentLightPricing === "fixed_bands")
+      ? bandFields.every(key => asString(formData, key).trim() !== "") : undefined,
     lightConsumptionMode,
     lightLossMode,
     consumptionMonth1: parsePlainNumber(asString(formData, "consumptionMonth1")),
@@ -173,6 +185,12 @@ function quoteSearchParams(formData: FormData, type: "success" | "error", messag
     "secondMonthKey",
     "currentAveragePrice",
     "currentSpend",
+    "currentLightPricing",
+    "currentFixedF1Price",
+    "currentFixedF2Price",
+    "currentFixedF3Price",
+    "currentFixedPricesIncludeLosses",
+    "currentOtherVariablePrice",
     "currentPcv",
     "lightConsumptionMode",
     "lightLossMode",
@@ -713,6 +731,13 @@ export async function saveEnergyQuoteAction(formData: FormData) {
       currentAveragePrice: input.currentAveragePrice,
       currentSpend: input.currentSpend,
       currentPcv: input.currentPcv,
+      currentLightPricing: input.currentLightPricing,
+      currentFixedF1Price: input.currentFixedF1Price,
+      currentFixedF2Price: input.currentFixedF2Price,
+      currentFixedF3Price: input.currentFixedF3Price,
+      currentFixedPricesIncludeLosses: input.currentFixedPricesIncludeLosses,
+      currentOtherVariablePrice: input.currentOtherVariablePrice,
+      lightBandsComplete: input.lightBandsComplete,
       lightConsumptionMode: input.lightConsumptionMode,
       lightLossMode: input.lightLossMode,
       consumptionMonth1: input.consumptionMonth1,

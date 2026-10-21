@@ -32,6 +32,12 @@ export type EnergyQuoteInput = {
   currentAveragePrice: number;
   currentSpend: number;
   currentPcv: number;
+  currentLightPricing?: "average" | "fixed_bands";
+  currentFixedF1Price?: number;
+  currentFixedF2Price?: number;
+  currentFixedF3Price?: number;
+  currentFixedPricesIncludeLosses?: boolean;
+  currentOtherVariablePrice?: number;
   lightConsumptionMode: LightConsumptionMode;
   lightLossMode: LightLossMode;
   consumptionMonth1: number;
@@ -88,6 +94,7 @@ export type EnergyQuoteCalculation = {
     averageMonthlyConsumption: number;
     annualConsumption: number;
     periodCount: number;
+    currentBandCosts?: { f1: number; f2: number; f3: number; other: number };
   };
   selectedOffer?: QuoteOfferResult;
   offers: QuoteOfferResult[];
@@ -134,7 +141,7 @@ function lightLossFactor(mode: LightLossMode) {
 }
 
 function lightMonthConsumption(input: EnergyQuoteInput, index: 0 | 1) {
-  if (input.lightConsumptionMode === "fasce") {
+  if (input.lightConsumptionMode === "fasce" || input.currentLightPricing === "fixed_bands") {
     return index === 0
       ? {
           total: input.f1Month1 + input.f2Month1 + input.f3Month1,
@@ -202,7 +209,8 @@ function selectedOffer(
 
 function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[], catalog: OfferCatalogItem[]) {
   const warnings: string[] = [];
-  if (input.lightConsumptionMode === "fasce" && input.lightBandsComplete === false) {
+  const currentFixedBands = input.currentLightPricing === "fixed_bands";
+  if ((input.lightConsumptionMode === "fasce" || currentFixedBands) && input.lightBandsComplete === false) {
     warnings.push("Compila i consumi F1, F2 e F3 di ogni mese, inserendo 0 dove non ci sono consumi.");
   }
   const lossFactor = lightLossFactor(input.lightLossMode);
@@ -211,6 +219,7 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
     const consumption = lightMonthConsumption(input, index as 0 | 1);
 
     if (
+      !currentFixedBands &&
       input.lightConsumptionMode === "totale" &&
       index === 0 &&
       input.secondMonthKey &&
@@ -227,6 +236,7 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
     }
 
     if (
+      !currentFixedBands &&
       input.lightConsumptionMode === "totale" &&
       index === 1 &&
       input.secondMonthKey &&
@@ -274,8 +284,32 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
     return { marketCost, punPeriodCost };
   }
   const { marketCost } = periodMarketCost(lightLossesForOffer({}));
-  const currentSpend =
-    input.currentSpend > 0 ? input.currentSpend : input.currentAveragePrice * totalConsumption;
+  let currentBandCosts: EnergyQuoteCalculation["source"]["currentBandCosts"];
+  if (currentFixedBands) {
+    const prices = { f1: input.currentFixedF1Price, f2: input.currentFixedF2Price, f3: input.currentFixedF3Price };
+    for (const band of ["f1", "f2", "f3"] as const) {
+      const price = prices[band];
+      if (price === undefined || !Number.isFinite(price) || price < 0) warnings.push(`Inserisci il prezzo fisso attuale ${band.toUpperCase()} in €/kWh, anche se zero.`);
+    }
+    if (typeof input.currentFixedPricesIncludeLosses !== "boolean") warnings.push("Indica se i prezzi fissi attuali comprendono le perdite di rete.");
+    if (input.currentOtherVariablePrice === undefined || !Number.isFinite(input.currentOtherVariablePrice) || input.currentOtherVariablePrice < 0) {
+      warnings.push("Inserisci gli altri costi variabili attuali in €/kWh, scrivendo 0 se assenti.");
+    }
+    if (monthConsumptions.some(({ consumption }) => [consumption.f1, consumption.f2, consumption.f3].some(value => !Number.isFinite(value) || value < 0))) {
+      warnings.push("I consumi per fascia della bolletta attuale devono essere numeri non negativi.");
+    }
+    const priceFactor = input.currentFixedPricesIncludeLosses === false ? lossFactor : 1;
+    currentBandCosts = {
+      f1: monthConsumptions.reduce((sum, { consumption }) => sum + consumption.f1 * (prices.f1 ?? 0) * priceFactor, 0),
+      f2: monthConsumptions.reduce((sum, { consumption }) => sum + consumption.f2 * (prices.f2 ?? 0) * priceFactor, 0),
+      f3: monthConsumptions.reduce((sum, { consumption }) => sum + consumption.f3 * (prices.f3 ?? 0) * priceFactor, 0),
+      // Importo unitario già comprensivo delle perdite applicabili: non maggiorarlo di nuovo.
+      other: totalConsumption * (input.currentOtherVariablePrice ?? 0)
+    };
+  }
+  const currentSpend = currentBandCosts
+    ? currentBandCosts.f1 + currentBandCosts.f2 + currentBandCosts.f3 + currentBandCosts.other
+    : input.currentSpend > 0 ? input.currentSpend : input.currentAveragePrice * totalConsumption;
   const effectiveAveragePrice = totalConsumption > 0 ? currentSpend / totalConsumption : input.currentAveragePrice;
   const currentSpread =
     totalConsumption > 0 ? (currentSpend - marketCost) / (totalConsumption * lossFactor) : 0;
@@ -349,7 +383,11 @@ function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[
       totalConsumption,
       averageMonthlyConsumption,
       annualConsumption,
-      periodCount
+      periodCount,
+      ...(currentBandCosts ? { currentBandCosts: {
+        f1: round2(currentBandCosts.f1), f2: round2(currentBandCosts.f2),
+        f3: round2(currentBandCosts.f3), other: round2(currentBandCosts.other)
+      } } : {})
     },
     selectedOffer: results.find((offer) => offer.selected),
     offers: results
@@ -483,6 +521,12 @@ export function defaultEnergyQuoteInput(input?: Partial<EnergyQuoteInput>): Ener
     currentAveragePrice: safeNumber(input?.currentAveragePrice ?? 0),
     currentSpend: safeNumber(input?.currentSpend ?? 0),
     currentPcv: safeNumber(input?.currentPcv ?? 0),
+    currentLightPricing: input?.currentLightPricing,
+    currentFixedF1Price: input?.currentFixedF1Price,
+    currentFixedF2Price: input?.currentFixedF2Price,
+    currentFixedF3Price: input?.currentFixedF3Price,
+    currentFixedPricesIncludeLosses: input?.currentFixedPricesIncludeLosses,
+    currentOtherVariablePrice: input?.currentOtherVariablePrice,
     lightConsumptionMode: input?.lightConsumptionMode ?? "totale",
     lightLossMode: input?.lightLossMode ?? "bassa",
     consumptionMonth1: safeNumber(input?.consumptionMonth1 ?? 0),

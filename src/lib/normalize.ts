@@ -64,3 +64,14 @@ export function parseEuro(value: string) {
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
 }
+
+// Prezzi unitari del preventivo: accetta sia virgola sia punto decimale,
+// distinguendo un campo mancante da uno zero dichiarato e da un valore errato.
+export function parseQuoteUnitPrice(value: string): number | undefined {
+  let normalized = value.trim().replace(/[€\s]/g, "");
+  if (!normalized) return undefined;
+  if (normalized.includes(",")) normalized = normalized.replace(/\./g, "").replace(",", ".");
+  if (!/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(normalized)) return Number.NaN;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}

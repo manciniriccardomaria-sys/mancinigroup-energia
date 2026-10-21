@@ -51,7 +51,7 @@ import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth, formatCo
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
 import { marketVariableDefinitions } from "@/lib/market-variables";
 import { energyQuoteName } from "@/lib/quote-name";
-import { formatDate, formatDateTime, formatEuro, normalizePodPdr, parseEuro } from "@/lib/normalize";
+import { formatDate, formatDateTime, formatEuro, normalizePodPdr, parseEuro, parseQuoteUnitPrice } from "@/lib/normalize";
 import { ManagedOffersView, TicketsView, PaymentGateBadge } from "./operations-views";
 import {
   calculateEnergyQuote,
@@ -432,6 +432,10 @@ type QuoteNumberField =
   | FixedExcelNumberField
   | "currentAveragePrice"
   | "currentPcv"
+  | "currentFixedF1Price"
+  | "currentFixedF2Price"
+  | "currentFixedF3Price"
+  | "currentOtherVariablePrice"
   | "gasAnnualConsumption"
   | "gasPcs"
   | "consumptionMonth1"
@@ -3314,13 +3318,14 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
   );
   const isFixedExcel = quoteInput.calculationModel === "fixed_excel";
   const isFixedCatalog = quoteInput.calculationModel === "catalog_fixed";
+  const currentFixedBands = !isFixedExcel && quoteInput.commodity === "luce" && quoteInput.currentLightPricing === "fixed_bands";
   const offerChoices = calculation.offers.filter((offer) => offer.customerType === quoteInput.customerType);
   const comparisonOffers = [...offerChoices].sort((a, b) => Number(a.available === false) - Number(b.available === false) || b.annualSaving - a.annualSaving);
   const selectedOffer = calculation.selectedOffer;
   const dynamicMonthOptions = previousQuoteMonthOptions(quoteInput.quoteDate);
   const hasRequiredQuoteData =
-    quoteInput.currentAveragePrice > 0 &&
-    (quoteInput.currentPcv > 0 || (isFixedCatalog && quoteInput.currentPcv === 0)) &&
+    calculation.source.currentAveragePrice > 0 &&
+    (quoteInput.currentPcv > 0 || ((isFixedCatalog || currentFixedBands) && quoteInput.currentPcv === 0)) &&
     calculation.source.totalConsumption > 0 &&
     (quoteInput.commodity === "luce" || quoteInput.gasAnnualConsumption > 0);
   const quoteReady = Boolean(selectedOffer) && calculation.ready && (isFixedExcel || hasRequiredQuoteData);
@@ -3334,12 +3339,27 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
   }
 
   function quoteNumberValue(key: QuoteNumberField) {
+    if (key.startsWith("currentFixed") || key === "currentOtherVariablePrice") {
+      return quoteNumberInputs[key] ?? (quoteInput[key] === undefined ? "" : String(quoteInput[key]).replace(".", ","));
+    }
     return quoteNumberInputs[key] ?? formatInputNumber(quoteInput[key] ?? 0);
   }
 
   function updateQuoteNumber(key: QuoteNumberField, value: string) {
     setQuoteNumberInputs((current) => ({ ...current, [key]: value }));
-    updateQuote(key, key.startsWith("excel") && !value.trim() ? undefined : parseEuro(value));
+    updateQuote(key, key.startsWith("currentFixed") || key === "currentOtherVariablePrice" ? parseQuoteUnitPrice(value)
+      : key.startsWith("excel") && !value.trim() ? undefined : parseEuro(value));
+  }
+
+  function updateCurrentLightPricing(mode: "average" | "fixed_bands") {
+    if (currentFixedBands && mode === "average" && quoteInput.lightConsumptionMode === "totale") {
+      const first = quoteInput.f1Month1 + quoteInput.f2Month1 + quoteInput.f3Month1;
+      const second = quoteInput.f1Month2 + quoteInput.f2Month2 + quoteInput.f3Month2;
+      setQuoteInput(current => ({ ...current, currentLightPricing: mode, consumptionMonth1: first, consumptionMonth2: second }));
+      setQuoteNumberInputs(current => ({ ...current, consumptionMonth1: String(first).replace(".", ","), consumptionMonth2: String(second).replace(".", ",") }));
+    } else {
+      updateQuote("currentLightPricing", mode);
+    }
   }
 
   function selectCalculationModel(model: "catalog" | "catalog_fixed" | "fixed_excel") {
@@ -3502,7 +3522,9 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
           <button className={`secondary-button ${isFixedCatalog ? "active" : ""}`} type="button" onClick={() => selectCalculationModel("catalog_fixed")}>Fisso</button>
           {initialInput?.calculationModel === "fixed_excel" && <button className={`secondary-button ${isFixedExcel ? "active" : ""}`} type="button" onClick={() => selectCalculationModel("fixed_excel")}>Fisso Excel storico</button>}
         </div>
-        {isFixedCatalog && <p className="muted-text">Confronta la bolletta attuale, anche a tariffa variabile, con le offerte fisse attive del catalogo. Inserisci prezzo medio quota consumi, PCV e consumi della bolletta; gli indici del periodo restano costanti nella stima annua.</p>}
+        {isFixedCatalog && <p className="muted-text">Confronta la bolletta attuale con le offerte fisse attive del catalogo. {currentFixedBands
+          ? "Il costo attuale usa i prezzi fissi F1/F2/F3 e i consumi inseriti."
+          : "Inserisci prezzo medio quota consumi, PCV e consumi della bolletta."} Gli indici del periodo restano costanti nella stima annua.</p>}
         {instructionsOpen && <QuoteInstructions id={instructionsId} commodity={quoteInput.commodity} legacy={isFixedExcel} />}
 
         <div className="quote-workbench-grid">
@@ -3564,6 +3586,15 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
               numberValue={(field) => quoteNumberInputs[field] ?? (quoteInput[field] === undefined ? "" : String(quoteInput[field]).replace(".", ","))} /> : <>
             <div className="quote-band">
               <div className="quote-band-title">Bolletta attuale</div>
+              {quoteInput.commodity === "luce" && <div className="quote-line-grid two secondary">
+                <label>Tariffa attuale
+                  <select value={quoteInput.currentLightPricing ?? "average"}
+                    onChange={event => updateCurrentLightPricing(event.target.value as "average" | "fixed_bands")}>
+                    <option value="average">Uso il prezzo medio della bolletta</option>
+                    <option value="fixed_bands">Fissa a fasce: inserisco i prezzi F1/F2/F3</option>
+                  </select>
+                </label>
+              </div>}
               <div className="quote-line-grid five">
                 <label>
                   Mese 1
@@ -3619,7 +3650,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
                 </label>
                 <label>
                   <span className="quote-field-caption">
-                    <strong>Quota Consumi ({quoteInput.commodity === "luce" ? "€/kWh" : "€/Smc"})</strong>
+                    <strong>{currentFixedBands ? "Prezzo medio calcolato" : "Quota Consumi"} ({quoteInput.commodity === "luce" ? "€/kWh" : "€/Smc"})</strong>
                     <span>
                       {quoteInput.commodity === "luce"
                         ? "di cui spesa per vendita energia elettrica"
@@ -3628,7 +3659,8 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
                   </span>
                   <input
                     inputMode="decimal"
-                    value={quoteNumberValue("currentAveragePrice")}
+                    readOnly={currentFixedBands}
+                    value={currentFixedBands ? (calculation.ready ? formatSpread(calculation.source.currentAveragePrice, 6) : "") : quoteNumberValue("currentAveragePrice")}
                     onChange={(event) => updateQuoteNumber("currentAveragePrice", event.target.value)}
                   />
                 </label>
@@ -3638,13 +3670,13 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
                 {quoteInput.commodity === "luce" && (
                   <>
                     <label>
-                      Calcolo consumi
+                      {currentFixedBands ? "Calcolo offerta proposta" : "Calcolo consumi"}
                       <select
                         value={quoteInput.lightConsumptionMode}
                         disabled={selectedOffer?.requiresBands && quoteInput.lightConsumptionMode === "fasce"}
                         onChange={(event) => updateQuote("lightConsumptionMode", event.target.value as LightConsumptionMode)}
                       >
-                        <option value="totale">Totale mensile</option>
+                        <option value="totale">{currentFixedBands ? "Monorario: totale F1+F2+F3" : "Totale mensile"}</option>
                         <option value="fasce">Fasce F1/F2/F3</option>
                       </select>
                     </label>
@@ -3683,23 +3715,50 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
 
               {selectedOffer?.requiresBands && <p className="muted-text">Questa tariffa richiede F1, F2 e F3 per ogni mese. Compila tutte le fasce, scrivendo 0 dove non ci sono consumi.</p>}
 
-              {quoteInput.commodity === "luce" && quoteInput.lightConsumptionMode === "fasce" ? (
+              {quoteInput.commodity === "luce" && (quoteInput.lightConsumptionMode === "fasce" || currentFixedBands) ? (
                 <div className="quote-band-consumptions">
-                  <h3>Consumi per fascia (kWh)</h3>
-                  <p className="muted-text">Inserisci i kWh della bolletta in ogni fascia, scrivendo 0 dove non ci sono consumi. Il prezzo medio va nel campo Quota Consumi.</p>
+                  <h3>{currentFixedBands ? "Prezzi e consumi della bolletta attuale" : "Consumi per fascia (kWh)"}</h3>
+                  <p className="muted-text">{currentFixedBands
+                    ? "Copia i prezzi fissi F1, F2 e F3 dalla bolletta: valgono per tutti i mesi selezionati. Il costo attuale viene calcolato da questi prezzi e dai tuoi consumi, senza usare il PUN."
+                    : "Inserisci i kWh della bolletta in ogni fascia, scrivendo 0 dove non ci sono consumi. Il prezzo medio va nel campo Quota Consumi."}</p>
+                  {currentFixedBands && <>
+                    <div className="quote-line-grid two">
+                      <label>Perdite nei prezzi attuali
+                        <select required value={quoteInput.currentFixedPricesIncludeLosses === undefined ? "" : quoteInput.currentFixedPricesIncludeLosses ? "included" : "excluded"}
+                          onChange={event => updateQuote("currentFixedPricesIncludeLosses", event.target.value === "" ? undefined : event.target.value === "included")}>
+                          <option value="">Indica come sono esposti in bolletta</option>
+                          <option value="included">Già incluse nei prezzi F1/F2/F3</option>
+                          <option value="excluded">Escluse: aggiungi le perdite</option>
+                        </select>
+                      </label>
+                      <label>Altri costi variabili attuali (€/kWh)
+                        <input inputMode="decimal" required value={quoteNumberValue("currentOtherVariablePrice")}
+                          onChange={event => updateQuoteNumber("currentOtherVariablePrice", event.target.value)} />
+                      </label>
+                    </div>
+                    <p className="muted-text">Aggiungi solo i corrispettivi di vendita non già inclusi nei prezzi F1/F2/F3, ad esempio dispacciamento e sbilanciamento. Usa importi in €/kWh già comprensivi delle eventuali perdite; scrivi 0 se assenti. La PCV resta nel campo Quota Fissa.</p>
+                  </>}
                   {([1, 2] as const).filter(month => month === 1 || quoteInput.secondMonthKey).map(month => (
                     <fieldset className="quote-consumption-month" key={month}>
                       <legend>Consumi {formatMonthKey(month === 1 ? quoteInput.monthKey : quoteInput.secondMonthKey ?? "")}</legend>
                       <div className="quote-line-grid three">
                         {(["f1", "f2", "f3"] as const).map(band => {
                           const key = `${band}Month${month}` as "f1Month1" | "f2Month1" | "f3Month1" | "f1Month2" | "f2Month2" | "f3Month2";
-                          return <label key={key}>
-                            Consumo {band.toUpperCase()} (kWh)
-                            <input inputMode="decimal" required
-                              aria-label={`Consumo ${band.toUpperCase()} mese ${month} (kWh)`}
-                              value={quoteNumberValue(key)}
-                              onChange={event => updateQuoteNumber(key, event.target.value)} />
-                          </label>;
+                          const priceKey = `currentFixed${band.toUpperCase()}Price` as "currentFixedF1Price" | "currentFixedF2Price" | "currentFixedF3Price";
+                          return <div className="quote-band-entry" key={key}>
+                            {currentFixedBands && month === 1 && <label>
+                              Prezzo attuale {band.toUpperCase()} (€/kWh)
+                              <input inputMode="decimal" required value={quoteNumberValue(priceKey)}
+                                onChange={event => updateQuoteNumber(priceKey, event.target.value)} />
+                            </label>}
+                            <label>
+                              Consumo {band.toUpperCase()} (kWh)
+                              <input inputMode="decimal" required
+                                aria-label={`Consumo ${band.toUpperCase()} mese ${month} (kWh)`}
+                                value={quoteNumberValue(key)}
+                                onChange={event => updateQuoteNumber(key, event.target.value)} />
+                            </label>
+                          </div>;
                         })}
                       </div>
                     </fieldset>
@@ -3758,9 +3817,17 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
                 <span>Quota consumi attuale</span>
                 <strong>{resultValue(isFixedExcel && quoteInput.commodity === "gas" && calculation.source.totalConsumption === 0 ? "Non disponibile" : formatEuro(calculation.source.currentSpend))}</strong>
               </div>
+              {currentFixedBands && calculation.source.currentBandCosts && <dl className="quote-current-band-costs">
+                {(["f1", "f2", "f3", "other"] as const).map(band => <div key={band}>
+                  <dt>{band === "other" ? "Altri costi attuali" : `Energia attuale ${band.toUpperCase()}`}</dt>
+                  <dd>{resultValue(formatEuro(calculation.source.currentBandCosts![band]))}</dd>
+                </div>)}
+              </dl>}
               <div className="quote-metric-row current">
-                <span>{isFixedExcel ? "Differenza annua" : "Spread attuale"}</span>
-                <strong>{isFixedExcel ? resultValue(formatEuro(selectedOffer?.annualDifference ?? 0)) : resultValue(`${formatSpread(calculation.source.currentSpread, 3)} €`)}</strong>
+                <span>{isFixedExcel ? "Differenza annua" : currentFixedBands ? "Prezzo medio attuale" : "Spread attuale"}</span>
+                <strong>{isFixedExcel ? resultValue(formatEuro(selectedOffer?.annualDifference ?? 0)) : currentFixedBands
+                  ? resultValue(`${formatSpread(calculation.source.currentAveragePrice, 6)} €/kWh`)
+                  : resultValue(`${formatSpread(calculation.source.currentSpread, 3)} €`)}</strong>
               </div>
               <div className="quote-metric-row current">
                 <span>PCV attuale</span>
@@ -4087,8 +4154,8 @@ function QuotePrintPage({
           </div>
           <dl>
             <div>
-              <dt>{input.calculationModel === "fixed_excel" ? "Modello" : "Spread"}</dt>
-              <dd>{input.calculationModel === "fixed_excel" ? "Fisso" : `${formatSpread(calculation.source.currentSpread, 3)} €`}</dd>
+              <dt>{input.calculationModel === "fixed_excel" || input.currentLightPricing === "fixed_bands" ? "Tariffa attuale" : "Spread"}</dt>
+              <dd>{input.calculationModel === "fixed_excel" ? "Fisso" : input.currentLightPricing === "fixed_bands" ? "Fissa a fasce" : `${formatSpread(calculation.source.currentSpread, 3)} €`}</dd>
             </div>
             <div>
               <dt>PCV</dt>

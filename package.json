@@ -14,6 +14,7 @@
     "test:quote-bills": "node scripts/test-quote-bills.cjs",
     "test:fixed-excel": "node scripts/test-fixed-excel.cjs",
     "test:fixed-catalog": "node scripts/test-fixed-catalog.cjs",
+    "test:current-fixed-bands": "node scripts/test-current-fixed-bands.cjs",
     "test:met": "node scripts/test-met.cjs",
     "firebase:load-met": "node scripts/load-met-offers.cjs",
     "firebase:login": "firebase login",
