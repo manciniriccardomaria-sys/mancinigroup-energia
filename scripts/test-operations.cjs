@@ -43,6 +43,8 @@ assert.ok(Math.abs(zeroSpread.selectedOffer.quotaConsumi - 10.67) < 1e-9);
 const bandInput = { ...input, lightConsumptionMode: 'fasce', f1Month1: 20, f2Month1: 30, f3Month1: 50 };
 const bands = calculateEnergyQuote(bandInput, variables, [base]);
 assert.ok(Math.abs(bands.selectedOffer.quotaConsumi - 13.87) < 1e-9);
+assert.equal(calculateEnergyQuote({ ...bandInput, lightBandsComplete: false }, variables, [base]).ready, false);
+assert.equal(calculateEnergyQuote({ ...bandInput, f1Month1: 0, lightBandsComplete: true }, variables, [base]).ready, true);
 // Prezzo fisso già lordo: nessuna seconda maggiorazione; sbilanciamento invariato.
 const grossFixed = calculateEnergyQuote(input, variables, [{ ...base, pricingType: 'fixed', fixedPrice: 0.15, lightLosses: { fixedPrice: false, dispatching: false } }]);
 assert.ok(Math.abs(grossFixed.selectedOffer.quotaConsumi - 15.64) < 1e-9);

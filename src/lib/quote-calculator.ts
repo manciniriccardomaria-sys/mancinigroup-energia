@@ -202,6 +202,9 @@ function selectedOffer(
 
 function calculateLightQuote(input: EnergyQuoteInput, variables: MarketVariable[], catalog: OfferCatalogItem[]) {
   const warnings: string[] = [];
+  if (input.lightConsumptionMode === "fasce" && input.lightBandsComplete === false) {
+    warnings.push("Compila i consumi F1, F2 e F3 di ogni mese, inserendo 0 dove non ci sono consumi.");
+  }
   const lossFactor = lightLossFactor(input.lightLossMode);
   const months = activeMonths(input);
   const monthConsumptions = months.map((monthKey, index) => {

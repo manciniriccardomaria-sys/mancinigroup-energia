@@ -1689,6 +1689,12 @@ td small {
   gap: 10px;
 }
 
+.quote-band-consumptions { display: grid; gap: 12px; padding: 16px; border: 1px solid #c7d8ea; border-radius: 8px; background: #f4f8fd; }
+.quote-band-consumptions h3, .quote-band-consumptions p { margin: 0; }
+.quote-band-consumptions h3 { font-size: 1rem; color: #20354a; }
+.quote-consumption-month { min-width: 0; margin: 0; padding: 12px; border: 1px solid #c7d8ea; border-radius: 6px; background: #fff; }
+.quote-consumption-month legend { padding: 0 6px; color: #20354a; font-size: .85rem; font-weight: 850; }
+
 .quote-sheet label,
 .quote-fasce-grid label {
   display: grid;

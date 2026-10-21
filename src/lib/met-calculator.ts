@@ -148,7 +148,7 @@ export function calculateMetOffer(
     }
   }
   if (terms.fixedStartDate && start < terms.fixedStartDate) notices.push(`Fase iniziale indicizzata; prezzo fisso dal ${terms.fixedStartDate}.`);
-  notices.push("Stima annua con indici del periodo di bolletta mantenuti costanti e decorrenza indicata.");
+  notices.push("Stima annua con indici del periodo di bolletta mantenuti costanti.");
   if (offer.commodity === "gas" && pcs === terms.gasPcsReference) notices.push("PCS impostato al riferimento CTE: verifica il valore della bolletta.");
   const priceLabel = terms.fixedStartDate && start < terms.fixedStartDate
     ? `${offer.commodity === "luce" ? "PUN con perdite" : "M-GAS"} + ${price(terms.renewalSpread ?? 0)}; fisso dal ${terms.fixedStartDate}`

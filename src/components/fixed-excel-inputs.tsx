@@ -30,15 +30,15 @@ export function FixedExcelInputs({ input, offers, selectedOffer, monthOptions, n
         <label>Fattore perdite<input value="1,104" readOnly /></label>
       </div>
       {input.lightConsumptionMode === "fasce" ? <>
-      <div className="quote-line-grid three secondary">
-        {numericField("excelCurrentF1Price", "Prezzo attuale F1 (€/kWh)")}
-        {numericField("excelCurrentF2Price", "Prezzo attuale F2 (€/kWh)")}
-        {numericField("excelCurrentF3Price", "Prezzo attuale F3 (€/kWh)")}
-      </div>
-      <div className="quote-line-grid three secondary">
-        {numericField("excelConsumptionF1", "Consumi F1 del periodo (kWh)")}
-        {numericField("excelConsumptionF2", "Consumi F2 del periodo (kWh)")}
-        {numericField("excelConsumptionF3", "Consumi F3 del periodo (kWh)")}
+      <div className="quote-band-consumptions">
+        <h3>Prezzi e consumi per fascia</h3>
+        {(["F1", "F2", "F3"] as const).map(band => <fieldset className="quote-consumption-month" key={band}>
+          <legend>Fascia {band}</legend>
+          <div className="quote-line-grid two">
+            {numericField(`excelCurrent${band}Price`, `Prezzo attuale ${band} (€/kWh)`)}
+            {numericField(`excelConsumption${band}`, `Consumi ${band} del periodo (kWh)`)}
+          </div>
+        </fieldset>)}
       </div></> : <div className="quote-line-grid four secondary">
         {numericField("excelCurrentMonoPrice", "Prezzo attuale monorario (€/kWh)")}
         {numericField("excelMonoConsumption", "Consumi monorari del periodo (kWh)")}

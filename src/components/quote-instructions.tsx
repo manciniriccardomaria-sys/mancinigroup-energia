@@ -39,7 +39,7 @@ export function QuoteInstructions({ id, commodity, legacy }: {
               </tbody>
             </table>
           </div>
-          <p>Queste combinazioni valgono sia per i prezzi fissi sia per i variabili. Per le offerte che richiedono le fasce compila anche gli <strong>zeri</strong>. Se hai soltanto il totale o F2/F3 aggregate, recupera la ripartizione prima di proporre una tariffa a tre fasce. Seleziona anche la tensione corretta nel campo “Perdite”.</p>
+          <p>Scegliendo le fasce si apre il blocco <strong>“Consumi per fascia (kWh)”</strong>, con F1, F2 e F3 per ciascun mese selezionato. Queste combinazioni valgono sia per i prezzi fissi sia per i variabili. Compila anche gli <strong>zeri</strong>. Se hai soltanto il totale o F2/F3 aggregate, recupera la ripartizione prima di proporre una tariffa a tre fasce. Seleziona anche la tensione corretta nel campo “Perdite”.</p>
         </> : <>
           <h4>3. Inserisci i consumi gas</h4>
           <p>Riporta gli <strong>Smc di ciascun mese</strong> e il <strong>consumo annuo</strong> della bolletta. Per il gas non ci sono fasce F1/F2/F3. Per le offerte MET verifica anche il <strong>PCS</strong> della bolletta e gli eventuali requisiti indicati dall’offerta.</p>

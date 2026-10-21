@@ -3518,7 +3518,6 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
             <div className="quote-band">
               <div className="quote-band-title">Anagrafica</div>
               <div className="quote-line-grid five">
-                {!isFixedExcel && <label>Decorrenza nuova fornitura<input type="date" value={quoteInput.supplyStartDate || quoteInput.quoteDate} onChange={event => updateQuote("supplyStartDate", event.target.value)} /></label>}
                 <label>
                   Data
                   <input
@@ -3620,7 +3619,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
                 </label>
                 <label>
                   <span className="quote-field-caption">
-                    <strong>Quota Consumi</strong>
+                    <strong>Quota Consumi ({quoteInput.commodity === "luce" ? "€/kWh" : "€/Smc"})</strong>
                     <span>
                       {quoteInput.commodity === "luce"
                         ? "di cui spesa per vendita energia elettrica"
@@ -3685,24 +3684,31 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
               {selectedOffer?.requiresBands && <p className="muted-text">Questa tariffa richiede F1, F2 e F3 per ogni mese. Compila tutte le fasce, scrivendo 0 dove non ci sono consumi.</p>}
 
               {quoteInput.commodity === "luce" && quoteInput.lightConsumptionMode === "fasce" ? (
-                <div className="quote-fasce-grid refined">
-                  {(["f1Month1", "f2Month1", "f3Month1", "f1Month2", "f2Month2", "f3Month2"] as const).map((key) => (
-                    <label key={key}>
-                      {key.replace("Month", " mese ")}
-                      <input
-                        inputMode="decimal"
-                        required={selectedOffer?.requiresBands && (!key.endsWith("Month2") || Boolean(quoteInput.secondMonthKey))}
-                        disabled={key.endsWith("Month2") && !quoteInput.secondMonthKey}
-                        value={quoteNumberValue(key)}
-                        onChange={(event) => updateQuoteNumber(key, event.target.value)}
-                      />
-                    </label>
+                <div className="quote-band-consumptions">
+                  <h3>Consumi per fascia (kWh)</h3>
+                  <p className="muted-text">Inserisci i kWh della bolletta in ogni fascia, scrivendo 0 dove non ci sono consumi. Il prezzo medio va nel campo Quota Consumi.</p>
+                  {([1, 2] as const).filter(month => month === 1 || quoteInput.secondMonthKey).map(month => (
+                    <fieldset className="quote-consumption-month" key={month}>
+                      <legend>Consumi {formatMonthKey(month === 1 ? quoteInput.monthKey : quoteInput.secondMonthKey ?? "")}</legend>
+                      <div className="quote-line-grid three">
+                        {(["f1", "f2", "f3"] as const).map(band => {
+                          const key = `${band}Month${month}` as "f1Month1" | "f2Month1" | "f3Month1" | "f1Month2" | "f2Month2" | "f3Month2";
+                          return <label key={key}>
+                            Consumo {band.toUpperCase()} (kWh)
+                            <input inputMode="decimal" required
+                              aria-label={`Consumo ${band.toUpperCase()} mese ${month} (kWh)`}
+                              value={quoteNumberValue(key)}
+                              onChange={event => updateQuoteNumber(key, event.target.value)} />
+                          </label>;
+                        })}
+                      </div>
+                    </fieldset>
                   ))}
                 </div>
               ) : (
                 <div className="quote-line-grid two consumptions">
                   <label>
-                    Consumo mese 1
+                    Consumo mese 1 ({quoteInput.commodity === "luce" ? "kWh" : "Smc"})
                     <input
                       inputMode="decimal"
                       value={quoteNumberValue("consumptionMonth1")}
@@ -3710,7 +3716,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
                     />
                   </label>
                   <label>
-                    Consumo mese 2 opzionale
+                    Consumo mese 2 opzionale ({quoteInput.commodity === "luce" ? "kWh" : "Smc"})
                     <input
                       inputMode="decimal"
                       disabled={!quoteInput.secondMonthKey}
