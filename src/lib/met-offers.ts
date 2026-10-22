@@ -364,11 +364,11 @@ export const metOfferCatalog: OfferCatalogItem[] = [
       "commercialPerUnit": 0,
       "monthlyServiceFee": 1,
       "fixedStartDate": "2027-01-01",
+      "quotePeriod": "fixed",
       "renewalSpread": 0.028,
       "notes": [
         "Provvigione da confermare.",
-        "Prezzo 0,1247 dalla CTE; la scheda sintetica riporta 0,12474.",
-        "Fase iniziale indicizzata per consumi prima del 01/01/2027."
+        "Prezzo 0,1247 dalla CTE; la scheda sintetica riporta 0,12474."
       ],
       "nonHourlySurcharge": 0.003
     },

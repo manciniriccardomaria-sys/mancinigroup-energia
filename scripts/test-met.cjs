@@ -10,7 +10,7 @@ const { calculateEnergyQuote, defaultEnergyQuoteInput } = require('../src/lib/qu
 const { defaultQuoteOffers, normalizeManagedOffers } = require('../src/lib/offers.ts');
 const { metOfferCatalog } = require('../src/lib/met-offers.ts');
 const { normalizeStore, addEnergyQuoteToStore } = require('../src/lib/client-store.ts');
-const { offerPriceLabel } = require('../src/lib/met-calculator.ts');
+const { calculateMetOffer, offerPriceLabel } = require('../src/lib/met-calculator.ts');
 const find = name => metOfferCatalog.find(offer => offer.offerEasy === `MET ${name}`);
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} != ${expected}`);
 const variables = Object.entries({
@@ -106,16 +106,50 @@ const calendarNoFinance = { ...calendar, met: { ...calendar.met, financialRate: 
 close(quote(calendar, largeClient).selectedOffer.quotaConsumi, quote(calendarNoFinance, largeClient).selectedOffer.quotaConsumi);
 close(quote(calendar, { ...largeClient, supplyStartDate: '2028-01-01' }).selectedOffer.quotaConsumi - quote(calendarNoFinance, { ...largeClient, supplyStartDate: '2028-01-01' }).selectedOffer.quotaConsumi, 314.08);
 
-// ProMETto: prima del 2027 a indice, dopo al prezzo già scontato. Nessun secondo -30%.
+// ProMETto luce: preventivare esclusivamente il prezzo fisso dei 24 mesi,
+// già scontato, senza mescolare PUN iniziale o rinnovo. Nessun secondo -30%.
 const pro = find('4 HOME POWER FIX 24 ProMETto');
 const proBefore = quote(pro, homeInput);
-close(proBefore.selectedOffer.quotaConsumi, 23.81611);
+assert.equal(proBefore.ready, true);
+close(proBefore.selectedOffer.quotaConsumi, 16.21171);
+assert.equal(proBefore.selectedOffer.pcv, 12);
 assert.equal(proBefore.selectedOffer.commissionKnown, false);
-assert.match(proBefore.selectedOffer.priceLabel, /fisso dal 2027-01-01/);
+assert.match(proBefore.selectedOffer.priceLabel, /0,113364.*netto/);
+assert.doesNotMatch(proBefore.selectedOffer.priceLabel, /PUN/);
+assert.ok(proBefore.selectedOffer.notices.some(note => note.includes('prezzo fisso dei 24 mesi')));
+assert.ok(!proBefore.selectedOffer.notices.some(note => note.includes('Fase iniziale indicizzata')));
 const proAfter = quote(pro, { ...homeInput, supplyStartDate: '2027-01-01' });
 close(proAfter.selectedOffer.quotaConsumi, 16.21171);
-assert.equal(proBefore.selectedOffer.annualSaving, 126.13); // 3 mesi indicizzati, 9 fissi + PCV.
-close(quote(pro, { ...homeInput, lightHourlyMeter: false }).selectedOffer.quotaConsumi - proBefore.selectedOffer.quotaConsumi, 0.3);
+assert.equal(proBefore.selectedOffer.annualSaving, 148.95); // Prezzo fisso annualizzato + PCV.
+assert.equal(proBefore.selectedOffer.annualSaving, proAfter.selectedOffer.annualSaving);
+for (const supplyStartDate of ['2026-01-01', '2026-12-01', '2027-12-01', '2028-12-01']) {
+  const dated = quote(pro, { ...homeInput, supplyStartDate });
+  close(dated.selectedOffer.quotaConsumi, proBefore.selectedOffer.quotaConsumi);
+  assert.equal(dated.selectedOffer.annualSaving, proBefore.selectedOffer.annualSaving);
+}
+close(quote(pro, { ...homeInput, lightHourlyMeter: false }).selectedOffer.quotaConsumi, proBefore.selectedOffer.quotaConsumi);
+const changedPun = variables.map(item => item.key.startsWith('pun_') ? { ...item, value: 1 } : item);
+assert.equal(quote(pro, homeInput, changedPun).selectedOffer.annualSaving, proBefore.selectedOffer.annualSaving);
+close(quote(pro, { ...homeInput, lightConsumptionMode: 'fasce', f1Month1: 10, f2Month1: 20, f3Month1: 70 }).selectedOffer.quotaConsumi, proBefore.selectedOffer.quotaConsumi);
+const proTwoMonths = quote(pro, { ...homeInput, secondMonthKey: '2026-08', consumptionMonth2: 200 },
+  [...variables, ...variables.map(item => ({ ...item, monthKey: '2026-08' }))]);
+close(proTwoMonths.selectedOffer.quotaConsumi, 3 * proBefore.selectedOffer.quotaConsumi);
+assert.equal(proTwoMonths.selectedOffer.annualSaving, 187.42);
+// Le offerte già salvate senza quotePeriod adottano la regola corrente,
+// mantenendo eventuali prezzi e PCV personalizzati.
+const legacyPro = { ...pro, fixedPrice: 0.13, pcv: 14, met: { ...pro.met,
+  quotePeriod: undefined, renewalSpread: 2,
+  notes: [...pro.met.notes, 'Fase iniziale indicizzata per consumi prima del 01/01/2027.'] } };
+const legacyResult = quote(legacyPro, homeInput);
+close(legacyResult.selectedOffer.quotaConsumi, 16.74171);
+assert.equal(legacyResult.selectedOffer.pcv, 15);
+assert.ok(!legacyResult.selectedOffer.notices.some(note => note.includes('Fase iniziale indicizzata')));
+// Il costo MET fisso non richiede il PUN; restano capacità e dispacciamento.
+const proWithoutPun = calculateMetOffer(pro, homeInput,
+  [{ monthKey: '2026-07', consumption: { total: 100 } }],
+  variables.filter(item => !item.key.startsWith('pun_')), 1.1, 1200);
+assert.deepEqual(proWithoutPun.issues, []);
+close(proWithoutPun.annualConsumptionCost, 16.21171 * 12);
 
 // CER mista: solo F1 fissa, F2/F3 indicizzate, requisiti e rilevazione oraria.
 const cer = find('CER MAKE ENERGY TOGETHER');

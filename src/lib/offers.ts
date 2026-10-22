@@ -21,6 +21,7 @@ export type MetOfferTerms = {
   fixedMonths: number;
   priceBasis: "net" | "gross";
   fixedStartDate?: string;
+  quotePeriod?: "fixed";
   energyModel?: "cer";
   nonHourlySurcharge?: number;
   commercialPerUnit: number;

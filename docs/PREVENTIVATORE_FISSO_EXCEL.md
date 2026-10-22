@@ -20,6 +20,8 @@ Le differenze strutturali sono esplicite:
 
 I preventivi salvati conservano modello, input e snapshot dei risultati. Aggiornare il catalogo cambia i nuovi calcoli, mentre i risultati archiviati restano invariati. Le offerte variabili vengono escluse dal nuovo percorso Fisso anche nel motore condiviso con il server.
 
+Dal 22 ottobre 2026 il prospetto distingue esplicitamente risparmio e maggior costo, usando importi assoluti sotto la relativa etichetta e colori coerenti. Nelle tabelle il risparmio positivo ha il segno + e il maggior costo il segno −. Schermata e stampa condividono il confronto del periodo: quota consumi + PCV mensile × mesi, per entrambe le offerte; il risparmio è totale attuale − totale proposto. I totali comprendono quota consumi e PCV, escludendo trasporto, oneri di sistema e imposte. La PCV è indicata al mese, prezzi e spread in €/kWh o €/Smc; nel percorso Fisso si mostra il prezzo medio attuale anziché lo spread stimato. Il modello Excel storico conserva la conversione dal risultato annuo prevista dalla fonte.
+
 `src/lib/fixed-excel-reference.ts` conserva le celle originali (incluse formule), il nome del file e il suo SHA-256. La modalità storica non usa gli override del catalogo corrente o le variabili Firestore, perché differenze di listino/indici impedirebbero la parità col file ricevuto. I nuovi preventivi della modalità Variabile mostrano le offerte variabili del catalogo; il fisso aggiornato si prepara dalla modalità Fisso. I vecchi snapshot conservano il loro modello e i valori archiviati.
 
 ## Risultato di riferimento

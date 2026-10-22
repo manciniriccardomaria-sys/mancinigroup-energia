@@ -1,4 +1,5 @@
 import { lightLossesForOffer, type OfferCatalogItem } from "./offers";
+import { metOfferCatalog } from "./met-offers";
 import type { EnergyQuoteInput } from "./quote-calculator";
 import type { MarketVariable } from "./types";
 
@@ -45,9 +46,12 @@ export function calculateMetOffer(
   annualConsumption: number
 ) {
   const terms = offer.met!;
+  // Anche gli override salvati prima dell'introduzione della regola usano
+  // il periodo di preventivazione del catalogo, conservando i propri prezzi.
+  const fixedPeriodOnly = (metOfferCatalog.find(item => item.code === offer.code)?.met?.quotePeriod ?? terms.quotePeriod) === "fixed";
   const losses = lightLossesForOffer(offer);
   const issues: string[] = [];
-  const notices = [...(terms.notes ?? [])];
+  const notices = (terms.notes ?? []).filter(note => !fixedPeriodOnly || note !== "Fase iniziale indicizzata per consumi prima del 01/01/2027.");
   const start = input.supplyStartDate || input.quoteDate;
   const total = months.reduce((sum, month) => sum + month.consumption.total, 0);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !Number.isFinite(new Date(`${start}T12:00:00Z`).getTime())) issues.push("Inserisci la decorrenza della nuova fornitura.");
@@ -87,8 +91,8 @@ export function calculateMetOffer(
   const netLightPrice = (value: number) => terms.priceBasis === "gross" ? value / fixedLossFactor : value;
   const sampledCost = (date: string) => months.reduce((sum, { monthKey, consumption }) => {
     const q = consumption.total;
-    const beforeFixed = Boolean(terms.fixedStartDate && date < terms.fixedStartDate);
-    const renewal = afterFixed(date);
+    const beforeFixed = !fixedPeriodOnly && Boolean(terms.fixedStartDate && date < terms.fixedStartDate);
+    const renewal = !fixedPeriodOnly && afterFixed(date);
     let energy = 0;
     if (offer.commodity === "luce") {
       if (beforeFixed || (renewal && !offer.fixedPrices) || terms.energyModel === "cer") {
@@ -147,10 +151,11 @@ export function calculateMetOffer(
       annualConsumptionCost += sampledCost(date.toISOString().slice(0, 10)) / (total || 1) * annualConsumption / 12;
     }
   }
-  if (terms.fixedStartDate && start < terms.fixedStartDate) notices.push(`Fase iniziale indicizzata; prezzo fisso dal ${terms.fixedStartDate}.`);
+  if (fixedPeriodOnly) notices.push(`Preventivo riferito al prezzo fisso dei ${terms.fixedMonths} mesi; periodi indicizzati esclusi dalla stima.`);
+  else if (terms.fixedStartDate && start < terms.fixedStartDate) notices.push(`Fase iniziale indicizzata; prezzo fisso dal ${terms.fixedStartDate}.`);
   notices.push("Stima annua con indici del periodo di bolletta mantenuti costanti.");
   if (offer.commodity === "gas" && pcs === terms.gasPcsReference) notices.push("PCS impostato al riferimento CTE: verifica il valore della bolletta.");
-  const priceLabel = terms.fixedStartDate && start < terms.fixedStartDate
+  const priceLabel = !fixedPeriodOnly && terms.fixedStartDate && start < terms.fixedStartDate
     ? `${offer.commodity === "luce" ? "PUN con perdite" : "M-GAS"} + ${price(terms.renewalSpread ?? 0)}; fisso dal ${terms.fixedStartDate}`
     : offerPriceLabel(offer, lossFactor);
   return { quotaConsumi, annualConsumptionCost, priceLabel, issues: [...new Set(issues)], notices: [...new Set(notices)] };

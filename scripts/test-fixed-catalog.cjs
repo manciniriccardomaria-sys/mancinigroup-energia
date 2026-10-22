@@ -11,6 +11,7 @@ const { defaultQuoteOffers, lightLossesForOffer } = require('../src/lib/offers.t
 const { excelModel } = require('../src/lib/excel-formulas.ts');
 const { fixedExcelReference: reference } = require('../src/lib/fixed-excel-reference.ts');
 const { normalizeStore, addEnergyQuoteToStore } = require('../src/lib/client-store.ts');
+const { formatSavingImpact, quotePeriodComparison } = require('../src/lib/quote-presentation.ts');
 const fixture = require('./fixtures/fixed-excel-cases.json');
 const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const money = value => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -100,6 +101,35 @@ assert.ok(!calculateEnergyQuote(monorary, variables.filter(item => item.key !== 
 const twoMonths = calculateEnergyQuote({ ...monorary, secondMonthKey: '2026-08', consumptionMonth2: 200 }, variables, catalog);
 assert.equal(twoMonths.source.annualConsumption, 1800);
 near(twoMonths.selectedOffer.annualSaving, money((.4 * 300 - twoMonths.selectedOffer.quotaConsumi) * 6 + (12 - twoMonths.selectedOffer.pcv) * 12), 'Annualizzazione');
+// Regressione prospetto: quota proposta maggiore = maggior costo del periodo,
+// includendo entrambe le PCV per tutti i mesi, anche se uno snapshot storico
+// riporta una proiezione annua che attraversa fasi tariffarie diverse.
+const screenshotCalculation = { ...twoMonths,
+  source: { ...twoMonths.source, currentSpend: 126.66, currentPcv: 11.89, periodCount: 2 },
+  selectedOffer: { ...twoMonths.selectedOffer, quotaConsumi: 161.69, pcv: 12, annualSaving: 26.29 } };
+assert.deepEqual(quotePeriodComparison(screenshotCalculation, base), {
+  currentCost: 150.44, proposedCost: 185.69, saving: -35.25, annualOnly: false
+});
+assert.match(formatSavingImpact(-35.25), /^-35,25/);
+assert.match(formatSavingImpact(26.29), /^\+26,29/);
+assert.doesNotMatch(formatSavingImpact(0), /^[+-]/);
+const period = quotePeriodComparison(twoMonths, base);
+near(period.saving, money(period.currentCost - period.proposedCost), 'Totali confrontati del periodo');
+assert.ok(Math.abs(period.saving * 6 - twoMonths.selectedOffer.annualSaving) <= .03);
+const unknownCost = { ...screenshotCalculation, selectedOffer: { ...screenshotCalculation.selectedOffer, quotaConsumiKnown: false } };
+assert.equal(quotePeriodComparison(unknownCost, base).saving, undefined);
+assert.equal(quotePeriodComparison({ ...screenshotCalculation, selectedOffer: undefined }, base).saving, undefined);
+assert.equal(quotePeriodComparison(screenshotCalculation, { calculationModel: 'fixed_excel', commodity: 'luce' }).saving, 4.38);
+assert.equal(quotePeriodComparison(screenshotCalculation, { calculationModel: 'fixed_excel', commodity: 'gas' }).saving, 26.29);
+// ProMETto corretta: stesso periodo fisso per quota proposta e proiezione annua.
+const pro = catalog.find(offer => offer.offerEasy === 'MET 4 HOME POWER FIX 24 ProMETto');
+const proInput = { ...base, lightConsumptionMode: 'totale', selectedOfferCode: pro.code,
+  consumptionMonth1: 300, consumptionMonth2: 371.5, secondMonthKey: '2026-08', currentSpend: 126.66, currentPcv: 11.89 };
+const proCalculation = calculateEnergyQuote(proInput, variables, catalog);
+assert.equal(proCalculation.ready, true);
+const proPeriod = quotePeriodComparison(proCalculation, proInput);
+assert.ok(proPeriod.saving > 0);
+assert.ok(Math.abs(proPeriod.saving * 6 - proCalculation.selectedOffer.annualSaving) <= .03);
 const business = catalog.find(offer => offer.offerEasy === 'MET BUSINESS POWER FIX 24 MESI');
 assert.equal(calculateEnergyQuote({ ...base, customerType: 'BUS', lightBandsComplete: false, selectedOfferCode: business.code }, variables, catalog).ready, false);
 assert.equal(calculateEnergyQuote({ ...base, customerType: 'BUS', selectedOfferCode: business.code, lightConsumptionMode: 'totale' }, variables, catalog).ready, false);

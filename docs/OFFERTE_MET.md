@@ -10,7 +10,7 @@ Fonti: 21 CTE originali del 24/09/2026 e 02/10/2026 e Provvigioni_offerte_MET.xl
 - Solo le CTE MET che lo prevedono ricevono il costo finanziario: 2% del PUN mensile per la luce, 2% di MGP-GAS per il gas. Per CALENDAR decorre dal 01/01/2028.
 - Gas: prezzi, CSC e commercializzazione variabile si adeguano al PCS locale rispetto a 0,03852 GJ/Smc. M-GAS e MGP-GAS sono variabili separate dal PSV, da inserire in €/Smc (valori GME in €/MWh × 0,0107). Gli indici necessari mancanti bloccano il preventivo per l’offerta interessata.
 - Le quote mensili domestiche includono il servizio app da 1 €. La tabella sotto comprende tale servizio. Le provvigioni MET sono già dell’agenzia: quota fissa annua + quantità annua × quota variabile, senza ulteriore 60%.
-- ProMETto: fase a indice + spread prima del 01/01/2027, poi prezzo fisso già scontato. La proiezione annua combina le due fasi in funzione della decorrenza. Provvigioni da confermare, mai presentate come zero certo.
+- ProMETto luce: su indicazione dell’utente del 22 ottobre 2026, il preventivo e il risparmio annuo usano esclusivamente il prezzo fisso già scontato dei 24 mesi, anche per decorrenze anticipate. Le fasi indicizzate iniziale e dal 25° mese restano escluse dalla stima. ProMETto gas mantiene la proiezione delle fasi in funzione della decorrenza. Provvigioni da confermare, mai presentate come zero certo.
 - CER: F1 fissa per 120 mesi, F2/F3 a PUN con perdite + 0,0088 €/kWh; richiede adesione a CER convenzionata e BT. La maggiorazione 0,003 €/kWh per contatore senza rilevazione oraria si applica ai consumi indicizzati domestici quando pertinente.
 - La stima annua mantiene gli indici storici del periodo e la profilazione inserita; dal 20 ottobre 2026 la luce usa il consumo medio dei mesi selezionati × 12, sia nel percorso Variabile sia nel Fisso. Un mese resta invariato; con due mesi si usa la loro media, contando anche un mese dichiarato a zero. Il risparmio confronta le spese consumi complete e le quote fisse senza dividere nuovamente per le perdite. Gli snapshot precedenti restano immutati.
 
@@ -46,7 +46,7 @@ I prezzi luce in tabella sono quelli originali del PDF; il preventivatore mostra
 
 Su indicazione dell’utente, ONE/2YOU/4YOU/CALENDAR omettono gli ulteriori costi rinviati alle CGF mancanti; l’esclusione è segnalata nel preventivo e nella stampa. La maggiorazione per decorrenza differita oltre tre mesi di ONE/2YOU/4YOU e i servizi opzionali Green non sono conteggiati. I bonus porta un amico non sono sottratti automaticamente.
 
-ProMETto luce usa 0,1247 dalla CTE principale (la scheda sintetica indica 0,12474); per attivazioni anticipate si assume il periodo fisso dal 01/01/2027. Gli spread di rinnovo 4 HOME GAS FIX 24/36 sono da confermare; non servono per il primo anno della stima.
+ProMETto luce usa 0,1247 €/kWh dalla CTE principale (la scheda sintetica indica 0,12474), comprensivo delle perdite e senza applicare nuovamente lo sconto del 30%. Il preventivo riguarda il periodo fisso dei 24 mesi: l’eventuale fase indicizzata prima del 01/01/2027 e il PUN + spread dal 25° mese non incidono sui costi preventivati. Gli spread di rinnovo 4 HOME GAS FIX 24/36 sono da confermare; non servono per il primo anno della stima.
 
 Ammissibilità: BUSINESS POWER FIX 12/24 fino a 50.000 kWh/anno; ONE/2YOU/4YOU fino a 2.000.000; CALENDAR da 200.000 a 5.000.000; business gas fino a 50.000 Smc.
 

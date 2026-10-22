@@ -1902,6 +1902,28 @@ td small {
   color: #2454a6;
 }
 
+.quote-metric-row.saving {
+  border-color: #b8dfcf;
+  background: #e8f7f0;
+}
+
+.quote-metric-row.saving strong {
+  color: var(--green-dark);
+}
+
+.quote-metric-row.loss {
+  border-color: #efc58f;
+  background: #fff5e8;
+}
+
+.quote-metric-row.loss strong {
+  color: #9a4b00;
+}
+
+.quote-metric-row.total {
+  border-top-width: 3px;
+}
+
 .quote-mini-list {
   display: grid;
   gap: 8px;
@@ -2739,6 +2761,11 @@ td small {
   }
 
   .print-saving-hero.loss > div:not(.print-watermark) > strong {
+    color: #b86500;
+  }
+
+  .print-saving-hero.loss .print-eyebrow,
+  .print-saving-hero aside.loss strong {
     color: #b86500;
   }
 
