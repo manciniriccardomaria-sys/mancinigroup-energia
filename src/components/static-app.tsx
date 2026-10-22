@@ -51,7 +51,7 @@ import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth, formatCo
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
 import { marketVariableDefinitions } from "@/lib/market-variables";
 import { energyQuoteName } from "@/lib/quote-name";
-import { formatSavingImpact, quotePeriodComparison } from "@/lib/quote-presentation";
+import { formatSavingImpact, quoteOfferDisplayName, quotePeriodComparison } from "@/lib/quote-presentation";
 import { formatDate, formatDateTime, formatEuro, normalizePodPdr, parseEuro, parseQuoteUnitPrice } from "@/lib/normalize";
 import { ManagedOffersView, TicketsView, PaymentGateBadge } from "./operations-views";
 import {
@@ -3608,7 +3608,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
                   >
                     {offerChoices.map((offer) => (
                       <option key={offer.code} value={offer.code}>
-                        {offer.offerName} - {offer.customerType}
+                        {quoteOfferDisplayName(offer)} - {offer.customerType}
                       </option>
                     ))}
                   </select>
@@ -3773,7 +3773,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
           <aside className="quote-summary-card">
             <div>
               <p className="eyebrow">Risultato</p>
-              <h2>{selectedOffer?.offerName ?? "Preventivo"}</h2>
+              <h2>{selectedOffer ? quoteOfferDisplayName(selectedOffer) : "Preventivo"}</h2>
             </div>
             <div className="quote-summary-tags">
               <span className={`status-badge ${quoteInput.commodity}`}>{commodityLabels[quoteInput.commodity]}</span>
@@ -3883,7 +3883,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
             <tbody>
               {comparisonOffers.map((offer) => (
                 <tr className={offer.code === selectedOffer?.code ? "selected-row" : ""} key={offer.code}>
-                  <td>{offer.offerName}</td>
+                  <td>{quoteOfferDisplayName(offer)}</td>
                   <td>{offer.customerType}</td>
                   <td>{offer.tariffKnown === false ? "Da verificare" : formatEuro(offer.pcv)}</td>
                   <td>{quotePriceText(offer, quoteInput.commodity)}</td>
@@ -4116,7 +4116,7 @@ function QuotePrintPage({
           <p className="print-eyebrow green">{saving >= 0 ? "Risparmio annuo stimato" : "Maggior costo annuo stimato"}</p>
           <strong>{selectedOffer ? formatPrintMainImpact(saving) : "-"}</strong>
           <span>
-            passando a <b>Mancini Service Luce &amp; Gas · {selectedOffer?.offerName ?? "Offerta selezionata"}</b>
+            passando a <b>Mancini Service Luce &amp; Gas · {selectedOffer ? quoteOfferDisplayName(selectedOffer) : "Offerta selezionata"}</b>
           </span>
         </div>
         <aside className={billImpact !== undefined && billImpact < 0 ? "loss" : "saving"}>
@@ -4135,8 +4135,8 @@ function QuotePrintPage({
           </div>
           <dl>
             <div>
-              <dt>{input.calculationModel === "fixed_excel" || input.calculationModel === "catalog_fixed" || input.currentLightPricing === "fixed_bands" ? "Tariffa attuale" : "Spread stimato"}</dt>
-              <dd>{input.calculationModel === "fixed_excel" ? "Fisso" : input.currentLightPricing === "fixed_bands" ? "Fissa a fasce" : input.calculationModel === "catalog_fixed" ? "Prezzo medio da bolletta" : `${formatSpread(calculation.source.currentSpread, 3)} ${averageUnit}`}</dd>
+              <dt>Costo energia</dt>
+              <dd>{currentCostKnown ? formatEuro(calculation.source.currentSpend) : "Non disponibile"}</dd>
             </div>
             <div>
               <dt>PCV</dt>
@@ -4155,22 +4155,22 @@ function QuotePrintPage({
             <p className="print-card-kicker">Mancini Service<br />Luce &amp; Gas</p>
             <span>La tua nuova offerta</span>
           </div>
-          <h3>{selectedOffer?.offerName ?? "-"}</h3>
+          <h3>{selectedOffer ? quoteOfferDisplayName(selectedOffer) : "-"}</h3>
           <div className="print-offer-cost">
             {!proposedCostKnown || proposedOfferCost === undefined ? "Da verificare" : formatEuro(proposedOfferCost)} <span>/ periodo</span>
           </div>
           <dl>
             <div>
-              <dt>{quotePriceTitle(selectedOffer)}</dt>
-              <dd>{selectedOffer ? quotePriceText(selectedOffer, input.commodity) : "-"}</dd>
+              <dt>Costo energia</dt>
+              <dd>{!proposedCostKnown ? "Da verificare" : selectedOffer ? formatEuro(selectedOffer.quotaConsumi) : "-"}</dd>
             </div>
             <div>
               <dt>PCV</dt>
               <dd>{selectedOffer ? `${formatEuro(selectedOffer.pcv)}/mese` : "-"}</dd>
             </div>
             <div>
-              <dt>Profilo</dt>
-              <dd>{commodityLabel} · {profileLabel}</dd>
+              <dt>{quotePriceTitle(selectedOffer)}</dt>
+              <dd>{selectedOffer ? quotePriceText(selectedOffer, input.commodity) : "-"}</dd>
             </div>
           </dl>
         </article>

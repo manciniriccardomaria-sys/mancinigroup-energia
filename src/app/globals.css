@@ -2821,12 +2821,17 @@ td small {
   .print-offer-comparison {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 5mm;
+    grid-template-rows: repeat(6, auto);
+    grid-auto-flow: column;
+    column-gap: 5mm;
     margin: 5mm 14mm 0;
   }
 
   .print-offer-card {
     position: relative;
+    display: grid;
+    grid-template-rows: subgrid;
+    grid-row: span 6;
     min-height: 61mm;
     overflow: hidden;
     border-radius: 4mm;
@@ -2928,8 +2933,9 @@ td small {
 
   .print-offer-card dl {
     position: relative;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: subgrid;
+    grid-row: span 3;
     margin-top: 3.6mm;
   }
 

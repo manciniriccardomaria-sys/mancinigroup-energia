@@ -1,6 +1,10 @@
 import { formatEuro } from "./normalize";
 import { quoteSavingForPeriod, type EnergyQuoteCalculation, type EnergyQuoteInput, type QuoteOfferResult } from "./quote-calculator";
 
+export function quoteOfferDisplayName(offer: Pick<QuoteOfferResult, "code" | "offerName">) {
+  return offer.code === "026846ENFML46XX2974HMFXE24PROMET" ? "ProMETto Power Fix 24" : offer.offerName;
+}
+
 // Il risparmio è positivo quando la proposta costa meno dell'offerta attuale.
 export function formatSavingImpact(value: number) {
   return `${value > 0 ? "+" : ""}${formatEuro(value)}`;
