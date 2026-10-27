@@ -3187,6 +3187,8 @@ td small {
 .operations-table > h2 { padding: 22px 22px 0; }
 .operations-table > .operations-filters { padding: 0 22px; }
 .operations-table > label { margin: 16px 22px; }
+.offer-status-group > h3 { margin: 22px; }
+.offer-status-group + .offer-status-group { border-top: 1px solid var(--line); }
 .operations-table .offer-code { display: block; margin-top: 4px; }
 
 .quote-mode-selector { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }

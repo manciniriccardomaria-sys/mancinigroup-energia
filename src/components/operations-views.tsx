@@ -131,6 +131,10 @@ export function ManagedOffersView({ store, user, mutateStore }: Props) {
     if (success) { reset(); form.reset(); }
   }
   const offers = store.managedOffers.filter((offer) => `${offer.offerEasy} ${offer.code}`.toLowerCase().includes(search.toLowerCase()));
+  const offerGroups = [
+    { id: "active-offers", title: "Offerte attive", active: true, offers: offers.filter((offer) => offer.active) },
+    { id: "inactive-offers", title: "Offerte disattive", active: false, offers: offers.filter((offer) => !offer.active) }
+  ];
   return <>
     {canManage && <section className="panel"><div className="panel-heading"><h2>{editing ? "Modifica offerta" : "Aggiungi offerta"}</h2><Tags /></div>
       <p className="muted-text">Luce: prezzo fisso in €/kWh oppure PUN + spread. Gas: prezzo fisso in €/Smc oppure PSV + spread. PCV mensile; per la luce le perdite si configurano per componente.</p>
@@ -163,10 +167,14 @@ export function ManagedOffersView({ store, user, mutateStore }: Props) {
         {error && <p role="alert">{error}</p>}<button className="primary-button" type="submit">Salva offerta</button>{editing && <button className="secondary-button" type="button" onClick={reset}>Annulla</button>}
       </form></section>}
     <section className="table-section operations-table"><h2>Offerte ({offers.length})</h2><label>Cerca offerta<input value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+      {offerGroups.map((group) => <section key={group.id} className="offer-status-group" aria-labelledby={group.id}>
+        <h3 id={group.id}>{group.title} ({group.offers.length})</h3>
       <div className="table-wrap"><table><thead><tr><th>Offerta / codice</th><th>Fornitura</th><th>Cliente</th><th>Tipo</th><th>Prezzo / spread</th><th>PCV mensile</th><th>Stato</th>{canManage && <th>Azioni</th>}</tr></thead><tbody>
-        {offers.map((offer) => <tr key={offer.id}><td>{offer.offerEasy}<small className="offer-code">{offer.code}</small></td><td>{offer.commodity}</td><td>{offer.customerType}</td><td>{offer.met?.energyModel === "cer" ? "Misto per fascia" : offer.pricingType === "fixed" ? "Fisso" : `${offer.commodity === "luce" ? "PUN" : "PSV"} + spread`}</td><td>{offerPriceLabel(offer)}{offer.met && <small>{offer.met.fixedMonths} mesi · {offer.requiresBands ? "Consumi per fasce obbligatori" : "Prezzo unico"}{offer.met.commissionFixed === undefined ? " · Provvigione da confermare" : ""}</small>}</td><td>{formatEuro(metMonthlyPcv(offer))}{offer.met?.monthlyServiceFee ? <small>Incluso servizio app</small> : null}</td><td>{offer.active ? "Attiva" : "Disattiva"}</td>{canManage && <td><div className="operations-actions"><button className="secondary-button" onClick={() => { setEditing(offer); setPricing(offer.pricingType ?? "variable"); setCommodity(offer.commodity); setPriceLayout(offer.fixedPrices ? "bands" : "single"); setError(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Modifica</button><button className="secondary-button" onClick={() => void mutateStore((draft) => { const item = draft.managedOffers.find((item) => item.id === offer.id); if (item) item.active = !item.active; }, offer.active ? "Offerta disattivata." : "Offerta attivata.")}>{offer.active ? "Disattiva" : "Attiva"}</button></div></td>}</tr>)}
-        {!offers.length && <tr><td colSpan={canManage ? 8 : 7} className="empty-state">Nessuna offerta trovata.</td></tr>}
-      </tbody></table></div></section>
+        {group.offers.map((offer) => <tr key={offer.id}><td>{offer.offerEasy}<small className="offer-code">{offer.code}</small></td><td>{offer.commodity}</td><td>{offer.customerType}</td><td>{offer.met?.energyModel === "cer" ? "Misto per fascia" : offer.pricingType === "fixed" ? "Fisso" : `${offer.commodity === "luce" ? "PUN" : "PSV"} + spread`}</td><td>{offerPriceLabel(offer)}{offer.met && <small>{offer.met.fixedMonths} mesi · {offer.requiresBands ? "Consumi per fasce obbligatori" : "Prezzo unico"}{offer.met.commissionFixed === undefined ? " · Provvigione da confermare" : ""}</small>}</td><td>{formatEuro(metMonthlyPcv(offer))}{offer.met?.monthlyServiceFee ? <small>Incluso servizio app</small> : null}</td><td>{offer.active ? "Attiva" : "Disattiva"}</td>{canManage && <td><div className="operations-actions"><button className="secondary-button" onClick={() => { setEditing(offer); setPricing(offer.pricingType ?? "variable"); setCommodity(offer.commodity); setPriceLayout(offer.fixedPrices ? "bands" : "single"); setError(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Modifica</button><button className="secondary-button" onClick={() => void mutateStore((draft) => { const item = draft.managedOffers.find((item) => item.id === offer.id); if (item) item.active = !item.active; }, offer.active ? "Offerta disattivata." : "Offerta attivata.")}>{offer.active ? "Disattiva" : "Attiva"}</button></div></td>}</tr>)}
+        {!group.offers.length && <tr><td colSpan={canManage ? 8 : 7} className="empty-state">{search.trim() ? "Nessuna offerta trovata." : group.active ? "Nessuna offerta attiva." : "Nessuna offerta disattiva."}</td></tr>}
+      </tbody></table></div>
+      </section>)}
+    </section>
   </>;
 }
 
