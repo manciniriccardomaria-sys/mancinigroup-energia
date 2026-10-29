@@ -6,6 +6,8 @@ Aggiornamento 29 ottobre 2026: aggiunte al percorso Variabile le CTE Family Powe
 
 ## Regole condivise
 
+Aggiornamento 29 ottobre 2026: aggiunta MET BUSINESS POWER FLEX (CTE 08/10/2026, codice 026846ENVOL46XX303BUSINESSEEFLEX) tra le offerte luce business variabili. PUN + spread netto 0,0181 €/kWh con perdite applicate una volta, commercializzazione 0,002 €/kWh, quota fissa 18 €/mese, componente finanziaria 2% del PUN medio mensile. Capacità e dispacciamento secondo le regole condivise; sbilanciamento già incluso. Maggiorazione 0,0025 €/kWh per contatore non orario. Contratto a tempo indeterminato; limite CTE di 50.000 kWh/anno. Provvigione dal prospetto AGF60 ricevuto il 13 ottobre: 56 € + 3,50 €/MWh annui; bonus SEPA una tantum di 7 € escluso perché il preventivatore non raccoglie la modalità di pagamento. Il catalogo comprende ora 24 offerte MET.
+
 - Luce: quando la CTE indica i prezzi netti, si usano quei valori originali. Quando indica soltanto il prezzo comprensivo delle perdite, si conserva l’originale e si divide per il fattore perdite prima di applicare il modello del simulatore, evitando una seconda maggiorazione. Fattori: 1,10 BT e 1,038 MT/AT.
 - Nessuna media preimpostata: F1/F2/F3 vengono pesati sui consumi effettivi del cliente. Tutte e tre le fasce sono obbligatorie per ogni mese delle sei business luce e della CER; lo zero deve essere dichiarato. Un prezzo unico vale per tutte le fasce.
 - Capacità e dispacciamento mantengono le regole del simulatore concordate. Lo sbilanciamento domestico è 0,0014 €/kWh; per MET business è già incluso nel prezzo energia e non si aggiunge nuovamente. PUN monorario AGF senza maggiorazione per perdite.

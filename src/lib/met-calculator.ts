@@ -33,6 +33,9 @@ export function offerPriceLabel(offer: OfferCatalogItem, lossFactor = 1.1) {
     return `${price(net(offer.fixedPrice ?? 0))} ${offer.commodity === "luce" ? "€/kWh" : "€/Smc"}${offer.met && offer.commodity === "luce" ? " netto" : ""}`;
   }
   if (offer.met) {
+    if (offer.commodity === "luce" && offer.met.priceBasis === "net") {
+      return `PUN + ${price(offer.spread)} €/kWh, netti`;
+    }
     return `${offer.commodity === "luce" ? "PUN con perdite" : "PSV"} + ${price(offer.spread)} ${offer.commodity === "luce" ? "€/kWh" : "€/Smc"}`;
   }
   return `${price(offer.spread)} ${offer.commodity === "luce" ? "€/kWh" : "€/Smc"}`;

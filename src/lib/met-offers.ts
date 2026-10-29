@@ -2,8 +2,37 @@ import type { OfferCatalogItem } from "./offers";
 
 // CTE MET 24/09/2026 e 02/10/2026; prezzi netti originali quando disponibili.
 // Provvigioni: listino ricevuto il 07/10/2026, importi già spettanti all’agenzia.
-// Family Flex: CTE 08/10/2026 e Provvigioni_Agenzie_AGF60 ricevute il 13/10/2026.
+// Family/Business Flex: CTE 08/10/2026 e Provvigioni_Agenzie_AGF60 ricevute il 13/10/2026.
 export const metOfferCatalog: OfferCatalogItem[] = [
+  {
+    code: "026846ENVOL46XX303BUSINESSEEFLEX",
+    supplier: "MET",
+    commodity: "luce",
+    offerEasy: "MET BUSINESS POWER FLEX",
+    customerType: "BUS",
+    pcv: 18,
+    spread: 0.0181,
+    pricingType: "variable",
+    active: true,
+    lightLosses: { punMono: true, punBands: true, spread: true },
+    met: {
+      sourceFile: "CTE Business Power Flex 08.10.2026.pdf",
+      conditionDate: "2026-10-08",
+      fixedMonths: 0,
+      priceBasis: "net",
+      commercialPerUnit: 0.002,
+      monthlyServiceFee: 0,
+      nonHourlySurcharge: 0.0025,
+      financialRate: 0.02,
+      maxAnnualConsumption: 50000,
+      commissionFixed: 56,
+      commissionPerUnit: 0.0035,
+      notes: [
+        "Maggiorazione di 0,0025 €/kWh per fatturazione al PUN medio mensile per fascia (contatore non orario).",
+        "Provvigione annua: 56 € + 3,50 €/MWh; bonus SEPA una tantum di 7 € escluso dalla stima."
+      ]
+    }
+  },
   {
     code: "026846ENVOL46XX303FAMILYFLEXEEX4",
     supplier: "MET",

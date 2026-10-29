@@ -3300,6 +3300,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
   const offerChoices = calculation.offers.filter((offer) => offer.customerType === quoteInput.customerType);
   const comparisonOffers = [...offerChoices].sort((a, b) => Number(a.available === false) - Number(b.available === false) || b.annualSaving - a.annualSaving);
   const selectedOffer = calculation.selectedOffer;
+  const selectedMetTerms = store.managedOffers.find(offer => offer.code === selectedOffer?.code)?.met;
   const dynamicMonthOptions = previousQuoteMonthOptions(quoteInput.quoteDate);
   const hasRequiredQuoteData =
     calculation.source.currentAveragePrice > 0 &&
@@ -3692,7 +3693,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
                 )}
                 {quoteInput.commodity === "gas" && selectedOffer?.offerName.startsWith("MET ") && <label>PCS gas (GJ/Smc)<input inputMode="decimal" value={quoteNumberValue("gasPcs")} onChange={event => updateQuoteNumber("gasPcs", event.target.value)} /></label>}
                 {selectedOffer?.offerName.includes("CER MAKE") && <label>Adesione a CER convenzionata<select value={quoteInput.cerMember ? "yes" : "no"} onChange={event => updateQuote("cerMember", event.target.value === "yes")}><option value="no">Da confermare</option><option value="yes">Adesione confermata</option></select></label>}
-                {quoteInput.commodity === "luce" && quoteInput.customerType === "RES" && selectedOffer?.offerName.startsWith("MET ") && <label>Rilevazione almeno oraria<select value={quoteInput.lightHourlyMeter === false ? "no" : "yes"} onChange={event => updateQuote("lightHourlyMeter", event.target.value === "yes")}><option value="yes">Contatore con rilevazione oraria</option><option value="no">Contatore senza rilevazione oraria</option></select></label>}
+                {quoteInput.commodity === "luce" && selectedOffer?.offerName.startsWith("MET ") && (quoteInput.customerType === "RES" || Boolean(selectedMetTerms?.nonHourlySurcharge)) && <label>Rilevazione almeno oraria<select value={quoteInput.lightHourlyMeter === false ? "no" : "yes"} onChange={event => updateQuote("lightHourlyMeter", event.target.value === "yes")}><option value="yes">Contatore con rilevazione oraria</option><option value="no">Contatore senza rilevazione oraria</option></select></label>}
               </div>
 
               {selectedOffer?.requiresBands && <p className="muted-text">Questa tariffa richiede F1, F2 e F3 per ogni mese. Compila tutte le fasce, scrivendo 0 dove non ci sono consumi.</p>}
