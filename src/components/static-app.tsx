@@ -3919,7 +3919,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
 
 function MarketVariablesPanel({ store, user, mutateStore }: ViewProps) {
   const [monthKey, setMonthKey] = useState(currentMonthKey());
-  const latestVariables = [...store.marketVariables].sort((a, b) => b.monthKey.localeCompare(a.monthKey) || a.label.localeCompare(b.label, "it")).slice(0, 24);
+  const latestVariables = store.marketVariables.filter(variable => marketVariableDefinitions.some(definition => definition.key === variable.key)).sort((a, b) => b.monthKey.localeCompare(a.monthKey) || a.label.localeCompare(b.label, "it")).slice(0, 24);
 
   async function saveVariables(event: FormEvent<HTMLFormElement>, commodity: Exclude<Commodity, "non_definito">) {
     const form = event.currentTarget;
@@ -3978,6 +3978,7 @@ function MarketVariablesPanel({ store, user, mutateStore }: ViewProps) {
           <div>
             <p className="eyebrow">Variabili</p>
             <h2>Gas</h2>
+            <p className="muted-text">PSV medio mensile in €/Smc, inserito manualmente per i calcoli gas.</p>
           </div>
           <Flame size={24} />
         </div>

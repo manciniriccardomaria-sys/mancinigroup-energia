@@ -70,7 +70,7 @@ for (const commodity of ['luce', 'gas']) {
               // Il foglio sottrae 0,015 dal prezzo medio: neutralizziamo questa
               // rettifica nei soli parametri del confronto con le CTE del catalogo.
               E4: input.currentAveragePrice + .015, F4: currentPcv, E8: input.gasAnnualConsumption,
-              E33: pcv, F33: offer.fixedPrice + (terms.gasCsc ?? 0) + terms.commercialPerUnit + (terms.financialRate ?? 0) * .5
+              E33: pcv, F33: offer.fixedPrice + (terms.gasCsc ?? 0) + terms.commercialPerUnit + (terms.financialRate ?? 0) * .6
             };
           }
           const expected = excelModel(reference.sheets, { [sheet]: overrides }).number(sheet, commodity === 'luce' ? 'H50' : 'G33');
