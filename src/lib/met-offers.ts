@@ -291,8 +291,7 @@ export const metOfferCatalog: OfferCatalogItem[] = [
       "commissionFixed": 40,
       "commissionPerUnit": 0.002,
       "financialRate": 0.02,
-      "referenceIndex": 0.156,
-      "maxAnnualConsumption": 50000
+      "referenceIndex": 0.156
     },
     "fixedPrices": {
       "f1": 0.1828,
@@ -321,8 +320,7 @@ export const metOfferCatalog: OfferCatalogItem[] = [
       "commissionFixed": 40,
       "commissionPerUnit": 0.002,
       "financialRate": 0.02,
-      "referenceIndex": 0.137,
-      "maxAnnualConsumption": 50000
+      "referenceIndex": 0.137
     },
     "fixedPrices": {
       "f1": 0.1651,

@@ -50,7 +50,7 @@ Su indicazione dell’utente, ONE/2YOU/4YOU/CALENDAR omettono gli ulteriori cost
 
 ProMETto luce usa 0,1247 €/kWh dalla CTE principale (la scheda sintetica indica 0,12474), comprensivo delle perdite e senza applicare nuovamente lo sconto del 30%. Il preventivo riguarda il periodo fisso dei 24 mesi: l’eventuale fase indicizzata prima del 01/01/2027 e il PUN + spread dal 25° mese non incidono sui costi preventivati. Gli spread di rinnovo 4 HOME GAS FIX 24/36 sono da confermare; non servono per il primo anno della stima.
 
-Ammissibilità: BUSINESS POWER FIX 12/24 fino a 50.000 kWh/anno; ONE/2YOU/4YOU fino a 2.000.000; CALENDAR FIX fino a 5.000.000 kWh/anno, senza minimo di consumo su indicazione dell’utente del 29 ottobre 2026 (anche per le offerte già salvate); business gas fino a 50.000 Smc.
+Ammissibilità: BUSINESS POWER FIX 12/24 senza limite massimo di consumo nel preventivatore, su indicazione dell’utente del 29 ottobre 2026 (anche per le offerte già salvate); ONE/2YOU/4YOU fino a 2.000.000; CALENDAR FIX fino a 5.000.000 kWh/anno, senza minimo di consumo su indicazione dell’utente del 29 ottobre 2026 (anche per le offerte già salvate); business gas fino a 50.000 Smc.
 
 ## Verifica e caricamento
 

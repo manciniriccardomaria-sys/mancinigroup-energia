@@ -76,7 +76,14 @@ const missingMonth = quote(business24, { ...bill, secondMonthKey: '2026-08', f1M
 assert.equal(missingMonth.ready, false);
 assert.equal(missingMonth.warnings.length, new Set(missingMonth.warnings).size);
 assert.ok(missingMonth.warnings.some(message => message.includes('2026-08')));
-assert.equal(quote(business24, { ...bill, f1Month1: 5000 }).ready, false); // Limite 50.000/anno.
+for (const business of [find('BUSINESS POWER FIX'), business24]) {
+  assert.equal(business.met.maxAnnualConsumption, undefined);
+  const aboveFormerLimit = { ...bill, f1Month1: 5000 };
+  assert.ok(quote(business, aboveFormerLimit).source.annualConsumption > 50000);
+  assert.equal(quote(business, aboveFormerLimit).ready, true);
+  const legacyBusiness = { ...business, met: { ...business.met, maxAnnualConsumption: 50000 } };
+  assert.deepEqual(quote(legacyBusiness, aboveFormerLimit), quote(business, aboveFormerLimit));
+}
 
 // Prezzo monorario lordo CTE: conversione al netto e applicazione singola delle perdite.
 const family = find('FAMILY POWER FIX');
@@ -168,6 +175,7 @@ close(quote(cer, { ...cerInput, lightHourlyMeter: false }).selectedOffer.quotaCo
 // Gas: PSV mensile unico per tutte le componenti indicizzate, CSC e adeguamento PCS.
 const gasInput = { ...homeInput, commodity: 'gas', customerType: 'BUS', gasAnnualConsumption: 1200, gasPcs: 0.03852, currentAveragePrice: 1, currentPcv: 18 };
 const gas24 = find('BUSINESS GAS FIX 24 MESI');
+assert.equal(quote(gas24, { ...gasInput, gasAnnualConsumption: 50001 }).ready, false);
 const gas = quote(gas24, gasInput);
 assert.equal(gas.ready, true);
 close(gas.selectedOffer.quotaConsumi, 73.17322);
