@@ -29,3 +29,12 @@ Pubblicare le regole Firestore aggiornate prima dell'interfaccia: solo utenti at
 La workflow `.github/workflows/sync-market-prices.yml` esegue il codice ogni quattro ore (al minuto 17, UTC); gli orari GitHub possono subire ritardi. Disponibile anche l'avvio manuale. Non vengono creati task o automazioni della chat. La UI riceve gli aggiornamenti Firestore e segnala dati acquisiti da più di sei ore, dati di riferimento vecchi o l'errore dell'ultimo aggiornamento; conserva sempre l'ultimo prezzo valido.
 
 In locale: configurare le credenziali server e GME_USAGE_AUTHORIZED=true, poi `pnpm market:sync`. Controlli: `pnpm test:market-prices`, `pnpm test:met`, `pnpm typecheck`, `pnpm lint`, `pnpm build:pages`. I test del connettore usano risposte simulate: non provano l'accesso GME reale.
+
+## Rilevazione manuale temporanea — 29 ottobre 2026
+
+Su richiesta dell’utente il cruscotto è stato ridotto a due schede compatte. In attesa delle API, i dati vengono marcati come rilevazione manuale con data di riferimento, senza attivare il processo automatico.
+
+- PUN del 29/10/2026: 278,47 €/MWh = 0,27847 €/kWh. Fonte GME, riscontro Radiocor/Borsa Italiana del 28/10/2026 alle 13:50 (esiti per consegna il 29).
+- MGP-GAS: prodotto MGP-2026-10-29, sessione 28/10/2026, prezzo di riferimento 105,578 €/MWh, letto nella pagina GME della negoziazione continua; conversione × 0,0107 = 1,1296846 €/Smc. Non usare First, Last, prezzo di controllo, prodotto WD o indice IGI.
+
+La data del gas indica il giorno di consegna del prodotto; la data della sessione resta nei dettagli. Il tentativo di salvataggio Firestore è stato rifiutato per quota esaurita prima della scrittura. I dati temporanei sono quindi in src/lib/market-manual-snapshot.ts, importato soltanto dal pannello informativo. Quando disponibile, un dato API della stessa data o successiva lo sostituisce nella visualizzazione; uno più vecchio non lo sovrascrive. Le variabili mensili restano immutate.

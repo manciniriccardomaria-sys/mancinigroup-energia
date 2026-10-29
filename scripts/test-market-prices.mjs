@@ -9,6 +9,7 @@ require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileMo
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
 }).outputText, filename);
 const { parseMarketSnapshot, quoteIsOld } = require('../src/lib/market-snapshot.ts');
+const { manualMarketSnapshot, marketSnapshotForDisplay } = require('../src/lib/market-manual-snapshot.ts');
 
 function crc32(content) {
   let crc = 0xffffffff;
@@ -107,4 +108,15 @@ assert.equal(parseMarketSnapshot({ ...previous, gas: { ...gas, value: 40 } }), u
 assert.equal(parseMarketSnapshot({ ...previous, electricity: { ...electricity, referenceDate: '2026-02-30' } }), undefined);
 assert.equal(quoteIsOld(electricity, now.getTime()), false);
 assert.equal(quoteIsOld(electricity, now.getTime() + 7 * 3600000), true);
+const manualGas = { ...gas, acquisition: 'manual', sessionDate: '2026-10-28' };
+assert.ok(parseMarketSnapshot({ ...previous, state: 'awaiting_access', gas: manualGas }));
+assert.equal(parseMarketSnapshot({ ...previous, gas: { ...manualGas, sessionDate: '2026-02-30' } }), undefined);
+assert.equal(parseMarketSnapshot({ ...previous, gas: { ...manualGas, acquisition: 'unknown' } }), undefined);
+assert.equal(quoteIsOld(manualGas, now.getTime() + 7 * 3600000), false);
+assert.equal(quoteIsOld(manualGas, now.getTime() + 48 * 3600000), true);
+assert.ok(parseMarketSnapshot(manualMarketSnapshot));
+assert.equal(marketSnapshotForDisplay().gas.value, 1.1296846);
+assert.equal(marketSnapshotForDisplay().electricity.value, 0.27847);
+assert.equal(marketSnapshotForDisplay({ ...previous, gas: { ...gas, referenceDate: '2026-10-28' } }).gas.acquisition, 'manual');
+assert.equal(marketSnapshotForDisplay(previous).gas.value, 0.428);
 console.log('Market prices: API/ZIP validation, daily mean, units, DST, product ambiguity, partial failure, stale data and no regression passed.');

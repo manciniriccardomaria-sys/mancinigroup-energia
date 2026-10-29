@@ -5,6 +5,8 @@ export type MarketQuote = {
   value: number;
   originalEuroMwh: number;
   product?: string;
+  acquisition?: "manual" | "api";
+  sessionDate?: string;
 };
 
 export type MarketSnapshot = {
@@ -33,7 +35,11 @@ function validQuote(value: unknown, factor: number): value is MarketQuote {
     typeof quote.value === "number" && Number.isFinite(quote.value) &&
     typeof quote.originalEuroMwh === "number" && Number.isFinite(quote.originalEuroMwh) &&
     Math.abs(quote.value - quote.originalEuroMwh * factor) < 1e-8 &&
-    (quote.product === undefined || typeof quote.product === "string");
+    (quote.product === undefined || typeof quote.product === "string") &&
+    (quote.acquisition === undefined || quote.acquisition === "manual" || quote.acquisition === "api") &&
+    (quote.sessionDate === undefined || (typeof quote.sessionDate === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(quote.sessionDate) && Number.isFinite(Date.parse(quote.sessionDate)) &&
+      new Date(quote.sessionDate).toISOString().slice(0, 10) === quote.sessionDate));
 }
 
 export function parseMarketSnapshot(value: unknown): MarketSnapshot | undefined {
@@ -51,6 +57,6 @@ export function quoteIsOld(quote: MarketQuote, now: number) {
   const today = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit"
   }).format(now);
-  return now - Date.parse(quote.fetchedAt) > 6 * 60 * 60 * 1000 ||
+  return (quote.acquisition !== "manual" && now - Date.parse(quote.fetchedAt) > 6 * 60 * 60 * 1000) ||
     Date.parse(today) - Date.parse(quote.referenceDate) > 24 * 60 * 60 * 1000;
 }

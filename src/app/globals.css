@@ -3213,31 +3213,23 @@ td small {
   .quote-instructions-grid { gap: 16px; }
 }
 
-.market-prices-panel {
-  margin-bottom: 24px;
-  padding: 22px;
-  border: 1px solid var(--border, #dce5e2);
-  border-radius: 16px;
-  background: #fff;
-}
-.market-prices-panel > .section-heading { margin-bottom: 16px; }
-.market-info-label { color: #587067; font-size: 13px; }
-.market-prices-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.market-price-card { min-width: 0; padding: 18px; border-radius: 12px; background: #f4f9f7; }
+.market-prices-panel { margin-bottom: 16px; }
+.market-prices-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.market-price-card { min-width: 0; padding: 12px 16px; border: 1px solid var(--line); border-radius: 10px; background: #f4f9f7; }
 .market-price-card.gas { background: #fff8ef; }
-.market-price-card .panel-heading { margin-bottom: 8px; }
-.market-price-card h3 { margin: 0; font-size: 17px; }
-.market-price-card svg { color: #177b61; flex-shrink: 0; }
-.market-price-card.gas svg { color: #aa680e; }
-.market-price-card p { margin: 8px 0; font-size: 13px; }
-.market-price-card .market-price-value { font-size: clamp(25px, 3vw, 36px); font-weight: 750; letter-spacing: -0.02em; }
-.market-price-value span { margin-left: 8px; font-size: 15px; font-weight: 500; letter-spacing: normal; }
-.market-price-card a, .market-price-card small { display: block; font-size: 12px; line-height: 1.5; }
-.market-price-card a { margin-top: 12px; color: #17634f; }
-.market-price-card small { margin-top: 6px; color: #62736d; }
-.market-price-status { color: #945700; }
-.market-prices-panel > .muted-text { margin-bottom: 0; font-size: 13px; }
+.market-price-main, .market-price-title { display: flex; align-items: center; gap: 8px; }
+.market-price-main { justify-content: space-between; flex-wrap: wrap; gap: 4px 14px; }
+.market-price-title h3 { margin: 0; font-size: 13px; }
+.market-price-title svg { color: var(--green); flex-shrink: 0; }
+.market-price-card.gas svg { color: var(--amber); }
+.market-price-card .market-price-value { margin: 0; font-size: 24px; font-weight: 750; letter-spacing: -0.02em; white-space: nowrap; }
+.market-price-value span { margin-left: 5px; font-size: 12px; font-weight: 500; letter-spacing: normal; }
+.market-price-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin-top: 5px; color: var(--muted); font-size: 11px; }
+.market-price-meta a { margin-left: auto; color: #17634f; }
+.market-price-card .market-price-status { margin: 5px 0 0; color: #945700; font-size: 11px; }
+.market-prices-panel > .muted-text { margin: 5px 0 0; font-size: 11px; }
 @media (max-width: 640px) {
-  .market-prices-panel { padding: 16px; }
-  .market-prices-grid { grid-template-columns: 1fr; }
+  .market-prices-grid { grid-template-columns: 1fr; gap: 8px; }
+  .market-price-card { padding: 10px 12px; }
+  .market-price-card .market-price-value { font-size: 22px; }
 }
