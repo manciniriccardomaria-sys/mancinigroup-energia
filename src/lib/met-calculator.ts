@@ -72,7 +72,10 @@ export function calculateMetOffer(
   if (variable && offer.commodity === "luce" && offer.customerType === "RES" && input.lightLossMode !== "bassa") {
     issues.push("L’offerta è riservata alle forniture domestiche in bassa tensione.");
   }
-  if (terms.minAnnualConsumption !== undefined && annualConsumption < terms.minAnnualConsumption) {
+  // Calendar Fix è preventivabile anche sotto 200.000 kWh/anno,
+  // comprese le offerte salvate con il precedente minimo CTE.
+  const calendarFix = offer.code === "026846ENFFL46XX289CALENDFIXEEE24";
+  if (!calendarFix && terms.minAnnualConsumption !== undefined && annualConsumption < terms.minAnnualConsumption) {
     issues.push(`Consumo annuo minimo: ${terms.minAnnualConsumption.toLocaleString("it-IT")} ${offer.commodity === "luce" ? "kWh" : "Smc"}.`);
   }
   if (terms.maxAnnualConsumption !== undefined && annualConsumption > terms.maxAnnualConsumption) {

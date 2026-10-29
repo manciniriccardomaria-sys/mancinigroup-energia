@@ -99,9 +99,13 @@ assert.equal(one.ready, true);
 assert.equal(one.selectedOffer.agencyCommission, 38.23);
 assert.ok(one.selectedOffer.notices.some(note => note.includes('CGF')));
 const calendar = find('CALENDAR FIX POWER 24 MESI');
-assert.equal(quote(calendar).ready, false); // Cliente sotto il minimo CTE.
+assert.equal(calendar.met.minAnnualConsumption, undefined);
+assert.equal(quote(calendar).ready, true); // Nessun minimo di consumo per Calendar Fix.
+const legacyCalendar = { ...calendar, met: { ...calendar.met, minAnnualConsumption: 200000 } };
+assert.equal(quote(legacyCalendar).ready, true); // Anche le offerte già salvate.
 const largeClient = { ...bill, f1Month1: 20000, f2Month1: 30000, f3Month1: 50000 };
 assert.equal(quote(calendar, largeClient).ready, true);
+assert.equal(quote(calendar, { ...largeClient, f1Month1: 400000 }).ready, false); // Massimo invariato.
 const calendarNoFinance = { ...calendar, met: { ...calendar.met, financialRate: 0 } };
 close(quote(calendar, largeClient).selectedOffer.quotaConsumi, quote(calendarNoFinance, largeClient).selectedOffer.quotaConsumi);
 close(quote(calendar, { ...largeClient, supplyStartDate: '2028-01-01' }).selectedOffer.quotaConsumi - quote(calendarNoFinance, { ...largeClient, supplyStartDate: '2028-01-01' }).selectedOffer.quotaConsumi, 314.08);

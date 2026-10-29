@@ -356,7 +356,6 @@ export const metOfferCatalog: OfferCatalogItem[] = [
       "notes": [
         "La stima esclude gli ulteriori costi delle CGF non disponibili."
       ],
-      "minAnnualConsumption": 200000,
       "financialFrom": "2028-01-01"
     },
     "fixedPrices": {
