@@ -26,10 +26,10 @@ const bill = defaultEnergyQuoteInput({
 });
 const quote = (offer, input = bill, refs = variables) => calculateEnergyQuote(input, refs, [offer]);
 
-assert.equal(metOfferCatalog.length, 24);
+assert.equal(metOfferCatalog.length, 25);
 assert.equal(metOfferCatalog.filter(offer => offer.commodity === 'luce').length, 15);
-assert.equal(metOfferCatalog.filter(offer => offer.commodity === 'gas').length, 9);
-assert.equal(new Set(metOfferCatalog.map(offer => offer.code)).size, 24);
+assert.equal(metOfferCatalog.filter(offer => offer.commodity === 'gas').length, 10);
+assert.equal(new Set(metOfferCatalog.map(offer => offer.code)).size, 25);
 assert.equal(metOfferCatalog.filter(offer => offer.requiresBands).length, 7);
 assert.ok(metOfferCatalog.every(offer => offer.code.startsWith('026846') && offer.met.sourceFile.endsWith('.pdf')));
 assert.equal(metOfferCatalog.filter(offer => offer.met.commissionFixed === undefined).length, 2);
@@ -270,6 +270,36 @@ assert.equal(quote({ ...businessFlex, active: false }, businessFlexInput).offers
 assert.equal(normalizeManagedOffers([]).find(item => item.code === businessFlex.code).active, true);
 assert.equal(quote(businessFlex, businessFlexInput, variables.filter(item => item.key !== 'pun_mono')).ready, false);
 
+// Business Gas Flex: PSV mensile, maggiorazione mensile, CSC, PCS e costo finanziario.
+const businessGasFlex = find('BUSINESS GAS FLEX');
+const businessGasFlexInput = { ...gasInput, calculationModel: 'catalog', selectedOfferCode: businessGasFlex.code };
+const businessGasFlexQuote = calculateEnergyQuote(businessGasFlexInput, variables);
+assert.equal(businessGasFlexQuote.ready, true);
+assert.equal(businessGasFlexQuote.selectedOffer.offerName, 'MET BUSINESS GAS FLEX');
+assert.equal(businessGasFlexQuote.selectedOffer.pcv, 18);
+assert.equal(businessGasFlexQuote.selectedOffer.agencyCommission, 80); // 56 + 1.200 Smc × 0,02.
+assert.equal(businessGasFlexQuote.selectedOffer.annualSaving, 294.79);
+assert.match(businessGasFlexQuote.selectedOffer.priceLabel, /PSV \+ 0,07/);
+close(businessGasFlexQuote.selectedOffer.quotaConsumi, 75.43422);
+assert.ok(businessGasFlexQuote.selectedOffer.notices.some(note => note.includes('0,01 €/Smc')));
+close(quote(businessGasFlex, { ...businessGasFlexInput, gasPcs: 0.03852 * 1.1 }).selectedOffer.quotaConsumi, 82.85632);
+const businessGasTwoMonths = quote(businessGasFlex,
+  { ...businessGasFlexInput, secondMonthKey: '2026-08', consumptionMonth2: 200 },
+  [...variables, ...variables.map(item => ({ ...item, monthKey: '2026-08', value: item.key === 'psv' ? 0.7 : item.value }))]);
+assert.equal(businessGasTwoMonths.ready, true);
+close(businessGasTwoMonths.selectedOffer.quotaConsumi, 245.35422);
+assert.equal(quote(businessGasFlex, businessGasFlexInput, noMgp).ready, true);
+assert.equal(quote(businessGasFlex, businessGasFlexInput, noPsv).ready, false);
+assert.equal(quote(businessGasFlex, { ...businessGasFlexInput, gasPcs: 0 }).ready, false);
+assert.equal(quote(businessGasFlex, { ...businessGasFlexInput, gasAnnualConsumption: 50000 }).ready, true);
+assert.equal(quote(businessGasFlex, { ...businessGasFlexInput, gasAnnualConsumption: 50001 }).ready, false);
+assert.equal(quote(businessGasFlex, { ...businessGasFlexInput, customerType: 'RES' }).offers.length, 0);
+assert.equal(quote(businessGasFlex, { ...businessGasFlexInput, calculationModel: 'catalog_fixed' }).offers.length, 0);
+assert.equal(quote({ ...businessGasFlex, active: false }, businessGasFlexInput).offers.length, 0);
+assert.equal(normalizeManagedOffers([]).find(item => item.code === businessGasFlex.code).active, true);
+assert.equal(quote(businessGasFlex, { ...businessGasFlexInput, supplyStartDate: '2030-01-01' }).selectedOffer.annualSaving,
+  businessGasFlexQuote.selectedOffer.annualSaving);
+
 // Le vecchie variabili gas non influenzano alcuna offerta, neanche i rinnovi.
 const obsoleteChanged = variables.map(item => ['m_gas', 'mgp_gas'].includes(item.key) ? { ...item, value: 99 } : item);
 for (const offer of metOfferCatalog.filter(item => item.commodity === 'gas')) {
@@ -293,7 +323,7 @@ assert.equal(JSON.stringify(gasArchive.energyQuotes[0]), gasArchivedBefore);
 const agf = defaultQuoteOffers().find(offer => offer.code === 'AGF_GAS_MANCINI GROUP_BUSINESS FIDELITY');
 assert.equal(calculateEnergyQuote({ ...gasInput, selectedOfferCode: agf.code }, noMgp).ready, true);
 const managed = defaultQuoteOffers().find(offer => offer.code === business24.code);
-assert.equal(normalizeManagedOffers([{ ...managed, active: false }]).filter(offer => offer.supplier === 'MET').length, 24);
+assert.equal(normalizeManagedOffers([{ ...managed, active: false }]).filter(offer => offer.supplier === 'MET').length, 25);
 assert.equal(normalizeManagedOffers([{ ...managed, active: false }]).find(offer => offer.id === managed.id).active, false);
 const store = normalizeStore({});
 addEnergyQuoteToStore(store, { calculationSnapshot: result, inputSnapshot: bill });
@@ -301,4 +331,4 @@ const archived = JSON.parse(JSON.stringify(store.energyQuotes[0]));
 assert.equal(archived.calculationSnapshot.selectedOffer.priceLabel, result.selectedOffer.priceLabel);
 assert.equal(archived.inputSnapshot.lightBandsComplete, true);
 assert.equal(archived.calculationSnapshot.selectedOffer.agencyCommission, 105.81);
-console.log('MET checks passed: 24 CTE, Business/Family Flex PUN/PSV, net/gross losses, weighted bands, fees, direct commissions, eligibility, phases, gas indices/PCS, snapshots.');
+console.log('MET checks passed: 25 CTE, Business/Family Flex PUN/PSV, net/gross losses, weighted bands, fees, direct commissions, eligibility, phases, gas indices/PCS, snapshots.');

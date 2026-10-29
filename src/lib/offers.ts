@@ -29,6 +29,7 @@ export type MetOfferTerms = {
   financialRate?: number;
   financialFrom?: string;
   gasCsc?: number;
+  gasMonthlySurcharge?: number;
   gasPcsReference?: number;
   minAnnualConsumption?: number;
   maxAnnualConsumption?: number;

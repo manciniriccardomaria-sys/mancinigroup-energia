@@ -144,7 +144,7 @@ export function calculateMetOffer(
     } else {
       let gasPrice = offer.fixedPrice ?? 0;
       if (variable) {
-        gasPrice = index("psv", monthKey) + offer.spread;
+        gasPrice = index("psv", monthKey) + offer.spread + (terms.gasMonthlySurcharge ?? 0);
       } else if (beforeFixed || renewal) {
         const psv = index("psv", monthKey);
         if (renewal && terms.referenceIndex !== undefined) gasPrice += psv - terms.referenceIndex;

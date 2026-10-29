@@ -5,6 +5,36 @@ import type { OfferCatalogItem } from "./offers";
 // Family/Business Flex: CTE 08/10/2026 e Provvigioni_Agenzie_AGF60 ricevute il 13/10/2026.
 export const metOfferCatalog: OfferCatalogItem[] = [
   {
+    code: "026846GNVML46XX303BUSINESSGASFLX",
+    supplier: "MET",
+    commodity: "gas",
+    offerEasy: "MET BUSINESS GAS FLEX",
+    customerType: "BUS",
+    pcv: 18,
+    spread: 0.07,
+    pricingType: "variable",
+    active: true,
+    met: {
+      sourceFile: "CTE Business Gas Flex 08.10.2026.pdf",
+      conditionDate: "2026-10-08",
+      fixedMonths: 0,
+      priceBasis: "net",
+      commercialPerUnit: 0.02,
+      monthlyServiceFee: 0,
+      gasCsc: 0.0356,
+      gasMonthlySurcharge: 0.01,
+      gasPcsReference: 0.03852,
+      financialRate: 0.02,
+      maxAnnualConsumption: 50000,
+      commissionFixed: 56,
+      commissionPerUnit: 0.02,
+      notes: [
+        "Stima con opzione mensile: inclusa la maggiorazione CTE di 0,01 €/Smc.",
+        "Provvigione annua: 56 € + 0,02 €/Smc; bonus SEPA una tantum di 7 € escluso dalla stima."
+      ]
+    }
+  },
+  {
     code: "026846ENVOL46XX303BUSINESSEEFLEX",
     supplier: "MET",
     commodity: "luce",
