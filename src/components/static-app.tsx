@@ -4173,7 +4173,7 @@ function QuotePrintPage({
               <dd>{selectedOffer ? `${formatEuro(selectedOffer.pcv)}/mese` : "-"}</dd>
             </div>
             <div>
-              <dt>Prezzo medio completo</dt>
+              <dt>Prezzo medio</dt>
               <dd>{consumptionUnitPrice === undefined ? "Da verificare" : `${formatSpread(consumptionUnitPrice, 6)} ${averageUnit}`}</dd>
             </div>
           </dl>
