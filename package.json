@@ -25,7 +25,9 @@
     "firebase:sync-access": "node scripts/sync-firebase-access.mjs",
     "firebase:fix-loading-start-dates": "node scripts/fix-loading-start-dates.mjs",
     "firebase:verify-access": "node scripts/verify-collaborator-access.mjs",
-    "firebase:rebuild-forecasts": "node scripts/rebuild-commission-forecasts.mjs"
+    "firebase:rebuild-forecasts": "node scripts/rebuild-commission-forecasts.mjs",
+    "test:market-prices": "node scripts/test-market-prices.mjs",
+    "market:sync": "node scripts/sync-market-prices.mjs"
   },
   "dependencies": {
     "firebase": "^12.15.0",

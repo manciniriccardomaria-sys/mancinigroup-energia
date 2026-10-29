@@ -114,6 +114,12 @@ service cloud.firestore {
       allow write: if hasFullDataAccess();
     }
 
+    // Separate from quote inputs; only the server using Admin SDK writes here.
+    match /marketSnapshots/gme {
+      allow get: if hasActiveAccess();
+      allow list, write: if false;
+    }
+
     match /appData/energyQuotes/items/{documentId} {
       allow read: if hasFullDataAccess() || (isPersonalProfile() && resource.data.createdBy == access().id);
       allow create: if hasFullDataAccess() || (

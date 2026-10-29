@@ -6,6 +6,7 @@ import { PendingQuotesPanel } from "./pending-quotes-panel";
 import { QuoteBillAttachments } from "./quote-bill-attachments";
 import { FixedExcelInputs, type FixedExcelNumberField } from "./fixed-excel-inputs";
 import { QuoteInstructions } from "./quote-instructions";
+import { MarketPricesPanel } from "./market-prices-panel";
 import { completePendingQuote } from "@/lib/pending-quotes";
 import {
   BadgeEuro,
@@ -981,6 +982,7 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
 
   return (
     <AppChrome user={sessionUser} view={view} flash={flash} onLogout={handleLogout} onNavigate={navigateToView}>
+      {(view === "dashboard" || view === "preventivatore") && <MarketPricesPanel />}
       {view === "dashboard" && (isPersonalUser(sessionUser)
         ? <CollaboratorDashboard store={store} user={sessionUser} />
         : <DashboardView store={store} user={sessionUser} mutateStore={mutateStore} />)}

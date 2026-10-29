@@ -1,0 +1,37 @@
+name: Aggiorna cruscotto mercato energia
+
+on:
+  schedule:
+    - cron: '17 */4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: market-prices-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    # Enable only after GME grants access and the intended usage is authorized.
+    if: vars.GME_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/sync-market-prices.mjs
+        env:
+          GME_LOGIN: ${{ secrets.GME_LOGIN }}
+          GME_PASSWORD: ${{ secrets.GME_PASSWORD }}
+          GME_USAGE_AUTHORIZED: ${{ vars.GME_ENABLED }}
+          GME_GAS_PRODUCT: ${{ vars.GME_GAS_PRODUCT }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_MARKET_SERVICE_ACCOUNT_JSON }}
