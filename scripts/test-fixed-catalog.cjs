@@ -11,7 +11,7 @@ const { defaultQuoteOffers, lightLossesForOffer } = require('../src/lib/offers.t
 const { excelModel } = require('../src/lib/excel-formulas.ts');
 const { fixedExcelReference: reference } = require('../src/lib/fixed-excel-reference.ts');
 const { normalizeStore, addEnergyQuoteToStore } = require('../src/lib/client-store.ts');
-const { formatSavingImpact, quotePeriodComparison } = require('../src/lib/quote-presentation.ts');
+const { formatSavingImpact, quoteConsumptionUnitPrice, quotePeriodComparison } = require('../src/lib/quote-presentation.ts');
 const fixture = require('./fixtures/fixed-excel-cases.json');
 const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-8, `${message}: ${actual} != ${expected}`);
 const money = value => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -121,6 +121,14 @@ assert.equal(quotePeriodComparison(unknownCost, base).saving, undefined);
 assert.equal(quotePeriodComparison({ ...screenshotCalculation, selectedOffer: undefined }, base).saving, undefined);
 assert.equal(quotePeriodComparison(screenshotCalculation, { calculationModel: 'fixed_excel', commodity: 'luce' }).saving, 4.38);
 assert.equal(quotePeriodComparison(screenshotCalculation, { calculationModel: 'fixed_excel', commodity: 'gas' }).saving, 26.29);
+// Stampa: prezzo completo della quota consumi, ponderato sui consumi del periodo.
+near(quoteConsumptionUnitPrice(screenshotCalculation), 161.69 / 300, 'Prezzo stampato senza PCV');
+near(quoteConsumptionUnitPrice(twoMonths), twoMonths.selectedOffer.quotaConsumi / 300, 'Due mesi ponderati');
+assert.equal(quoteConsumptionUnitPrice(unknownCost), undefined);
+assert.equal(quoteConsumptionUnitPrice({ ...twoMonths, selectedOffer: undefined }), undefined);
+assert.equal(quoteConsumptionUnitPrice({ ...twoMonths, source: { ...twoMonths.source, totalConsumption: 0 } }), undefined);
+assert.equal(quoteConsumptionUnitPrice(twoMonths, { ...twoMonths.selectedOffer, available: false }), undefined);
+assert.equal(quoteConsumptionUnitPrice(twoMonths, { ...twoMonths.selectedOffer, quotaConsumi: 0 }), 0);
 // ProMETto corretta: stesso periodo fisso per quota proposta e proiezione annua.
 const pro = catalog.find(offer => offer.offerEasy === 'MET 4 HOME POWER FIX 24 ProMETto');
 const proInput = { ...base, lightConsumptionMode: 'totale', selectedOfferCode: pro.code,
@@ -138,6 +146,7 @@ assert.equal(calculateEnergyQuote({ ...base, customerType: 'BUS', selectedOfferC
 const gasOffer = { code: 'fixed-gas', offerEasy: 'Gas', commodity: 'gas', customerType: 'RES', pcv: 8, spread: 0, pricingType: 'fixed', fixedPrice: .7 };
 const gas = calculateEnergyQuote({ ...monorary, commodity: 'gas', currentAveragePrice: 1, gasAnnualConsumption: 1200 }, variables, [gasOffer]);
 assert.equal(gas.selectedOffer.annualSaving, 408);
+near(quoteConsumptionUnitPrice(gas), .7, 'Prezzo completo gas in euro/Smc');
 const store = normalizeStore({});
 addEnergyQuoteToStore(store, { calculationSnapshot: first, inputSnapshot: monorary });
 const snapshot = JSON.parse(JSON.stringify(store.energyQuotes[0]));

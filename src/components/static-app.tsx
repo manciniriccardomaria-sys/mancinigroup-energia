@@ -52,7 +52,7 @@ import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth, formatCo
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
 import { marketVariableDefinitions } from "@/lib/market-variables";
 import { energyQuoteName } from "@/lib/quote-name";
-import { formatSavingImpact, quoteOfferDisplayName, quotePeriodComparison } from "@/lib/quote-presentation";
+import { formatSavingImpact, quoteConsumptionUnitPrice, quoteOfferDisplayName, quotePeriodComparison } from "@/lib/quote-presentation";
 import { formatDate, formatDateTime, formatEuro, normalizePodPdr, parseEuro, parseQuoteUnitPrice } from "@/lib/normalize";
 import { ManagedOffersView, TicketsView, PaymentGateBadge } from "./operations-views";
 import {
@@ -4059,6 +4059,7 @@ function QuotePrintPage({
 }) {
   const saving = selectedOffer?.annualSaving ?? 0;
   const periodComparison = quotePeriodComparison(calculation, input, selectedOffer);
+  const consumptionUnitPrice = quoteConsumptionUnitPrice(calculation, selectedOffer);
   const annualOnly = periodComparison.annualOnly;
   const proposedCostKnown = selectedOffer?.quotaConsumiKnown !== false;
   const currentCostKnown = input.calculationModel !== "fixed_excel" || calculation.source.totalConsumption > 0;
@@ -4172,8 +4173,8 @@ function QuotePrintPage({
               <dd>{selectedOffer ? `${formatEuro(selectedOffer.pcv)}/mese` : "-"}</dd>
             </div>
             <div>
-              <dt>{quotePriceTitle(selectedOffer)}</dt>
-              <dd>{selectedOffer ? quotePriceText(selectedOffer, input.commodity) : "-"}</dd>
+              <dt>Prezzo medio completo</dt>
+              <dd>{consumptionUnitPrice === undefined ? "Da verificare" : `${formatSpread(consumptionUnitPrice, 6)} ${averageUnit}`}</dd>
             </div>
           </dl>
         </article>

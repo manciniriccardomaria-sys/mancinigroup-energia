@@ -14,6 +14,16 @@ function roundCurrency(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+export function quoteConsumptionUnitPrice(
+  calculation: EnergyQuoteCalculation,
+  offer: QuoteOfferResult | undefined = calculation.selectedOffer
+) {
+  const consumption = calculation.source.totalConsumption;
+  if (!offer || offer.quotaConsumiKnown === false || offer.available === false ||
+    !Number.isFinite(consumption) || consumption <= 0 || !Number.isFinite(offer.quotaConsumi)) return undefined;
+  return offer.quotaConsumi / consumption;
+}
+
 export function quotePeriodComparison(
   calculation: EnergyQuoteCalculation,
   input: Pick<EnergyQuoteInput, "calculationModel" | "commodity">,
