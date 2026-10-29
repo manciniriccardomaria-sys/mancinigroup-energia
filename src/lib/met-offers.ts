@@ -21,7 +21,7 @@ export const metOfferCatalog: OfferCatalogItem[] = [
       fixedMonths: 0,
       priceBasis: "gross",
       commercialPerUnit: 0,
-      monthlyServiceFee: 1,
+      monthlyServiceFee: 0,
       nonHourlySurcharge: 0.003,
       commissionFixed: 21,
       commissionPerUnit: 0
@@ -43,7 +43,7 @@ export const metOfferCatalog: OfferCatalogItem[] = [
       fixedMonths: 0,
       priceBasis: "net",
       commercialPerUnit: 0,
-      monthlyServiceFee: 1,
+      monthlyServiceFee: 0,
       gasPcsReference: 0.03852,
       commissionFixed: 21,
       commissionPerUnit: 0

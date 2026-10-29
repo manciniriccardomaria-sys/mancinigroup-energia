@@ -194,7 +194,7 @@ assert.equal(flexLight.ready, true);
 assert.equal(flexLight.selectedOffer.offerName, 'MET FAMILY POWER FLEX');
 assert.equal(flexLight.offers.some(offer => offer.pricingType === 'fixed'), false);
 close(flexLight.selectedOffer.quotaConsumi, 22.29611);
-assert.equal(flexLight.selectedOffer.pcv, 4.5);
+assert.equal(flexLight.selectedOffer.pcv, 3.5);
 assert.equal(flexLight.selectedOffer.agencyCommission, 21);
 assert.match(flexLight.selectedOffer.priceLabel, /PUN con perdite \+ 0,0128/);
 close(quote(powerFlex, { ...flexInput, lightHourlyMeter: false }).selectedOffer.quotaConsumi, 22.59611);
@@ -208,9 +208,9 @@ const flexGasInput = { ...gasInput, customerType: 'RES', calculationModel: 'cata
 const flexGas = calculateEnergyQuote(flexGasInput, variables);
 assert.equal(flexGas.ready, true);
 close(flexGas.selectedOffer.quotaConsumi, 63.661);
-assert.equal(flexGas.selectedOffer.pcv, 5.5);
+assert.equal(flexGas.selectedOffer.pcv, 4.5);
 assert.equal(flexGas.selectedOffer.agencyCommission, 21);
-assert.equal(flexGas.selectedOffer.annualSaving, 586.07);
+assert.equal(flexGas.selectedOffer.annualSaving, 598.07);
 assert.match(flexGas.selectedOffer.priceLabel, /PSV \+ 0,03/);
 close(quote(gasFlex, { ...flexGasInput, gasPcs: 0.03852 * 1.1 }).selectedOffer.quotaConsumi, 70.0271);
 assert.equal(quote(gasFlex, flexGasInput, noMgp).ready, true);
@@ -220,7 +220,7 @@ const flexGasTwoMonths = quote(gasFlex, { ...flexGasInput, secondMonthKey: '2026
   [...variables, ...variables.map(item => ({ ...item, monthKey: '2026-08', value: item.key === 'psv' ? 0.7 : item.value }))]);
 assert.equal(flexGasTwoMonths.ready, true);
 close(flexGasTwoMonths.selectedOffer.quotaConsumi, 209.661);
-assert.equal(flexGasTwoMonths.selectedOffer.annualSaving, 511.36);
+assert.equal(flexGasTwoMonths.selectedOffer.annualSaving, 523.36);
 for (const [offer, input] of [[powerFlex, flexInput], [gasFlex, flexGasInput]]) {
   assert.equal(quote(offer, { ...input, calculationModel: 'catalog_fixed' }).offers.length, 0);
   assert.equal(quote(offer, { ...input, customerType: 'BUS' }).offers.length, 0);
