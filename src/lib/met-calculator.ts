@@ -32,6 +32,9 @@ export function offerPriceLabel(offer: OfferCatalogItem, lossFactor = 1.1) {
   if (offer.pricingType === "fixed") {
     return `${price(net(offer.fixedPrice ?? 0))} ${offer.commodity === "luce" ? "€/kWh" : "€/Smc"}${offer.met && offer.commodity === "luce" ? " netto" : ""}`;
   }
+  if (offer.met) {
+    return `${offer.commodity === "luce" ? "PUN con perdite" : "PSV"} + ${price(offer.spread)} ${offer.commodity === "luce" ? "€/kWh" : "€/Smc"}`;
+  }
   return `${price(offer.spread)} ${offer.commodity === "luce" ? "€/kWh" : "€/Smc"}`;
 }
 
@@ -46,12 +49,15 @@ export function calculateMetOffer(
   annualConsumption: number
 ) {
   const terms = offer.met!;
+  const variable = offer.pricingType === "variable";
   // Anche gli override salvati prima dell'introduzione della regola usano
   // il periodo di preventivazione del catalogo, conservando i propri prezzi.
   const fixedPeriodOnly = (metOfferCatalog.find(item => item.code === offer.code)?.met?.quotePeriod ?? terms.quotePeriod) === "fixed";
   const losses = lightLossesForOffer(offer);
   const issues: string[] = [];
-  const notices = (terms.notes ?? []).filter(note => !fixedPeriodOnly || note !== "Fase iniziale indicizzata per consumi prima del 01/01/2027.");
+  const notices = (terms.notes ?? [])
+    .filter(note => !fixedPeriodOnly || note !== "Fase iniziale indicizzata per consumi prima del 01/01/2027.")
+    .map(note => offer.commodity === "gas" ? note.replace(/MGP-GAS|M-GAS/g, "PSV") : note);
   const start = input.supplyStartDate || input.quoteDate;
   const total = months.reduce((sum, month) => sum + month.consumption.total, 0);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !Number.isFinite(new Date(`${start}T12:00:00Z`).getTime())) issues.push("Inserisci la decorrenza della nuova fornitura.");
@@ -63,6 +69,9 @@ export function calculateMetOffer(
   }
   if (terms.energyModel === "cer" && !input.cerMember) issues.push("Conferma l’adesione a una CER convenzionata per questa offerta.");
   if (terms.energyModel === "cer" && input.lightLossMode !== "bassa") issues.push("L’offerta CER è riservata alle forniture in bassa tensione.");
+  if (variable && offer.commodity === "luce" && offer.customerType === "RES" && input.lightLossMode !== "bassa") {
+    issues.push("L’offerta è riservata alle forniture domestiche in bassa tensione.");
+  }
   if (terms.minAnnualConsumption !== undefined && annualConsumption < terms.minAnnualConsumption) {
     issues.push(`Consumo annuo minimo: ${terms.minAnnualConsumption.toLocaleString("it-IT")} ${offer.commodity === "luce" ? "kWh" : "Smc"}.`);
   }
@@ -75,7 +84,7 @@ export function calculateMetOffer(
   const index = (key: string, monthKey: string) => {
     const match = variables.find(variable => variable.key === key && variable.monthKey === monthKey);
     if (!match || !Number.isFinite(match.value)) {
-      const label = key === "mgp_gas" ? "MGP-GAS (€/Smc)" : key === "m_gas" ? "M-GAS (€/Smc)" : key;
+      const label = key === "psv" ? "PSV (€/Smc)" : key;
       issues.push(`Manca ${label} per ${monthKey}.`);
       return 0;
     }
@@ -92,12 +101,12 @@ export function calculateMetOffer(
   const sampledCost = (date: string) => months.reduce((sum, { monthKey, consumption }) => {
     const q = consumption.total;
     const beforeFixed = !fixedPeriodOnly && Boolean(terms.fixedStartDate && date < terms.fixedStartDate);
-    const renewal = !fixedPeriodOnly && afterFixed(date);
+    const renewal = !variable && !fixedPeriodOnly && afterFixed(date);
     let energy = 0;
     if (offer.commodity === "luce") {
-      if (beforeFixed || (renewal && !offer.fixedPrices) || terms.energyModel === "cer") {
-        if (terms.renewalSpread === undefined) issues.push("Spread dopo il periodo fisso da confermare.");
-        const spread = terms.renewalSpread ?? 0;
+      if (variable || beforeFixed || (renewal && !offer.fixedPrices) || terms.energyModel === "cer") {
+        if (!variable && terms.renewalSpread === undefined) issues.push("Spread dopo il periodo fisso da confermare.");
+        const spread = variable ? offer.spread * (losses.spread ? lossFactor : 1) : terms.renewalSpread ?? 0;
         const nonHourly = input.lightHourlyMeter === false ? terms.nonHourlySurcharge ?? 0 : 0;
         if (terms.energyModel === "cer" && !renewal) {
           energy = (consumption.f1 ?? 0) * netLightPrice(offer.fixedPrice ?? 0) * fixedLossFactor +
@@ -125,19 +134,21 @@ export function calculateMetOffer(
         index("dispacciamento", monthKey) * (losses.dispatching ? lossFactor : 1) + imbalance);
     } else {
       let gasPrice = offer.fixedPrice ?? 0;
-      if (beforeFixed || renewal) {
-        const mGas = index("m_gas", monthKey);
-        if (renewal && terms.referenceIndex !== undefined) gasPrice += mGas - terms.referenceIndex;
+      if (variable) {
+        gasPrice = index("psv", monthKey) + offer.spread;
+      } else if (beforeFixed || renewal) {
+        const psv = index("psv", monthKey);
+        if (renewal && terms.referenceIndex !== undefined) gasPrice += psv - terms.referenceIndex;
         else {
           if (terms.renewalSpread === undefined) issues.push("Spread gas dopo il periodo fisso da confermare.");
-          gasPrice = mGas + (terms.renewalSpread ?? 0);
+          gasPrice = psv + (terms.renewalSpread ?? 0);
         }
       }
       energy = q * (gasPrice + (terms.gasCsc ?? 0) + terms.commercialPerUnit) * pcsFactor;
     }
     if (offer.commodity === "luce") energy += q * terms.commercialPerUnit;
     if (terms.financialRate && (!terms.financialFrom || date >= terms.financialFrom)) {
-      energy += q * terms.financialRate * index(offer.commodity === "luce" ? "pun_mono" : "mgp_gas", monthKey);
+      energy += q * terms.financialRate * index(offer.commodity === "luce" ? "pun_mono" : "psv", monthKey);
     }
     return sum + energy;
   }, 0);
@@ -154,9 +165,10 @@ export function calculateMetOffer(
   if (fixedPeriodOnly) notices.push(`Preventivo riferito al prezzo fisso dei ${terms.fixedMonths} mesi; periodi indicizzati esclusi dalla stima.`);
   else if (terms.fixedStartDate && start < terms.fixedStartDate) notices.push(`Fase iniziale indicizzata; prezzo fisso dal ${terms.fixedStartDate}.`);
   notices.push("Stima annua con indici del periodo di bolletta mantenuti costanti.");
+  if (offer.commodity === "gas") notices.push("Indice gas per la stima: PSV medio mensile inserito manualmente.");
   if (offer.commodity === "gas" && pcs === terms.gasPcsReference) notices.push("PCS impostato al riferimento CTE: verifica il valore della bolletta.");
   const priceLabel = !fixedPeriodOnly && terms.fixedStartDate && start < terms.fixedStartDate
-    ? `${offer.commodity === "luce" ? "PUN con perdite" : "M-GAS"} + ${price(terms.renewalSpread ?? 0)}; fisso dal ${terms.fixedStartDate}`
+    ? `${offer.commodity === "luce" ? "PUN con perdite" : "PSV"} + ${price(terms.renewalSpread ?? 0)}; fisso dal ${terms.fixedStartDate}`
     : offerPriceLabel(offer, lossFactor);
   return { quotaConsumi, annualConsumptionCost, priceLabel, issues: [...new Set(issues)], notices: [...new Set(notices)] };
 }

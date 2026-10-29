@@ -26,10 +26,10 @@ const bill = defaultEnergyQuoteInput({
 });
 const quote = (offer, input = bill, refs = variables) => calculateEnergyQuote(input, refs, [offer]);
 
-assert.equal(metOfferCatalog.length, 21);
-assert.equal(metOfferCatalog.filter(offer => offer.commodity === 'luce').length, 13);
-assert.equal(metOfferCatalog.filter(offer => offer.commodity === 'gas').length, 8);
-assert.equal(new Set(metOfferCatalog.map(offer => offer.code)).size, 21);
+assert.equal(metOfferCatalog.length, 23);
+assert.equal(metOfferCatalog.filter(offer => offer.commodity === 'luce').length, 14);
+assert.equal(metOfferCatalog.filter(offer => offer.commodity === 'gas').length, 9);
+assert.equal(new Set(metOfferCatalog.map(offer => offer.code)).size, 23);
 assert.equal(metOfferCatalog.filter(offer => offer.requiresBands).length, 7);
 assert.ok(metOfferCatalog.every(offer => offer.code.startsWith('026846') && offer.met.sourceFile.endsWith('.pdf')));
 assert.equal(metOfferCatalog.filter(offer => offer.met.commissionFixed === undefined).length, 2);
@@ -183,11 +183,54 @@ assert.equal(gasProAfter.ready, true);
 close(gasProAfter.selectedOffer.quotaConsumi, 48.7);
 assert.equal(gasProAfter.selectedOffer.commissionKnown, false);
 
+// Family Flex: selezione Variabile, spread luce già con perdite e indice gas M-GAS.
+const powerFlex = find('FAMILY POWER FLEX');
+const gasFlex = find('FAMILY GAS FLEX');
+const flexInput = { ...homeInput, calculationModel: 'catalog', selectedOfferCode: powerFlex.code };
+const flexLight = calculateEnergyQuote(flexInput, variables);
+assert.equal(flexLight.ready, true);
+assert.equal(flexLight.selectedOffer.offerName, 'MET FAMILY POWER FLEX');
+assert.equal(flexLight.offers.some(offer => offer.pricingType === 'fixed'), false);
+close(flexLight.selectedOffer.quotaConsumi, 22.29611);
+assert.equal(flexLight.selectedOffer.pcv, 4.5);
+assert.equal(flexLight.selectedOffer.agencyCommission, 21);
+assert.match(flexLight.selectedOffer.priceLabel, /PUN con perdite \+ 0,0128/);
+close(quote(powerFlex, { ...flexInput, lightHourlyMeter: false }).selectedOffer.quotaConsumi, 22.59611);
+const flexBands = { ...flexInput, lightConsumptionMode: 'fasce', f1Month1: 10, f2Month1: 20, f3Month1: 70 };
+close(quote(powerFlex, flexBands).selectedOffer.quotaConsumi, 22.16191);
+assert.equal(quote(powerFlex, { ...flexInput, lightLossMode: 'media_alta' }).ready, false);
+const flexLater = quote(powerFlex, { ...flexInput, supplyStartDate: '2030-01-01' });
+assert.equal(flexLater.selectedOffer.annualSaving, flexLight.selectedOffer.annualSaving);
+close(quote(powerFlex, flexInput, changedPun).selectedOffer.quotaConsumi - flexLight.selectedOffer.quotaConsumi, 92.7256);
+const flexGasInput = { ...gasInput, customerType: 'RES', calculationModel: 'catalog', selectedOfferCode: gasFlex.code };
+const flexGas = calculateEnergyQuote(flexGasInput, variables);
+assert.equal(flexGas.ready, true);
+close(flexGas.selectedOffer.quotaConsumi, 55);
+assert.equal(flexGas.selectedOffer.pcv, 5.5);
+assert.equal(flexGas.selectedOffer.agencyCommission, 21);
+assert.equal(flexGas.selectedOffer.annualSaving, 690);
+assert.match(flexGas.selectedOffer.priceLabel, /M-GAS \+ 0,03/);
+close(quote(gasFlex, { ...flexGasInput, gasPcs: 0.03852 * 1.1 }).selectedOffer.quotaConsumi, 60.5);
+assert.equal(quote(gasFlex, flexGasInput, noMgp).ready, true);
+assert.equal(quote(gasFlex, flexGasInput, variables.filter(item => item.key !== 'm_gas')).ready, false);
+close(quote(gasFlex, flexGasInput, variables.map(item => item.key === 'psv' ? { ...item, value: 9 } : item)).selectedOffer.quotaConsumi, 55);
+const flexGasTwoMonths = quote(gasFlex, { ...flexGasInput, secondMonthKey: '2026-08', consumptionMonth2: 200 },
+  [...variables, ...variables.map(item => ({ ...item, monthKey: '2026-08', value: item.key === 'm_gas' ? 0.7 : item.value }))]);
+assert.equal(flexGasTwoMonths.ready, true);
+close(flexGasTwoMonths.selectedOffer.quotaConsumi, 201);
+assert.equal(flexGasTwoMonths.selectedOffer.annualSaving, 546);
+for (const [offer, input] of [[powerFlex, flexInput], [gasFlex, flexGasInput]]) {
+  assert.equal(quote(offer, { ...input, calculationModel: 'catalog_fixed' }).offers.length, 0);
+  assert.equal(quote(offer, { ...input, customerType: 'BUS' }).offers.length, 0);
+  assert.equal(quote({ ...offer, active: false }, input).offers.length, 0);
+  assert.equal(normalizeManagedOffers([]).find(item => item.code === offer.code).active, true);
+}
+
 // Una MET incompleta non blocca le altre offerte; override e snapshot persistono.
 const agf = defaultQuoteOffers().find(offer => offer.code === 'AGF_GAS_MANCINI GROUP_BUSINESS FIDELITY');
 assert.equal(calculateEnergyQuote({ ...gasInput, selectedOfferCode: agf.code }, noMgp).ready, true);
 const managed = defaultQuoteOffers().find(offer => offer.code === business24.code);
-assert.equal(normalizeManagedOffers([{ ...managed, active: false }]).filter(offer => offer.supplier === 'MET').length, 21);
+assert.equal(normalizeManagedOffers([{ ...managed, active: false }]).filter(offer => offer.supplier === 'MET').length, 23);
 assert.equal(normalizeManagedOffers([{ ...managed, active: false }]).find(offer => offer.id === managed.id).active, false);
 const store = normalizeStore({});
 addEnergyQuoteToStore(store, { calculationSnapshot: result, inputSnapshot: bill });
@@ -195,4 +238,4 @@ const archived = JSON.parse(JSON.stringify(store.energyQuotes[0]));
 assert.equal(archived.calculationSnapshot.selectedOffer.priceLabel, result.selectedOffer.priceLabel);
 assert.equal(archived.inputSnapshot.lightBandsComplete, true);
 assert.equal(archived.calculationSnapshot.selectedOffer.agencyCommission, 105.81);
-console.log('MET checks passed: 21 CTE, net/gross losses, weighted bands, fees, direct commissions, eligibility, phases, gas indices/PCS, snapshots.');
+console.log('MET checks passed: 23 CTE, Family Flex PUN/M-GAS, net/gross losses, weighted bands, fees, direct commissions, eligibility, phases, gas indices/PCS, snapshots.');

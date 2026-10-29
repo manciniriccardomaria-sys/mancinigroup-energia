@@ -2,7 +2,53 @@ import type { OfferCatalogItem } from "./offers";
 
 // CTE MET 24/09/2026 e 02/10/2026; prezzi netti originali quando disponibili.
 // Provvigioni: listino ricevuto il 07/10/2026, importi già spettanti all’agenzia.
+// Family Flex: CTE 08/10/2026 e Provvigioni_Agenzie_AGF60 ricevute il 13/10/2026.
 export const metOfferCatalog: OfferCatalogItem[] = [
+  {
+    code: "026846ENVOL46XX303FAMILYFLEXEEX4",
+    supplier: "MET",
+    commodity: "luce",
+    offerEasy: "MET FAMILY POWER FLEX",
+    customerType: "RES",
+    pcv: 3.5,
+    spread: 0.0128,
+    pricingType: "variable",
+    active: true,
+    lightLosses: { punMono: true, punBands: true, spread: false },
+    met: {
+      sourceFile: "CTE Family Power Flex 08.10.2026.pdf",
+      conditionDate: "2026-10-08",
+      fixedMonths: 0,
+      priceBasis: "gross",
+      commercialPerUnit: 0,
+      monthlyServiceFee: 1,
+      nonHourlySurcharge: 0.003,
+      commissionFixed: 21,
+      commissionPerUnit: 0
+    }
+  },
+  {
+    code: "026846GNVML46XX303FAMILYFLEXGAS4",
+    supplier: "MET",
+    commodity: "gas",
+    offerEasy: "MET FAMILY GAS FLEX",
+    customerType: "RES",
+    pcv: 4.5,
+    spread: 0.03,
+    pricingType: "variable",
+    active: true,
+    met: {
+      sourceFile: "CTE Family Gas Flex 08.10.2026.pdf",
+      conditionDate: "2026-10-08",
+      fixedMonths: 0,
+      priceBasis: "net",
+      commercialPerUnit: 0,
+      monthlyServiceFee: 1,
+      gasPcsReference: 0.03852,
+      commissionFixed: 21,
+      commissionPerUnit: 0
+    }
+  },
   {
     "code": "026846ENFML46XX289FAMFIXEEXMONX4",
     "supplier": "MET",
@@ -496,7 +542,7 @@ export const metOfferCatalog: OfferCatalogItem[] = [
       "gasPcsReference": 0.03852,
       "notes": [
         "Provvigione da confermare.",
-        "Fase iniziale M-GAS + spread per consumi prima del 01/01/2027."
+        "Fase iniziale PSV + spread per consumi prima del 01/01/2027."
       ]
     },
     "fixedPrice": 0.487
