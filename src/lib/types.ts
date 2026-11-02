@@ -204,6 +204,7 @@ export type LoadingRecord = {
   agency?: string;
   representative?: string;
   customerName: string;
+  phone?: string;
   customerType?: string;
   taxCode?: string;
   vat?: string;

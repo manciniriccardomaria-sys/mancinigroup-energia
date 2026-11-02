@@ -1,3 +1,4 @@
+import { associateCustomerPhones } from "./customer-phone";
 import { defaultQuoteOffers, normalizeManagedOffers } from "./offers";
 import "server-only";
 
@@ -1030,6 +1031,7 @@ export async function addCustomer(input: {
     createdBy: input.createdBy
   };
 
+  associateCustomerPhones([customer], store.loadingRecords);
   store.customers.unshift(customer);
   refreshLoadingMatches(store.loadingRecords, podPdrNorm, customer.id, source.id, customer.createdAt);
   refreshAgencyMarginMatches(
@@ -1132,6 +1134,7 @@ export async function importLoadingRecords(input: {
     const existing = existingByKey.get(createLoadingImportKey(row));
     const record: LoadingRecord = {
       ...row,
+      phone: row.phone?.trim() || existing?.phone,
       id: existing?.id ?? `car_${randomUUID()}`,
       uploadedFileId: input.uploadedFileId,
       matchedCustomerId: customer?.id,
@@ -1159,6 +1162,7 @@ export async function importLoadingRecords(input: {
   }
 
   store.loadingRecords = nextRecords.sort(compareLoadingRecordsLatestFirst);
+  associateCustomerPhones(store.customers, store.loadingRecords);
 
   await writeStore(store);
 

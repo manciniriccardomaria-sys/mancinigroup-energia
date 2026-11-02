@@ -105,6 +105,7 @@ function commodityFromSupply(supplyType: string, podPdr: string): Commodity {
 export function parseCaricamentiWorkbook(buffer: WorkbookInput): ParsedLoadingWorkbook {
   const workbook = XLSX.read(buffer, {
     type: workbookReadType(buffer),
+    raw: true,
     cellDates: true
   });
   const sheetName = workbook.SheetNames[0];
@@ -149,6 +150,7 @@ export function parseCaricamentiWorkbook(buffer: WorkbookInput): ParsedLoadingWo
       agency: valueFrom(row, ["AGENZIA"]) || undefined,
       representative: valueFrom(row, ["RAPPRESENTANTE"]) || undefined,
       customerName: valueFrom(row, ["CLIENTE"]) || "Cliente senza nome",
+      phone: valueFrom(row, ["CELLULARE FIRMATARIO", "TELEFONO", "CELLULARE", "TELEFONO CLIENTE"]) || undefined,
       customerType: valueFrom(row, ["TIPO CLIENTE"]) || undefined,
       taxCode: valueFrom(row, ["CF"]) || undefined,
       vat: valueFrom(row, ["PIVA"]) || undefined,

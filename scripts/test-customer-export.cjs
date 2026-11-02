@@ -9,6 +9,8 @@ require.extensions[".ts"] = (module, filename) => {
 };
 const { createCustomersWorkbook } = require("../src/lib/customer-export.ts");
 const { setCustomerPhoneInStore, normalizeStore, cloneStore } = require("../src/lib/client-store.ts");
+const { phoneForPod, associateCustomerPhones } = require("../src/lib/customer-phone.ts");
+const { parseCaricamentiWorkbook } = require("../src/lib/import-caricamenti.ts");
 const row = {
   customer: {
     id: "client-test", name: "=SUM(1,2)", podPdr: "00123456789012", commodity: "gas", phone: "+39 0123 456789",
@@ -57,4 +59,18 @@ assert.throws(() => setCustomerPhoneInStore(store, "missing", "123"));
 assert.throws(() => setCustomerPhoneInStore(store, "client-test", "1".repeat(51)));
 setCustomerPhoneInStore(store, "client-test", " ");
 assert.equal(store.customers[0].phone, undefined, "Phone can be removed");
+const source = Buffer.from('POD/PDR;CLIENTE;CELLULARE FIRMATARIO;DATA CARICAMENTO\n00123456789012;Nome diverso;+39 0123456789;30/10/2026\n');
+const loadingRows = parseCaricamentiWorkbook(source).rows;
+assert.equal(loadingRows[0].phone, "+39 0123456789");
+assert.equal(loadingRows[0].podPdr, "00123456789012");
+assert.equal(phoneForPod("123456789012", loadingRows), "+39 0123456789", "Use normalized exact POD, regardless of customer name");
+assert.equal(phoneForPod("IT999E00000000", loadingRows), undefined, "Never associate a different POD");
+associateCustomerPhones(store.customers, loadingRows);
+assert.equal(store.customers[0].phone, "+39 0123456789");
+setCustomerPhoneInStore(store, "client-test", "3331112222");
+associateCustomerPhones(store.customers, loadingRows);
+assert.equal(store.customers[0].phone, "3331112222", "Preserve an explicitly saved phone");
+const conflictingRows = [...loadingRows, { ...loadingRows[0], phone: "3330000000" }];
+assert.equal(phoneForPod(row.customer.podPdr, conflictingRows), undefined, "Do not guess when equally recent records disagree");
+assert.equal(phoneForPod(row.customer.podPdr, [...loadingRows, { ...loadingRows[0], loadedAt: "2026-09-01", phone: "3330000000" }]), "+39 0123456789", "Prefer the latest source record");
 console.log("Customer Excel export tests passed.");

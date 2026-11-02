@@ -1,3 +1,4 @@
+import { associateCustomerPhones } from "./customer-phone";
 import { defaultQuoteOffers, normalizeManagedOffers } from "./offers";
 import { energyQuoteName } from "./quote-name";
 import { getMarketVariableDefinition, marketVariableSeedValues } from "./market-variables";
@@ -651,6 +652,7 @@ export function addCustomerToStore(
     createdBy: input.createdBy
   };
 
+  associateCustomerPhones([customer], store.loadingRecords);
   store.customers.unshift(customer);
   refreshLoadingMatches(store.loadingRecords, podPdrNorm, customer.id, source.id, createdAt);
   refreshAgencyMarginMatches(store.agencyMarginRecords, podPdrNorm, customer.id, source.id, createdAt);
@@ -732,6 +734,7 @@ export function importLoadingRecordsToStore(
     const existing = existingByKey.get(createLoadingImportKey(row));
     const record: LoadingRecord = {
       ...row,
+      phone: row.phone?.trim() || existing?.phone,
       id: existing?.id ?? randomId("car"),
       uploadedFileId: input.uploadedFileId,
       matchedCustomerId: customer?.id,
@@ -755,6 +758,7 @@ export function importLoadingRecordsToStore(
   }
 
   store.loadingRecords = nextRecords.sort(compareLoadingRecordsLatestFirst);
+  associateCustomerPhones(store.customers, store.loadingRecords);
 
   return {
     totalRows: input.totalRows,
