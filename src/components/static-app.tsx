@@ -14,6 +14,7 @@ import {
   Calculator,
   ClipboardList,
   Database,
+  Download,
   FilePlus2,
   Flame,
   FolderUp,
@@ -50,6 +51,8 @@ import { simulateFutureCommissions, type ProjectedCommission } from "@/lib/commi
 import { parseAgencyMarginCsv } from "@/lib/import-agency-margins";
 import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth, formatConsumptionMonth } from "@/lib/agency-margin-upload";
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
+import { createCustomersWorkbook } from "@/lib/customer-export";
+import { writeFile as writeExcelFile } from "xlsx";
 import { marketVariableDefinitions } from "@/lib/market-variables";
 import { energyQuoteName } from "@/lib/quote-name";
 import { formatSavingImpact, quoteConsumptionUnitPrice, quoteOfferDisplayName, quotePeriodComparison } from "@/lib/quote-presentation";
@@ -1990,6 +1993,7 @@ function NewCustomerView({ store, user, mutateStore }: ViewProps) {
 }
 
 function CustomersView({ store, user, mutateStore, onOpenTicket }: ViewProps & { onOpenTicket: (customer: Customer) => void }) {
+  const [exportError, setExportError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortKey, setSortKey] = useState<"name" | "source" | "value">("name");
   const [showActiveCustomers, setShowActiveCustomers] = useState(true);
@@ -2083,6 +2087,17 @@ function CustomersView({ store, user, mutateStore, onOpenTicket }: ViewProps & {
       return a.customer.name.localeCompare(b.customer.name, "it");
     });
 
+  function exportCustomers() {
+    setExportError("");
+    try {
+      const workbook = createCustomersWorkbook(rows, isPersonalUser(user));
+      const date = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome" }).format(new Date());
+      writeExcelFile(workbook, `clienti-${date}.xlsx`, { compression: true });
+    } catch {
+      setExportError("Esportazione non riuscita. Riprova.");
+    }
+  }
+
   return (
     <section className="table-section no-margin">
       <div className="section-heading">
@@ -2095,6 +2110,9 @@ function CustomersView({ store, user, mutateStore, onOpenTicket }: ViewProps & {
           </p>
         </div>
         <div className="section-actions">
+          <button className="secondary-button" type="button" onClick={exportCustomers} disabled={rows.length === 0} title="Esporta i clienti visualizzati, rispettando ricerca, filtri e ordinamento">
+            <Download size={18} /> Esporta Excel ({rows.length})
+          </button>
           <div className="checkbox-filter-group" aria-label="Filtro stato clienti">
             <label className="checkbox-filter">
               <input
@@ -2131,6 +2149,7 @@ function CustomersView({ store, user, mutateStore, onOpenTicket }: ViewProps & {
           </label>
         </div>
       </div>
+      {exportError && <div className="alert error" role="alert">{exportError}</div>}
       <div className="table-wrap">
         <table>
           <thead>
