@@ -322,6 +322,7 @@ export async function createCustomerAction(formData: FormData) {
     await addCustomer({
       podPdr,
       name,
+      phone: asString(formData, "phone") || undefined,
       sourceId,
       offer,
       notes,

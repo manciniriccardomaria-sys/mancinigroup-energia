@@ -1232,6 +1232,18 @@ td small {
   font-weight: 800;
 }
 
+.customer-phone-editor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.customer-phone-editor input {
+  min-width: 0;
+  flex: 1;
+}
+
 .customer-name-cell {
   display: inline-flex;
   align-items: flex-start;

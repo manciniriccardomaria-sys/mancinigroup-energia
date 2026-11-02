@@ -25,6 +25,7 @@ export type Customer = {
   podPdr: string;
   podPdrNorm: string;
   name: string;
+  phone?: string;
   sourceId: string;
   commodity: Commodity;
   status: CustomerStatus;

@@ -43,7 +43,7 @@ import {
   useState
 } from "react";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User as FirebaseAuthUser } from "firebase/auth";
-import { addCommissionPaymentToStore, addCommissionRuleToStore, addCustomerToStore, addEnergyQuoteToStore, addSourceToStore, addUploadedFileToStore, addUserToStore, cloneStore, createDefaultClientStore, importAgencyMarginRecordsToStore, importLoadingRecordsToStore, normalizeStore, reassignCustomerInStore, setCustomerStatusInStore, setSourceActiveInStore, upsertMarketVariableToStore } from "@/lib/client-store";
+import { addCommissionPaymentToStore, addCommissionRuleToStore, addCustomerToStore, addEnergyQuoteToStore, addSourceToStore, addUploadedFileToStore, addUserToStore, cloneStore, createDefaultClientStore, importAgencyMarginRecordsToStore, importLoadingRecordsToStore, normalizeStore, reassignCustomerInStore, setCustomerStatusInStore, setCustomerPhoneInStore, setSourceActiveInStore, upsertMarketVariableToStore } from "@/lib/client-store";
 import { provisionFirebaseUserAccess } from "@/lib/firebase-access-client";
 import { firebaseAuth, firebaseDb, hasFirebaseClientConfig } from "@/lib/firebase-client";
 import { readAccessProfile, readFirestoreStoreForProfile, seedFirestoreStore, writeFirestoreStore } from "@/lib/firebase-store-client";
@@ -1939,6 +1939,7 @@ function NewCustomerView({ store, user, mutateStore }: ViewProps) {
       addCustomerToStore(draft, {
         podPdr: textValue(data, "podPdr"),
         name: textValue(data, "name"),
+        phone: textValue(data, "phone") || undefined,
         sourceId: textValue(data, "sourceId"),
         offer: textValue(data, "offer") || undefined,
         notes: textValue(data, "notes") || undefined,
@@ -1966,6 +1967,10 @@ function NewCustomerView({ store, user, mutateStore }: ViewProps) {
           <input name="name" required />
         </label>
         <label>
+          Telefono
+          <input name="phone" type="tel" maxLength={50} autoComplete="tel" />
+        </label>
+        <label>
           Fonte
           <select name="sourceId" required>
             {sources.map((source) => (
@@ -1989,6 +1994,28 @@ function NewCustomerView({ store, user, mutateStore }: ViewProps) {
         </button>
       </form>
     </section>
+  );
+}
+
+function CustomerPhoneEditor({ customer, onSave }: { customer: Customer; onSave: (phone: string) => Promise<boolean> }) {
+  const [phone, setPhone] = useState(customer.phone ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await onSave(phone);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="customer-phone-editor" onSubmit={(event) => void submit(event)}>
+      <input type="tel" aria-label={`Telefono di ${customer.name}`} value={phone} onChange={(event) => setPhone(event.target.value)} maxLength={50} placeholder="Inserisci telefono" disabled={saving} />
+      <button className="secondary-button" type="submit" disabled={saving || phone.trim() === (customer.phone ?? "")} aria-label={`Salva telefono di ${customer.name}`} title="Salva telefono"><Save size={16} /></button>
+    </form>
   );
 }
 
@@ -2068,7 +2095,7 @@ function CustomersView({ store, user, mutateStore, onOpenTicket }: ViewProps & {
         return true;
       }
 
-      return [customer.name, customer.podPdr, customer.offer, source?.name]
+      return [customer.name, customer.podPdr, customer.offer, customer.phone, source?.name]
         .filter(Boolean)
         .some((value) => value?.toLowerCase().includes(searchNeedle));
     })
@@ -2136,7 +2163,7 @@ function CustomersView({ store, user, mutateStore, onOpenTicket }: ViewProps & {
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Nome, POD/PDR o fonte"
+              placeholder="Nome, POD/PDR, telefono o fonte"
             />
           </label>
           <label className="table-filter-control">
@@ -2155,6 +2182,7 @@ function CustomersView({ store, user, mutateStore, onOpenTicket }: ViewProps & {
           <thead>
             <tr>
               <th>Cliente</th>
+              <th>Telefono</th>
               <th>POD/PDR</th>
               <th>Tipologia</th>
               <th>CF / P.IVA</th>
@@ -2177,6 +2205,13 @@ function CustomersView({ store, user, mutateStore, onOpenTicket }: ViewProps & {
                       {customer.offer && <small>{customer.offer}</small>}
                     </span>
                   </div>
+                </td>
+                <td>
+                  {isPersonalUser(user) ? customer.phone || "-" : (
+                    <CustomerPhoneEditor key={`${customer.id}:${customer.phone ?? ""}`} customer={customer} onSave={(phone) =>
+                      mutateStore((draft) => setCustomerPhoneInStore(draft, customer.id, phone), "Telefono cliente aggiornato.")
+                    } />
+                  )}
                 </td>
                 <td>{customer.podPdr}</td>
                 <td>
@@ -2248,7 +2283,7 @@ function CustomersView({ store, user, mutateStore, onOpenTicket }: ViewProps & {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td className="empty-state" colSpan={10}>
+                <td className="empty-state" colSpan={11}>
                   Nessun cliente presente.
                 </td>
               </tr>

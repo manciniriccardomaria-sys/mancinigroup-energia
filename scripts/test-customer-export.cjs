@@ -8,9 +8,10 @@ require.extensions[".ts"] = (module, filename) => {
   }).outputText, filename);
 };
 const { createCustomersWorkbook } = require("../src/lib/customer-export.ts");
+const { setCustomerPhoneInStore, normalizeStore, cloneStore } = require("../src/lib/client-store.ts");
 const row = {
   customer: {
-    name: "=SUM(1,2)", podPdr: "00123456789012", commodity: "gas",
+    id: "client-test", name: "=SUM(1,2)", podPdr: "00123456789012", commodity: "gas", phone: "+39 0123 456789",
     status: "in_lavorazione", createdAt: "2026-11-02T08:00:00Z"
   },
   source: { name: "Fonte di prova", kind: "collaboratore" },
@@ -39,9 +40,21 @@ assert.ok(sheet.H3.z.includes("€"));
 assert.equal(sheet.H2.v, 0);
 assert.equal(sheet.I2.v, "Uscito");
 assert.equal(sheet.J3.v, "In lavorazione");
-assert.equal(sheet["!autofilter"].ref, "A1:N3");
+assert.equal(sheet.O3.v, "+39 0123 456789");
+assert.equal(sheet.O3.t, "s", "Phone numbers must remain text");
+assert.equal(sheet["!autofilter"].ref, "A1:O3");
 const personal = createCustomersWorkbook([row], true).Sheets.Clienti;
 assert.equal(personal.H1.v, "Le tue provvigioni (€)");
-assert.equal(personal["!ref"], "A1:N2", "Export only the supplied visible rows");
-assert.equal(createCustomersWorkbook([], false).Sheets.Clienti["!ref"], "A1:N1");
+assert.equal(personal["!ref"], "A1:O2", "Export only the supplied visible rows");
+assert.equal(createCustomersWorkbook([], false).Sheets.Clienti["!ref"], "A1:O1");
+const store = normalizeStore({});
+store.customers.push({ ...row.customer });
+setCustomerPhoneInStore(store, "client-test", "  0039 0123456  ");
+assert.equal(store.customers[0].phone, "0039 0123456");
+const restored = normalizeStore(JSON.parse(JSON.stringify(cloneStore(store))));
+assert.equal(restored.customers[0].phone, "0039 0123456", "Saved phone survives store reload");
+assert.throws(() => setCustomerPhoneInStore(store, "missing", "123"));
+assert.throws(() => setCustomerPhoneInStore(store, "client-test", "1".repeat(51)));
+setCustomerPhoneInStore(store, "client-test", " ");
+assert.equal(store.customers[0].phone, undefined, "Phone can be removed");
 console.log("Customer Excel export tests passed.");

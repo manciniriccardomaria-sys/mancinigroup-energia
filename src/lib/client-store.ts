@@ -622,7 +622,7 @@ export function addUserToStore(
 
 export function addCustomerToStore(
   store: StoreData,
-  input: { podPdr: string; name: string; sourceId: string; offer?: string; notes?: string; createdBy: string }
+  input: { podPdr: string; name: string; phone?: string; sourceId: string; offer?: string; notes?: string; createdBy: string }
 ) {
   const podPdr = input.podPdr.trim();
   const podPdrNorm = normalizePodPdr(podPdr);
@@ -641,6 +641,7 @@ export function addCustomerToStore(
     podPdr,
     podPdrNorm,
     name: customerName,
+    phone: input.phone?.trim() || undefined,
     sourceId: source.id,
     commodity: detectCommodity(podPdr),
     status: "attivo",
@@ -654,6 +655,14 @@ export function addCustomerToStore(
   refreshLoadingMatches(store.loadingRecords, podPdrNorm, customer.id, source.id, createdAt);
   refreshAgencyMarginMatches(store.agencyMarginRecords, podPdrNorm, customer.id, source.id, createdAt);
   recalculateAgencyMarginsForPod(store, podPdrNorm);
+}
+
+export function setCustomerPhoneInStore(store: StoreData, customerId: string, phone: string) {
+  const customer = store.customers.find((item) => item.id === customerId);
+  if (!customer) throw new Error("Cliente non trovato.");
+  const value = phone.trim();
+  if (value.length > 50) throw new Error("Il telefono può contenere al massimo 50 caratteri.");
+  customer.phone = value || undefined;
 }
 
 export function reassignCustomerInStore(store: StoreData, customerId: string, sourceIdValue: string) {

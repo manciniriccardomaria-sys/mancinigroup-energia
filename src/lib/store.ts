@@ -986,6 +986,7 @@ export async function setSourceActive(sourceIdValue: string, active: boolean) {
 export async function addCustomer(input: {
   podPdr: string;
   name: string;
+  phone?: string;
   sourceId: string;
   offer?: string;
   notes?: string;
@@ -1019,6 +1020,7 @@ export async function addCustomer(input: {
     podPdr,
     podPdrNorm,
     name: customerName,
+    phone: input.phone?.trim() || undefined,
     sourceId: source.id,
     commodity: detectCommodity(podPdr),
     status: "attivo",

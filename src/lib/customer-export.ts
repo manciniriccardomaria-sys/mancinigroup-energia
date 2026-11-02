@@ -17,7 +17,7 @@ export function createCustomersWorkbook(rows: CustomerExportRow[], personal: boo
   const header = [
     "Cliente", "POD/PDR", "Tipologia", "CF / P.IVA", "Fonte", "Tipo fonte", "Offerta",
     personal ? "Le tue provvigioni (€)" : "Valore cliente (€)",
-    "Stato", "Stato gestionale", "Stato pratica", "Data entrata", "Origine data entrata", "Creato"
+    "Stato", "Stato gestionale", "Stato pratica", "Data entrata", "Origine data entrata", "Creato", "Telefono"
   ];
   const worksheet = utils.aoa_to_sheet([
     header,
@@ -26,10 +26,10 @@ export function createCustomersWorkbook(rows: CustomerExportRow[], personal: boo
       customer.commodity === "luce" ? "Luce" : customer.commodity === "gas" ? "Gas" : "Non definito",
       fiscalId ?? "", source?.name ?? "", source ? sourceKindLabels[source.kind] : "", customer.offer ?? "", value,
       lifeStatus === "attivo" ? "Attivo" : "Uscito", customerStatusLabels[customer.status],
-      practiceStatus ?? "", entryInfo.label, entryInfo.detail, formatDateTime(customer.createdAt)
+      practiceStatus ?? "", entryInfo.label, entryInfo.detail, formatDateTime(customer.createdAt), customer.phone ?? ""
     ])
   ]);
-  worksheet["!cols"] = [32, 22, 16, 22, 30, 18, 32, 24, 14, 20, 24, 18, 30, 24]
+  worksheet["!cols"] = [32, 22, 16, 22, 30, 18, 32, 24, 14, 20, 24, 18, 30, 24, 24]
     .map((wch) => ({ wch }));
   worksheet["!autofilter"] = { ref: worksheet["!ref"]! };
   for (let index = 0; index < rows.length; index += 1) {
