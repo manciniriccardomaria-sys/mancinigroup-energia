@@ -7,7 +7,7 @@ require.extensions[".ts"] = (module, filename) => {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText, filename);
 };
-const { parseEnergyCallReport, mergeEnergyCalls, isOpenEnergyCall, effectiveCallDate, italyDate } = require("../src/lib/energy-calls.ts");
+const { parseEnergyCallReport, mergeEnergyCalls, isOpenEnergyCall, isTrackedEnergyCall, effectiveCallDate, italyDate } = require("../src/lib/energy-calls.ts");
 
 async function main() {
   const filePath = process.argv[2];
@@ -16,6 +16,8 @@ async function main() {
   const today = italyDate();
   console.log(JSON.stringify({ totalRows: report.totalRows, calls: report.calls.length, skippedRows: report.skippedRows,
     duplicateRows: report.duplicateRows, missingPhones: report.missingPhones,
+    scheduledCalls: report.calls.filter(isTrackedEnergyCall).length,
+    excludedBeforeStart: report.calls.filter((call) => !isTrackedEnergyCall(call)).length,
     overdue: report.calls.filter((call) => isOpenEnergyCall(call) && effectiveCallDate(call) < today).length,
     today: report.calls.filter((call) => call.dueDate === today).length,
     future: report.calls.filter((call) => call.dueDate > today).length,

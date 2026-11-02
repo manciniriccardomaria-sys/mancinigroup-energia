@@ -8,7 +8,7 @@ require.extensions[".ts"] = (module, filename) => {
   }).outputText, filename);
 };
 const { energyCallDueDate, parseEnergyCallReport, mergeEnergyCalls, energyCallCalendarDates,
-  updateEnergyCall, effectiveCallDate, isOpenEnergyCall, italyDate } = require("../src/lib/energy-calls.ts");
+  updateEnergyCall, effectiveCallDate, isOpenEnergyCall, isTrackedEnergyCall, italyDate } = require("../src/lib/energy-calls.ts");
 const { normalizeStore } = require("../src/lib/client-store.ts");
 const header = ["Contraente", "Age", "Sede", "FQ", "Ap. Cl", "Cp.", "Fonte", "Dt. Prox Scad Quiet", "Iniz. Rapp.", "Cod.Fiscale / P.IVA", "Cellulare", "Tel. Residenza"];
 const row = (name, cf, start, mobile = "", phone = "") => [name, "", "", "", "", "", "005", "", start, cf, mobile, phone];
@@ -46,6 +46,13 @@ assert.throws(() => parseEnergyCallReport(workbook([["Wrong header"]]), "bad.xls
 const store = normalizeStore({ energyCalls: parsed.calls });
 const user = { id: "operator", name: "Operatore", role: "operativo" };
 const call = store.energyCalls[0];
+const historicalCall = { ...call, id: "historical", dueDate: "2026-10-30" };
+assert.equal(isTrackedEnergyCall(historicalCall), false);
+assert.equal(isOpenEnergyCall(historicalCall), false);
+assert.deepEqual(energyCallCalendarDates(historicalCall, "2026-11-02"), []);
+assert.deepEqual(energyCallCalendarDates(historicalCall, "2026-12-01"), []);
+assert.equal(isTrackedEnergyCall(call), true);
+assert.deepEqual(energyCallCalendarDates(call, "2026-11-02"), ["2026-11-02"]);
 assert.deepEqual(energyCallCalendarDates(call, "2026-11-04"), ["2026-11-02", "2026-11-04"]);
 updateEnergyCall(store, user, call.id, "da_richiamare", "Richiamare la mattina", "2026-11-08", "2026-11-02T10:00:00Z");
 assert.equal(call.callbackDate, "2026-11-09");
@@ -65,6 +72,9 @@ assert.equal(merged[0].callbackDate, "2026-11-09");
 assert.equal(merged[0].history.length, 1);
 assert.equal(merged[0].notes, "Richiamare la mattina");
 assert.equal(mergeEnergyCalls(merged, secondImport.calls).length, 3);
+const historicalReimport = mergeEnergyCalls([historicalCall], [historicalCall]);
+assert.equal(historicalReimport.length, 1);
+assert.deepEqual(energyCallCalendarDates(historicalReimport[0], "2026-11-02"), []);
 updateEnergyCall(store, user, call.id, "contratto_attivato", "Concluso", undefined, "2026-11-09T10:00:00Z");
 assert.equal(isOpenEnergyCall(call), false);
 assert.equal(call.callbackDate, undefined);

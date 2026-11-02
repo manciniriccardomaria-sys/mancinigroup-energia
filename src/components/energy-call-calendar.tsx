@@ -4,7 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Phone, Upload } from "lucide-react";
 import { addCalendarMonths } from "@/lib/payment-gate";
 import { formatDate, formatDateTime } from "@/lib/normalize";
-import { effectiveCallDate, energyCallCalendarDates, energyCallStatuses, isOpenEnergyCall, italyDate, mergeEnergyCalls, parseEnergyCallReport, shiftCallDay, updateEnergyCall, type EnergyCallReport } from "@/lib/energy-calls";
+import { ENERGY_CALL_TRACKING_START, effectiveCallDate, energyCallCalendarDates, energyCallStatuses, isOpenEnergyCall, isTrackedEnergyCall, italyDate, mergeEnergyCalls, parseEnergyCallReport, shiftCallDay, updateEnergyCall, type EnergyCallReport } from "@/lib/energy-calls";
 import type { EnergyCall, EnergyCallStatus, SessionUser, StoreData } from "@/lib/types";
 
 type Props = { store: StoreData; user: SessionUser; mutateStore: (change: (draft: StoreData) => void, message: string) => Promise<boolean> };
@@ -22,9 +22,10 @@ export function EnergyCallCalendar({ store, user, mutateStore }: Props) {
   const [fileName, setFileName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const sources = [...new Set(store.energyCalls.map((call) => call.source))].filter(Boolean).sort();
+  const trackedCalls = store.energyCalls.filter(isTrackedEnergyCall);
+  const sources = [...new Set(trackedCalls.map((call) => call.source))].filter(Boolean).sort();
   const calls = useMemo(() => store.energyCalls.filter((call) =>
-    (!source || call.source === source) && (status === "tutti" || call.status === status) &&
+    isTrackedEnergyCall(call) && (!source || call.source === source) && (status === "tutti" || call.status === status) &&
     `${call.customerName} ${call.fiscalCode} ${call.phone} ${call.alternatePhone}`.toLocaleLowerCase("it").includes(search.trim().toLocaleLowerCase("it"))
   ), [store.energyCalls, source, status, search]);
   const counts = new Map<string, number>();
@@ -60,20 +61,21 @@ export function EnergyCallCalendar({ store, user, mutateStore }: Props) {
     setBusy(true);
     try {
       const success = await mutateStore((draft) => { draft.energyCalls = mergeEnergyCalls(draft.energyCalls, report.calls); },
-        `Report importato: ${report.calls.length} chiamate. Esiti, richiami e storico precedenti conservati.`);
+        `Report importato: ${report.calls.filter(isTrackedEnergyCall).length} chiamate dal ${formatDate(ENERGY_CALL_TRACKING_START)}. Esiti, richiami e storico precedenti conservati.`);
       if (success) { setReport(undefined); setFileName(""); }
     } finally { setBusy(false); }
   }
 
   return <section className="panel energy-call-calendar">
     <div className="panel-heading"><div><h2><CalendarDays size={25} /> Calendario chiamate</h2>
-      <p className="muted-text">Energia · Chiamata a due mesi dall’inizio rapporto. Sabato al venerdì, domenica al lunedì.</p></div>
-      <span className="status-badge">{store.energyCalls.length} clienti</span></div>
+      <p className="muted-text">Energia · Chiamata a due mesi dall’inizio rapporto. Sabato al venerdì, domenica al lunedì. Calendario attivo dal {formatDate(ENERGY_CALL_TRACKING_START)}; scadenze precedenti escluse.</p></div>
+      <span className="status-badge">{trackedCalls.length} clienti</span></div>
     <details className="energy-call-import"><summary><Upload size={17} /> Importa / aggiorna report clienti</summary>
       <p className="muted-text">Usa il report con “Iniz. Rapp.” in colonna I. Ogni cliente genera una chiamata; gli aggiornamenti conservano esiti, note e richiami. I clienti assenti dal nuovo report restano nello storico.</p>
       <label>Report Excel<input type="file" accept=".xlsx,.xls" disabled={busy} onChange={(event) => void readReport(event.target.files?.[0])} /></label>
       {report && <div className="energy-call-preview"><strong>{fileName}</strong>
         <p>{report.totalRows} righe · {report.calls.length} chiamate · {report.skippedRows} righe non valide · {report.duplicateRows} duplicati · {report.missingPhones} senza telefono</p>
+        <p>{report.calls.filter(isTrackedEnergyCall).length} chiamate in calendario · {report.calls.filter((call) => !isTrackedEnergyCall(call)).length} scadenze precedenti al {formatDate(ENERGY_CALL_TRACKING_START)} escluse</p>
         <button className="primary-button" disabled={busy} onClick={() => void importReport()}>{busy ? "Importazione…" : "Importa chiamate"}</button></div>}
     </details>
     {error && <p className="alert error" role="alert">{error}</p>}

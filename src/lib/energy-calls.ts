@@ -2,6 +2,14 @@ import * as XLSX from "xlsx";
 import { addCalendarMonths } from "./payment-gate";
 import type { EnergyCall, EnergyCallStatus, SessionUser, StoreData } from "./types";
 
+// Fixed launch date: calls created from earlier relationships must not become
+// a historical backlog, including when the same report is imported again.
+export const ENERGY_CALL_TRACKING_START = "2026-11-02";
+
+export function isTrackedEnergyCall(call: EnergyCall) {
+  return call.dueDate >= ENERGY_CALL_TRACKING_START;
+}
+
 export const energyCallStatuses: Record<EnergyCallStatus, string> = {
   da_chiamare: "Da chiamare",
   chiamato: "Chiamato",
@@ -44,16 +52,17 @@ export function effectiveCallDate(call: EnergyCall) {
 }
 
 export function isOpenEnergyCall(call: EnergyCall) {
-  return ["da_chiamare", "da_richiamare", "non_raggiungibile"].includes(call.status);
+  return isTrackedEnergyCall(call) && ["da_chiamare", "da_richiamare", "non_raggiungibile"].includes(call.status);
 }
 
 export function energyCallCalendarDates(call: EnergyCall, today: string) {
+  if (!isTrackedEnergyCall(call)) return [];
   return [...new Set([
     call.dueDate,
     ...(call.history ?? []).flatMap((action) => [italyDate(new Date(action.at)), action.callbackDate ?? ""]),
     call.status === "da_richiamare" ? call.callbackDate ?? "" : "",
     isOpenEnergyCall(call) && effectiveCallDate(call) <= today ? today : ""
-  ].filter(Boolean))];
+  ].filter((date) => date && date >= ENERGY_CALL_TRACKING_START))];
 }
 
 function normalized(value: unknown) {
