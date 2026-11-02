@@ -370,6 +370,7 @@ textarea:focus {
 }
 
 .nav-grid.nav-count-3 { grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.6fr); }
+.nav-grid.nav-count-5 { grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.6fr); }
 .nav-grid.nav-count-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); }
 .nav-grid.nav-count-1 { grid-template-columns: minmax(0, 1fr); }
 
@@ -3259,4 +3260,61 @@ td small {
   .market-prices-grid { grid-template-columns: 1fr; gap: 8px; }
   .market-price-card { padding: 10px 12px; }
   .market-price-card .market-price-value { font-size: 22px; }
+}
+/* Calendario delle chiamate Energia. */
+.energy-call-calendar { padding: 0; overflow: hidden; }
+.energy-call-calendar > .panel-heading { padding: 24px; margin: 0; }
+.energy-call-calendar h2 { display: flex; align-items: center; gap: 10px; }
+.energy-call-calendar h3 { margin: 0; }
+.energy-call-calendar .muted-text { line-height: 1.5; }
+.energy-call-import { padding: 16px 24px; border-top: 1px solid #dce5ef; }
+.energy-call-import summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 650; color: #16477c; }
+.energy-call-import input { margin-top: 8px; }
+.energy-call-preview { margin-top: 16px; padding: 16px; border-radius: 12px; background: #f1f6fc; }
+.energy-call-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); border-top: 1px solid #dce5ef; }
+.energy-call-sidebar { padding: 22px; border-right: 1px solid #dce5ef; display: flex; flex-direction: column; gap: 18px; align-self: start; }
+.energy-call-month { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.energy-call-month h3 { text-transform: capitalize; font-size: 18px; }
+.energy-call-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.energy-call-weekday { text-align: center; font-size: 12px; color: #637996; padding: 8px 0; font-weight: 700; }
+.energy-call-day { border: 0; border-radius: 9px; background: transparent; min-height: 54px; padding: 5px 2px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: #243b55; }
+.energy-call-day:hover { background: #eff5fd; }
+.energy-call-day small { background: #dceaff; color: #1651be; font-size: 11px; border-radius: 5px; padding: 2px 4px; }
+.energy-call-day.outside-month > span { color: #9baabd; }
+.energy-call-day.today { box-shadow: inset 0 0 0 1px #7093bb; }
+.energy-call-day.selected { background: #063b80; color: white; }
+.energy-call-day.selected > span { color: white; }
+.energy-call-day.selected small { background: white; color: #063b80; }
+.energy-call-summary { display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: 12px; cursor: pointer; text-align: left; border: 1px solid; }
+.energy-call-summary span { display: grid; gap: 6px; }
+.energy-call-summary strong { font-size: 18px; }
+.energy-call-summary small { font-size: 12px; }
+.energy-call-summary.overdue { background: #fff4f3; border-color: #ffd1cd; color: #ae1b1b; }
+.energy-call-summary.converted { background: #effcf6; border-color: #a6e6ca; color: #007953; justify-content: space-between; }
+.energy-call-detail { padding: 24px; min-width: 0; }
+.energy-call-filters { display: flex; align-items: end; gap: 14px; flex-wrap: wrap; }
+.energy-call-filters > div { flex: 1 1 220px; }
+.energy-call-filters h3 { text-transform: capitalize; }
+.energy-call-filters label { flex: 1 1 160px; min-width: 0; }
+.energy-call-filters input, .energy-call-filters select { width: 100%; }
+.energy-call-history-hint { margin: 20px 0; font-size: 13px; }
+.energy-call-list { display: grid; gap: 16px; }
+.energy-call-card { border: 1px solid #dce5ef; border-radius: 12px; padding: 20px; background: white; }
+.energy-call-card.overdue { border-color: #ffc2c5; background: #fffafb; }
+.energy-call-card-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.energy-call-card-heading h3 { font-size: 19px; }
+.energy-call-overdue-label { font-size: 12px; font-weight: 700; background: #ffe0e2; color: #ae1b1b; padding: 6px 9px; border-radius: 6px; }
+.energy-call-metadata { display: flex; flex-wrap: wrap; gap: 8px 18px; color: #536b88; font-size: 13px; line-height: 1.5; }
+.energy-call-phones { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.energy-call-phones a { text-decoration: none; }
+.energy-call-manage summary, .energy-call-history summary { cursor: pointer; color: #16477c; font-weight: 650; padding: 8px 0; }
+.energy-call-manage form { margin-top: 12px; }
+.energy-call-history ol { padding-left: 20px; font-size: 13px; color: #536b88; }
+.energy-call-history li { margin: 10px 0; }
+.energy-call-notes, .energy-call-history p { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .energy-call-layout { grid-template-columns: 1fr; }
+  .energy-call-sidebar { border-right: 0; border-bottom: 1px solid #dce5ef; width: 100%; max-width: 460px; justify-self: center; }
+  .energy-call-detail { padding: 16px; }
+  .energy-call-calendar > .panel-heading { padding: 18px; }
 }

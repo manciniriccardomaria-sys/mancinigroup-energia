@@ -161,6 +161,10 @@ service cloud.firestore {
       allow write: if hasFullDataAccess();
     }
 
+    match /appData/energyCalls/items/{documentId} {
+      allow read, write: if hasFullDataAccess();
+    }
+
     match /appData/customerTickets/items/{documentId} {
       allow read: if hasFullDataAccess() || ownsSource(resource.data.sourceId);
       allow create: if hasFullDataAccess() || (isPersonalProfile() &&

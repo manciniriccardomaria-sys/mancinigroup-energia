@@ -14,6 +14,7 @@ export const storeCollectionKeys = [
   "energyQuotes",
   "pendingEnergyQuotes",
   "customerTickets",
+  "energyCalls",
   "managedOffers",
   "users"
 ];

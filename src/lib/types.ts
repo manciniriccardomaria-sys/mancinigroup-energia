@@ -350,6 +350,34 @@ export type AccessProfile = Pick<User, "id" | "email" | "name" | "role" | "sourc
   active: boolean;
 };
 
+export type EnergyCallStatus = "da_chiamare" | "chiamato" | "da_richiamare" | "non_raggiungibile" | "non_interessato" | "preventivo_richiesto" | "contratto_attivato";
+
+export type EnergyCallAction = {
+  status: EnergyCallStatus;
+  callbackDate?: string;
+  notes: string;
+  at: string;
+  by: string;
+};
+
+export type EnergyCall = {
+  id: string;
+  customerName: string;
+  fiscalCode: string;
+  phone: string;
+  alternatePhone: string;
+  source: string;
+  relationshipStartDate: string;
+  relationshipEndDate?: string;
+  dueDate: string;
+  status: EnergyCallStatus;
+  callbackDate?: string;
+  notes: string;
+  history: EnergyCallAction[];
+  importedFrom: string;
+  importedAt: string;
+};
+
 export type StoreData = {
   sources: Source[];
   customers: Customer[];
@@ -365,6 +393,7 @@ export type StoreData = {
   energyQuotes: EnergyQuote[];
   pendingEnergyQuotes: PendingEnergyQuote[];
   customerTickets: CustomerTicket[];
+  energyCalls: EnergyCall[];
   managedOffers: ManagedOffer[];
   users: User[];
 };

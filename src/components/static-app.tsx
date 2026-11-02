@@ -7,11 +7,13 @@ import { QuoteBillAttachments } from "./quote-bill-attachments";
 import { FixedExcelInputs, type FixedExcelNumberField } from "./fixed-excel-inputs";
 import { QuoteInstructions } from "./quote-instructions";
 import { MarketPricesPanel } from "./market-prices-panel";
+import { EnergyCallCalendar } from "./energy-call-calendar";
 import { completePendingQuote } from "@/lib/pending-quotes";
 import {
   BadgeEuro,
   BarChart3,
   Calculator,
+  CalendarDays,
   ClipboardList,
   Database,
   Download,
@@ -115,6 +117,7 @@ export type StaticView =
   | "offers"
   | "saved-quotes"
   | "tickets"
+  | "call-calendar"
   | "sources"
   | "users"
   | "commissions"
@@ -172,6 +175,7 @@ const navItems: Array<{
   },
   { href: "/saved-quotes/", view: "saved-quotes", label: "Preventivi", icon: <ReceiptText size={18} /> },
   { href: "/tickets/", view: "tickets", label: "Ticket clienti", icon: <MessageCircle size={18} /> },
+  { href: "/call-calendar/", view: "call-calendar", label: "Calendario chiamate", icon: <CalendarDays size={18} />, roles: ["admin", "operativo"] },
   { href: "/offers/", view: "offers", label: "Offerte", icon: <Tags size={18} /> },
   { href: "/sources/", view: "sources", label: "Fonti", icon: <UserPlus size={18} />, roles: ["admin", "operativo"] },
   { href: "/commissions/", view: "commissions", label: "Provvigioni", icon: <BarChart3 size={18} />, roles: ["admin", "frontline", "agent"] },
@@ -994,6 +998,7 @@ export function StaticApp({ initialView }: { initialView: StaticView }) {
       {view === "customers" && <CustomersView store={store} user={sessionUser} mutateStore={mutateStore} onOpenTicket={(customer) => navigateToView("tickets", `/tickets/?customer=${encodeURIComponent(customer.id)}`)} />}
       {view === "caricamenti" && <CaricamentiView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "offers" && <ManagedOffersView store={store} user={sessionUser} mutateStore={mutateStore} />}
+      {view === "call-calendar" && <EnergyCallCalendar store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "tickets" && <TicketsView store={store} user={sessionUser} mutateStore={mutateStore} initialCustomer={visibleCustomers(sessionUser, store).find((customer) => customer.id === ticketCustomerId)} onClearInitialCustomer={() => { setTicketCustomerId(undefined); window.history.replaceState(null, "", "/tickets/"); }} />}
       {view === "saved-quotes" && <SavedQuotesView store={store} user={sessionUser} mutateStore={mutateStore} />}
       {view === "sources" && (
@@ -1143,7 +1148,7 @@ function AppChrome({
         </div>
       </header>
       <AppNavigation
-        primaryItems={["dashboard", "caricamenti", ...(user.role === "operativo" ? ["customers"] : []), "saved-quotes", "preventivatore"].flatMap((target) =>
+        primaryItems={["dashboard", "caricamenti", ...(user.role === "operativo" ? ["customers"] : []), "call-calendar", "saved-quotes", "preventivatore"].flatMap((target) =>
           navItems.filter((item) => item.view === target && canUseNavItem(user, item)))}
         menuItems={["offers", "sources", "commissions", "commission-rules", "users"].flatMap((target) =>
           navItems.filter((item) => item.view === target && canUseNavItem(user, item)))}

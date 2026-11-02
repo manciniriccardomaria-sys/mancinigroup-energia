@@ -2,6 +2,7 @@ import { AppNavigation } from "./app-navigation";
 import {
   BarChart3,
   Calculator,
+  CalendarDays,
   ReceiptText,
   ClipboardList,
   FilePlus2,
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/customers/new", label: "Pre-associa", icon: FilePlus2, roles: ["admin", "operativo"] },
   { href: "/customers", label: "Clienti", icon: UsersRound, roles: ["admin", "frontline", "agent", "operativo"] },
   { href: "/caricamenti", label: "Associa", icon: ClipboardList, roles: ["admin", "operativo"] },
+  { href: "/call-calendar", label: "Calendario chiamate", icon: CalendarDays, roles: ["admin", "operativo"] },
   { href: "/saved-quotes", label: "Preventivi", icon: ReceiptText },
   { href: "/preventivatore", label: "Preventivatore", icon: Calculator },
   { href: "/offers", label: "Offerte", icon: Tags },
@@ -64,7 +66,7 @@ export function AppChrome({
       </header>
 
       <AppNavigation
-        primaryItems={["/dashboard", "/caricamenti", ...(user.role === "operativo" ? ["/customers"] : []), "/saved-quotes", "/preventivatore"].flatMap((href) =>
+        primaryItems={["/dashboard", "/caricamenti", ...(user.role === "operativo" ? ["/customers"] : []), "/call-calendar", "/saved-quotes", "/preventivatore"].flatMap((href) =>
           navItems.filter((item) => item.href === href && (!item.roles || item.roles.includes(user.role)))
             .map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={22} aria-hidden="true" /> })))}
         menuItems={["/offers", "/sources", "/commissions", "/commission-rules", "/users"].flatMap((href) =>

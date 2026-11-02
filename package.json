@@ -10,6 +10,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test:operations": "node scripts/test-operations.cjs",
+    "test:energy-calls": "node scripts/test-energy-calls.cjs",
     "test:customer-export": "node scripts/test-customer-export.cjs",
     "test:pending-quotes": "node scripts/test-pending-quotes.cjs",
     "test:quote-bills": "node scripts/test-quote-bills.cjs",

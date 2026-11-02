@@ -89,3 +89,11 @@ La checklist di go-live e in `docs/GO_LIVE.md`.
 - **Provvigioni**: l’icona accanto alla fonte compare dal primo pagamento positivo registrato. Passando il mouse, mettendola a fuoco o toccandola si vedono ultimo pagamento, scadenza a tre mesi di calendario (fine mese adattato), i tre mesi successivi al mese pagato e il saldo attuale. Il saldo comprende eventuali arretrati e sottrae i pagamenti effettivi; forecast e maturato restano distinti. Ogni nuovo pagamento sposta la scadenza. Le righe senza mese completo e i pagamenti futuri sono esclusi.
 
 Verifica funzionale: `pnpm test:operations`, `pnpm test:pending-quotes` e `pnpm test:quote-bills`. Prima di distribuire questa versione pubblicare anche le regole Firestore aggiornate, che autorizzano le raccolte `customerTickets`, `managedOffers`, `pendingEnergyQuotes` e `quoteBillFiles` (incluse le parti degli allegati).
+
+## Calendario chiamate Energia
+
+Disponibile in `/call-calendar/` per admin e operativo. Importa il report clienti con `Contraente` in A e `Iniz. Rapp.` in I: una chiamata per codice fiscale/P. IVA e data di inizio rapporto, programmata dopo due mesi di calendario (fine mese adattato), con sabato anticipato al venerdì e domenica spostata al lunedì. Tutte le fonti sono gestite nell'area operativa, senza la funzione “Aiuta altre fonti”.
+
+Il calendario include telefono cliccabile, ricerca, filtri per esito e fonte, arretrati visibili oggi, note, richiami con data e storico delle azioni. Le chiamate restano consultabili nella data originale, nelle date dei richiami e delle azioni. La reimportazione aggiorna i dati senza cancellare esiti, note o storico; le righe non più presenti nel report restano conservate. Righe senza identità fiscale o data valida vengono segnalate ed escluse; i clienti senza telefono rimangono visibili.
+
+I dati risiedono nella raccolta privata `appData/energyCalls/items`, accessibile solo ad admin e operativo; nessun dato del report viene incluso nel bundle pubblico. Pubblicare le regole Firestore aggiornate prima del frontend. Per importare da terminale: `node scripts/import-energy-calls.cjs '/percorso/report.xlsx'` mostra l'anteprima, `--apply` salva con backup e verifica. Test: `pnpm test:energy-calls`.

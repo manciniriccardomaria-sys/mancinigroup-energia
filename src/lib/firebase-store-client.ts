@@ -31,6 +31,7 @@ const collectionKeys = [
   "energyQuotes",
   "pendingEnergyQuotes",
   "customerTickets",
+  "energyCalls",
   "managedOffers",
   "users"
 ] as const satisfies readonly (keyof StoreData)[];
@@ -57,6 +58,7 @@ function emptyStore(): StoreData {
     energyQuotes: [],
     pendingEnergyQuotes: [],
     customerTickets: [],
+    energyCalls: [],
     managedOffers: [],
     users: []
   };

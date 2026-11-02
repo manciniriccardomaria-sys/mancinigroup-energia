@@ -311,6 +311,7 @@ export function createDefaultClientStore(adminEmail: string, adminName = "Admin 
     energyQuotes: [],
     pendingEnergyQuotes: [],
     customerTickets: [],
+    energyCalls: [],
     managedOffers: defaultQuoteOffers(),
     uploadedFiles: [],
     loadingRecords: [],
@@ -337,6 +338,7 @@ export function normalizeStore(data: Partial<StoreData>, adminEmail?: string): S
   base.energyQuotes ??= [];
   base.pendingEnergyQuotes ??= [];
   base.customerTickets ??= [];
+  base.energyCalls ??= [];
   base.managedOffers = normalizeManagedOffers(base.managedOffers);
   base.users ??= fallback.users;
 
