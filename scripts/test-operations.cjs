@@ -8,7 +8,7 @@ require.extensions['.ts'] = (module, filename) => {
 };
 const { calculateEnergyQuote, defaultEnergyQuoteInput } = require('../src/lib/quote-calculator.ts');
 const { offerCatalog, defaultQuoteOffers, normalizeManagedOffers } = require('../src/lib/offers.ts');
-const { paymentGate, addCalendarMonths } = require('../src/lib/payment-gate.ts');
+const { paymentGate, addCalendarMonths, unpaidCommissionAlerts } = require('../src/lib/payment-gate.ts');
 const { normalizeStore, addEnergyQuoteToStore } = require('../src/lib/client-store.ts');
 
 const variables = ['pun_mono', 'pun_f1', 'pun_f2', 'pun_f3', 'mercato_capacita', 'dispacciamento', 'psv'].map((key) => ({
@@ -138,4 +138,23 @@ assert.equal(paymentGate('source', entries, payments, '2026-03-15').balance, 130
 const restarted = paymentGate('source', entries, [...payments, { sourceId: 'source', paidAt: '2026-04-30', amount: 150 }], '2026-04-30');
 assert.equal(restarted.dueDate, '2026-07-30');
 assert.equal(restarted.balance, 0);
-console.log('Operations regression checks passed: pricing, catalog overrides, archived values, quarterly gates.');
+// Outstanding commissions: never paid, partial payments, credits, future data and inactive sources.
+const alertSources = [{ id: 'source', name: 'Mario', active: true }, { id: 'other', name: 'Anna', active: false }];
+const alerts = unpaidCommissionAlerts(alertSources, entries, payments, '2026-04-30');
+assert.equal(alerts[0].source.id, 'other');
+assert.equal(alerts[0].balance, 1000);
+assert.equal(alerts[0].oldestUnpaidMonth, '2026-02');
+assert.equal(alerts[0].latestPayment, undefined);
+assert.equal(alerts[0].quarterlyDueDate, undefined);
+assert.equal(alerts[1].balance, 150);
+assert.equal(alerts[1].oldestUnpaidMonth, '2026-02');
+assert.equal(alerts[1].quarterlyDueDate, '2026-04-30');
+const partialAlerts = unpaidCommissionAlerts(alertSources, entries, [{ sourceId: 'source', amount: 160, paidAt: '2026-04-01' }], '2026-04-30');
+assert.equal(partialAlerts.find(row => row.source.id === 'source').oldestUnpaidMonth, '2026-03');
+assert.equal(partialAlerts.find(row => row.source.id === 'source').balance, 90);
+assert.deepEqual(unpaidCommissionAlerts([alertSources[0]], entries, [{ sourceId: 'source', amount: 300, paidAt: '2026-04-01' }], '2026-04-30'), []);
+const credited = unpaidCommissionAlerts([alertSources[0]], [...entries, { sourceId: 'source', dueMonth: '2026-04', amount: -70 }], [{ sourceId: 'source', amount: 100, paidAt: '2026-04-01' }], '2026-04-30');
+assert.equal(credited[0].balance, 80);
+assert.equal(credited[0].oldestUnpaidMonth, '2026-03');
+assert.deepEqual(unpaidCommissionAlerts([alertSources[0]], [{ sourceId: 'source', dueMonth: '2026-02', amount: 0.1 }, { sourceId: 'source', dueMonth: '2026-02', amount: 0.2 }], [{ sourceId: 'source', amount: 0.3, paidAt: '2026-02-01' }], '2026-04-30'), []);
+console.log('Operations regression checks passed: pricing, catalog overrides, archived values, quarterly gates, unpaid commission alerts.');

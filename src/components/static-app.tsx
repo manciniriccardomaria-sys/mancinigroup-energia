@@ -48,6 +48,7 @@ import { provisionFirebaseUserAccess } from "@/lib/firebase-access-client";
 import { firebaseAuth, firebaseDb, hasFirebaseClientConfig } from "@/lib/firebase-client";
 import { readAccessProfile, readFirestoreStoreForProfile, seedFirestoreStore, writeFirestoreStore } from "@/lib/firebase-store-client";
 import { simulateFutureCommissions, type ProjectedCommission } from "@/lib/commission-forecast";
+import { unpaidCommissionAlerts } from "@/lib/payment-gate";
 import { parseAgencyMarginCsv } from "@/lib/import-agency-margins";
 import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth, formatConsumptionMonth } from "@/lib/agency-margin-upload";
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
@@ -2890,6 +2891,9 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
   const totalPaid = rows.reduce((sum, row) => sum + row.paid, 0);
   const totalDue = rows.reduce((sum, row) => sum + row.due, 0);
   const totalProjected = monthlyRows.reduce((sum, row) => sum + row.projectedTotal, 0);
+  const paymentAlerts = user.role === "admin"
+    ? unpaidCommissionAlerts(sources, commissionEntries, commissionPayments, cutoffDate)
+    : [];
   const commissionTableWrapRef = useRef<HTMLDivElement>(null);
   const monthlyColumnSignature = monthlyColumns.join("|");
 
@@ -2928,6 +2932,39 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
 
   return (
     <>
+      {user.role === "admin" && (
+        <section className="table-section commission-payment-alerts" aria-labelledby="commission-payment-alerts-title">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Avviso pagamenti</p>
+              <h2 id="commission-payment-alerts-title">{paymentAlerts.length > 0 ? `${paymentAlerts.length} ${paymentAlerts.length === 1 ? "fonte da pagare" : "fonti da pagare"}` : "Nessuna provvigione da pagare"}</h2>
+              <p className="muted-text">Saldo da saldare: <strong>{formatEuro(paymentAlerts.reduce((sum, alert) => sum + alert.balance, 0))}</strong> · Aggiornato al {formatDate(cutoffDate)}.</p>
+            </div>
+            <BadgeEuro size={24} aria-hidden="true" />
+          </div>
+          {paymentAlerts.length > 0 ? (
+            <>
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Chi devi pagare</th><th>Da pagare</th><th>Da quando</th><th>Ultimo pagamento</th><th>Scadenza trimestrale</th></tr></thead>
+                  <tbody>
+                    {paymentAlerts.map((alert) => (
+                      <tr key={alert.source.id}>
+                        <td><strong>{alert.source.name}</strong>{!alert.source.active && <small>Fonte disattivata</small>}</td>
+                        <td><strong>{formatEuro(alert.balance)}</strong></td>
+                        <td>Da {formatMonthKey(alert.oldestUnpaidMonth)}</td>
+                        <td>{alert.latestPayment ? formatDate(alert.latestPayment) : "Nessun pagamento registrato"}</td>
+                        <td>{alert.quarterlyDueDate ? <span className={alert.quarterlyDueDate <= cutoffDate ? "commission-payment-overdue" : undefined}>{alert.quarterlyDueDate <= cutoffDate ? "Da saldare dal " : "Prevista il "}{formatDate(alert.quarterlyDueDate)}</span> : "Primo pagamento da effettuare"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="muted-text">“Da quando” indica il primo mese maturato ancora da saldare, considerando i pagamenti a copertura dei mesi più vecchi. Sono escluse le previsioni e le provvigioni senza mese completo. La scadenza trimestrale è calcolata dall’ultimo pagamento registrato.</p>
+            </>
+          ) : <p className="muted-text">Tutte le provvigioni maturate con mese completo risultano saldate.</p>}
+        </section>
+      )}
       {!personalUser && (
         <section className="panel narrow-panel">
           <div className="panel-heading">

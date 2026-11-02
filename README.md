@@ -13,6 +13,7 @@ Gestionale web per la parte energia di Mancini Service, pubblicabile su GitHub P
 - Fonti modificabili per tipo: `Collaboratore`, `Frontline`, `Sede MG`.
 - Sedi gia presenti: `MG Corso`, `MG Berlinguer`, `MG Terlizzi`.
 - Provvigioni modellate come maturato, pagato manuale e da pagare.
+- Nell’area amministratore, avviso in cima a Provvigioni con fonti ancora da pagare, saldo residuo, primo mese non saldato, ultimo pagamento e scadenza trimestrale. Include fonti disattivate e mai pagate; i pagamenti coprono prima i mesi più vecchi e le previsioni restano escluse.
 - Regole provvigionali versionate con data di validita.
 - Andamento mese per mese di luce/gas, in validazione, bloccati e usciti.
 - Nessuna dipendenza dal foglio `Preventivi`.

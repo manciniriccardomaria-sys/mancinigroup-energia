@@ -1111,6 +1111,21 @@ table {
   min-width: 680px;
 }
 
+.commission-payment-alerts {
+  border: 1px solid #e5bb6a;
+  border-top: 4px solid #d49a32;
+}
+
+.commission-payment-alerts > .muted-text,
+.commission-payment-alerts > p {
+  padding: 0 20px 16px;
+}
+
+.commission-payment-overdue {
+  color: #9c4610;
+  font-weight: 700;
+}
+
 .commission-monthly-table {
   min-width: 1280px;
 }
