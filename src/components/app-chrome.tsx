@@ -64,7 +64,7 @@ export function AppChrome({
       </header>
 
       <AppNavigation
-        primaryItems={["/dashboard", "/caricamenti", "/saved-quotes", "/preventivatore"].flatMap((href) =>
+        primaryItems={["/dashboard", "/caricamenti", ...(user.role === "operativo" ? ["/customers"] : []), "/saved-quotes", "/preventivatore"].flatMap((href) =>
           navItems.filter((item) => item.href === href && (!item.roles || item.roles.includes(user.role)))
             .map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={22} aria-hidden="true" /> })))}
         menuItems={["/offers", "/sources", "/commissions", "/commission-rules", "/users"].flatMap((href) =>

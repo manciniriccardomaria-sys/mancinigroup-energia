@@ -1139,7 +1139,7 @@ function AppChrome({
         </div>
       </header>
       <AppNavigation
-        primaryItems={["dashboard", "caricamenti", "saved-quotes", "preventivatore"].flatMap((target) =>
+        primaryItems={["dashboard", "caricamenti", ...(user.role === "operativo" ? ["customers"] : []), "saved-quotes", "preventivatore"].flatMap((target) =>
           navItems.filter((item) => item.view === target && canUseNavItem(user, item)))}
         menuItems={["offers", "sources", "commissions", "commission-rules", "users"].flatMap((target) =>
           navItems.filter((item) => item.view === target && canUseNavItem(user, item)))}
