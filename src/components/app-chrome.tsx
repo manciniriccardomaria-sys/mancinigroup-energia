@@ -21,7 +21,7 @@ import type { SessionUser } from "@/lib/types";
 const navItems = [
   { href: "/dashboard", label: "Home", icon: Home, roles: ["admin", "frontline", "agent"] },
   { href: "/customers/new", label: "Pre-associa", icon: FilePlus2, roles: ["admin", "operativo"] },
-  { href: "/customers", label: "Clienti", icon: UsersRound, roles: ["admin", "frontline", "agent"] },
+  { href: "/customers", label: "Clienti", icon: UsersRound, roles: ["admin", "frontline", "agent", "operativo"] },
   { href: "/caricamenti", label: "Associa", icon: ClipboardList, roles: ["admin", "operativo"] },
   { href: "/saved-quotes", label: "Preventivi", icon: ReceiptText },
   { href: "/preventivatore", label: "Preventivatore", icon: Calculator },
