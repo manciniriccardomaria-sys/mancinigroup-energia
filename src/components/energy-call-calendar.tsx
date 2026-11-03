@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Phone, Upload } from "lucide-react";
 import { addCalendarMonths } from "@/lib/payment-gate";
+import { energyCallSourceLabel } from "@/lib/energy-call-sources";
 import { formatDate, formatDateTime } from "@/lib/normalize";
 import { ENERGY_CALL_TRACKING_START, effectiveCallDate, energyCallCalendarDates, energyCallStatuses, isOpenEnergyCall, isTrackedEnergyCall, italyDate, mergeEnergyCalls, parseEnergyCallReport, shiftCallDay, updateEnergyCall, type EnergyCallReport } from "@/lib/energy-calls";
 import type { EnergyCall, EnergyCallStatus, SessionUser, StoreData } from "@/lib/types";
@@ -99,7 +100,7 @@ export function EnergyCallCalendar({ store, user, mutateStore }: Props) {
         <div className="energy-call-filters"><div><h3>{showConverted ? "Contratti attivati" : displayDay(selectedDate, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</h3><p className="muted-text">{selectedCalls.length} chiamate mostrate</p></div>
           <label>Cerca cliente<input type="search" placeholder="Nome, telefono o codice fiscale" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
           <label>Esito<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="tutti">Tutti gli esiti</option>{Object.entries(energyCallStatuses).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label>Fonte<select value={source} onChange={(event) => setSource(event.target.value)}><option value="">Tutte le fonti</option>{sources.map((value) => <option key={value}>{value}</option>)}</select></label>
+          <label>Fonte<select value={source} onChange={(event) => setSource(event.target.value)}><option value="">Tutte le fonti</option>{sources.map((value) => <option key={value} value={value}>{energyCallSourceLabel(value)}</option>)}</select></label>
         </div>
         <p className="muted-text energy-call-history-hint">Le chiamate restano nella data prevista e nelle date delle azioni registrate. I richiami compaiono anche nella nuova data; le chiamate ancora aperte e scadute sono visibili oggi.</p>
         {!selectedCalls.length && <div className="empty-state">{store.energyCalls.length ? "Nessuna chiamata per questa selezione." : "Importa il report clienti per popolare il calendario."}</div>}
@@ -125,7 +126,7 @@ function EnergyCallCard({ call, today, user, mutateStore }: { call: EnergyCall; 
   }
   return <article className={`energy-call-card${overdue ? " overdue" : ""}`}>
     <div className="energy-call-card-heading"><h3>{call.customerName}</h3><span className="status-badge">{energyCallStatuses[call.status]}</span>{overdue && <span className="energy-call-overdue-label">Arretrata · {formatDate(effectiveCallDate(call))}</span>}</div>
-    <div className="energy-call-metadata"><span><strong>Data prevista:</strong> {formatDate(call.dueDate)}</span><span><strong>Inizio rapporto:</strong> {formatDate(call.relationshipStartDate)}</span><span><strong>Fonte:</strong> {call.source || "—"}</span>
+    <div className="energy-call-metadata"><span><strong>Data prevista:</strong> {formatDate(call.dueDate)}</span><span><strong>Inizio rapporto:</strong> {formatDate(call.relationshipStartDate)}</span><span><strong>Fonte:</strong> {energyCallSourceLabel(call.source)}</span>
       <span><strong>CF / P. IVA:</strong> {call.fiscalCode}</span>{call.relationshipEndDate && <span><strong>Fine rapporto:</strong> {formatDate(call.relationshipEndDate)}</span>}
       {call.status === "da_richiamare" && call.callbackDate && <span><strong>Richiamo:</strong> {formatDate(call.callbackDate)}</span>}</div>
     <div className="energy-call-phones">{[call.phone, call.alternatePhone].filter(Boolean).map((phone, index) => <a className="primary-button" href={`tel:${phone.replace(/[^+\d]/g, "")}`} key={index}><Phone size={18} /> {phone}</a>)}{!call.phone && <span className="muted-text">Telefono non presente nel report</span>}</div>
