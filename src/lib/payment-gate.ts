@@ -1,5 +1,27 @@
 import type { CommissionEntry, CommissionPayment, Source } from "./types";
 
+export function commissionPaymentMonths(sourceId: string, entries: CommissionEntry[], payments: CommissionPayment[], today: string) {
+  const cents = (amount: number) => Math.round(amount * 100);
+  const monthly = new Map<string, number>();
+  for (const entry of entries) {
+    if (entry.sourceId !== sourceId || !/^\d{4}-(0[1-9]|1[0-2])$/.test(entry.dueMonth) || entry.dueMonth > today.slice(0, 7)) continue;
+    monthly.set(entry.dueMonth, (monthly.get(entry.dueMonth) ?? 0) + cents(entry.amount));
+  }
+  let available = payments.filter(payment => payment.sourceId === sourceId && (!payment.paidAt || payment.paidAt <= today))
+    .reduce((sum, payment) => sum + cents(payment.amount), 0);
+  available += [...monthly.values()].reduce((sum, amount) => sum + Math.max(0, -amount), 0);
+  const result = new Map<string, { paid: number; due: number }>();
+  // Payments have no structured month allocation: settle the oldest months
+  // first, matching the outstanding-commission alerts.
+  for (const [month, amount] of [...monthly.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    if (amount <= 0) continue;
+    const paid = Math.min(amount, Math.max(0, available));
+    available -= paid;
+    result.set(month, { paid: paid / 100, due: (amount - paid) / 100 });
+  }
+  return result;
+}
+
 // Payments have no structured allocation to months: cover the oldest balances first.
 export function unpaidCommissionAlerts(sources: Source[], entries: CommissionEntry[], payments: CommissionPayment[], today: string) {
   const round = (value: number) => Math.round(value * 100);

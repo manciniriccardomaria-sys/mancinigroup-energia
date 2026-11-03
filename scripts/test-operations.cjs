@@ -8,7 +8,7 @@ require.extensions['.ts'] = (module, filename) => {
 };
 const { calculateEnergyQuote, defaultEnergyQuoteInput } = require('../src/lib/quote-calculator.ts');
 const { offerCatalog, defaultQuoteOffers, normalizeManagedOffers } = require('../src/lib/offers.ts');
-const { paymentGate, addCalendarMonths, unpaidCommissionAlerts } = require('../src/lib/payment-gate.ts');
+const { paymentGate, addCalendarMonths, unpaidCommissionAlerts, commissionPaymentMonths } = require('../src/lib/payment-gate.ts');
 const { normalizeStore, addEnergyQuoteToStore } = require('../src/lib/client-store.ts');
 
 const variables = ['pun_mono', 'pun_f1', 'pun_f2', 'pun_f3', 'mercato_capacita', 'dispacciamento', 'psv'].map((key) => ({
@@ -128,6 +128,20 @@ assert.equal(addCalendarMonths('2023-11-30', 3), '2024-02-29');
 const payments = [{ sourceId: 'source', paidAt: '2026-01-31', amount: 100 }, { sourceId: 'source', paidAt: '2026-07-01', amount: 999 }];
 const entries = [{ sourceId: 'source', dueMonth: '2026-01', amount: 100 }, { sourceId: 'source', dueMonth: '2026-02', amount: 50 }, { sourceId: 'source', dueMonth: '2026-03', amount: 80 }, { sourceId: 'source', dueMonth: '2026-04', amount: 20 }, { sourceId: 'source', dueMonth: '2026-05', amount: 300 }, { sourceId: 'other', dueMonth: '2026-02', amount: 1000 }, { sourceId: 'source', dueMonth: '2025', amount: 1000 }];
 const gate = paymentGate('source', entries, payments, '2026-04-30');
+const monthlyPayments = commissionPaymentMonths('source', entries, payments, '2026-04-30');
+assert.deepEqual(monthlyPayments.get('2026-01'), { paid: 100, due: 0 });
+assert.deepEqual(monthlyPayments.get('2026-02'), { paid: 0, due: 50 });
+assert.equal(monthlyPayments.has('2026-05'), false);
+assert.equal(monthlyPayments.has('2025'), false);
+assert.deepEqual(commissionPaymentMonths('other', entries, payments, '2026-04-30').get('2026-02'), { paid: 0, due: 1000 });
+const partialMonths = commissionPaymentMonths('source', entries, [{ sourceId: 'source', amount: 160, paidAt: '2026-04-01' }], '2026-04-30');
+assert.deepEqual(partialMonths.get('2026-02'), { paid: 50, due: 0 });
+assert.deepEqual(partialMonths.get('2026-03'), { paid: 10, due: 70 });
+const creditedMonths = commissionPaymentMonths('source', [...entries, { sourceId: 'source', dueMonth: '2026-04', amount: -70 }], payments, '2026-04-30');
+assert.deepEqual(creditedMonths.get('2026-02'), { paid: 50, due: 0 });
+assert.deepEqual(creditedMonths.get('2026-03'), { paid: 0, due: 80 });
+const centsMonths = commissionPaymentMonths('source', [{ sourceId: 'source', dueMonth: '2026-02', amount: 0.1 }, { sourceId: 'source', dueMonth: '2026-02', amount: 0.2 }], [{ sourceId: 'source', amount: 0.3, paidAt: '2026-02-01' }], '2026-04-30');
+assert.deepEqual(centsMonths.get('2026-02'), { paid: 0.3, due: 0 });
 assert.equal(gate.dueDate, '2026-04-30');
 assert.equal(gate.overdue, true);
 assert.equal(gate.balance, 150);

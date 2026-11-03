@@ -50,7 +50,7 @@ import { provisionFirebaseUserAccess } from "@/lib/firebase-access-client";
 import { firebaseAuth, firebaseDb, hasFirebaseClientConfig } from "@/lib/firebase-client";
 import { readAccessProfile, readFirestoreStoreForProfile, seedFirestoreStore, writeFirestoreStore } from "@/lib/firebase-store-client";
 import { simulateFutureCommissions, type ProjectedCommission } from "@/lib/commission-forecast";
-import { unpaidCommissionAlerts } from "@/lib/payment-gate";
+import { commissionPaymentMonths, unpaidCommissionAlerts } from "@/lib/payment-gate";
 import { parseAgencyMarginCsv } from "@/lib/import-agency-margins";
 import { agencyMarginHistoryFileName, consumptionMonthFromBillingMonth, formatConsumptionMonth } from "@/lib/agency-margin-upload";
 import { parseCaricamentiWorkbook } from "@/lib/import-caricamenti";
@@ -60,7 +60,7 @@ import { marketVariableDefinitions } from "@/lib/market-variables";
 import { energyQuoteName } from "@/lib/quote-name";
 import { formatSavingImpact, quoteConsumptionUnitPrice, quoteOfferDisplayName, quotePeriodComparison } from "@/lib/quote-presentation";
 import { formatDate, formatDateTime, formatEuro, normalizePodPdr, parseEuro, parseQuoteUnitPrice } from "@/lib/normalize";
-import { ManagedOffersView, TicketsView, PaymentGateBadge } from "./operations-views";
+import { ManagedOffersView, TicketsView } from "./operations-views";
 import {
   calculateEnergyQuote,
   defaultEnergyQuoteInput,
@@ -343,6 +343,7 @@ function buildMonthlyCommissionRows(
   payments: CommissionPayment[],
   sources: Source[],
   monthKeys: string[],
+  cutoffDate: string,
   projectedEntries: ProjectedCommission[] = []
 ) {
   const paymentsBySource = new Map<string, number>();
@@ -379,6 +380,7 @@ function buildMonthlyCommissionRows(
         paid,
         due: Math.max(0, total - paid),
         projectedTotal,
+        paymentMonths: commissionPaymentMonths(source.id, entries, payments, cutoffDate),
         monthly
       };
     })
@@ -2874,7 +2876,7 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
     projectionEndMonthKey,
     [...agencyMonthKeys, ...projectedEntries.map((entry) => entry.monthKey)]
   );
-  const monthlyRows = buildMonthlyCommissionRows(maturedEntries, commissionPayments, sources, monthlyColumns, projectedEntries);
+  const monthlyRows = buildMonthlyCommissionRows(maturedEntries, commissionPayments, sources, monthlyColumns, cutoffDate, projectedEntries);
   const [commissionMonthFilter, setCommissionMonthFilter] = useState("tutti");
   const [commissionSourceFilter, setCommissionSourceFilter] = useState("tutte");
   const [showCommissionList, setShowCommissionList] = useState(false);
@@ -3033,6 +3035,8 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
                 ? ` Escluse dal maturato ${uncalendarizedEntries.length} provvigioni storiche senza mese completo.`
                 : ""}
             </p>
+            <p className="commission-payment-legend"><span className="commission-paid-label">Verde: mesi saldati</span><span className="commission-due-label">Arancione: mesi da saldare</span></p>
+            <p className="muted-text">I pagamenti coprono prima i mesi più vecchi. I mesi pagati solo in parte restano arancioni.</p>
           </div>
         </div>
         {personalUser && (
@@ -3058,10 +3062,6 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
         {personalUser && (
           <div className="mobile-commission-scroll-guide">
             <span>Scorri per vedere tutti i mesi</span>
-            <span className="mobile-commission-legend">
-              <i className="actual-legend-dot" /> Maturato
-              <i className="forecast-legend-dot" /> Forecast
-            </span>
           </div>
         )}
         <div className="table-wrap sticky-commission-wrap" ref={commissionTableWrapRef}>
@@ -3080,7 +3080,7 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
             <tbody>
               {monthlyRows.map((row) => (
                 <tr key={row.source.id}>
-                  <td>{row.source.name} <PaymentGateBadge sourceId={row.source.id} store={store} date={cutoffDate} forecasts={projectedEntries.map((entry) => ({ sourceId: entry.sourceId, monthKey: entry.monthKey, amount: entry.amount }))} /></td>
+                  <td>{row.source.name}</td>
                   <td className="summary-col">{formatEuro(row.total)}</td>
                   <td className="summary-col">{formatEuro(row.paid)}</td>
                   <td className="summary-col">
@@ -3090,12 +3090,13 @@ function CommissionsView({ store, user, mutateStore }: ViewProps) {
                     const cell = row.monthly[monthKey] ?? { actual: 0, projected: 0 };
                     const amount = cell.actual + cell.projected;
                     const isProjected = cell.projected > 0 && cell.actual === 0;
+                    const payment = row.paymentMonths.get(monthKey);
 
                     return (
                       <td
                         key={monthKey}
-                        className={amount === 0 ? "muted-cell" : isProjected ? "projected-cell" : undefined}
-                        title={isProjected ? "Simulazione provvigione futura" : undefined}
+                        className={amount === 0 ? "muted-cell" : isProjected ? "projected-cell" : payment ? payment.due === 0 ? "commission-paid-cell" : "commission-due-cell" : undefined}
+                        title={isProjected ? "Simulazione provvigione futura" : payment ? payment.due === 0 ? "Mese saldato" : `Da saldare: ${formatEuro(payment.due)}${payment.paid > 0 ? ` · Già coperto: ${formatEuro(payment.paid)}` : ""}` : undefined}
                       >
                         {amount === 0 ? "-" : formatEuro(amount)}
                       </td>

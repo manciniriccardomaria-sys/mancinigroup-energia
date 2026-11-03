@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { BadgeEuro, ClipboardList, Tags } from "lucide-react";
+import { ClipboardList, Tags } from "lucide-react";
 import { lightLossesForOffer, type LightLossConfiguration, type ManagedOffer } from "@/lib/offers";
 import type { Customer, CustomerTicket, SessionUser, StoreData } from "@/lib/types";
 import { formatDate, formatEuro, normalizePodPdr } from "@/lib/normalize";
 import { isPersonalUser } from "@/lib/view-model";
 import { ticketProblems, ticketCustomerDefaults } from "@/lib/customer-tickets";
-import { paymentGate } from "@/lib/payment-gate";
 import { offerPriceLabel, metMonthlyPcv } from "@/lib/met-calculator";
 
 type Props = { store: StoreData; user: SessionUser; mutateStore: (change: (draft: StoreData) => void, message: string) => Promise<boolean> };
@@ -176,22 +175,4 @@ export function ManagedOffersView({ store, user, mutateStore }: Props) {
       </section>)}
     </section>
   </>;
-}
-
-export function PaymentGateBadge({ sourceId, store, date, forecasts }: { sourceId: string; store: StoreData; date: string; forecasts: { sourceId: string; monthKey: string; amount: number }[] }) {
-  const gate = paymentGate(sourceId, store.commissionEntries, store.commissionPayments, date);
-  if (!gate) return null;
-  const forecastUntilDue = forecasts.filter((entry) => entry.sourceId === sourceId && entry.monthKey > date.slice(0, 7) && entry.monthKey <= gate.dueDate.slice(0, 7)).reduce((sum, entry) => sum + entry.amount, 0);
-  return <span className={`payment-gate ${gate.overdue ? "due" : "pending"}`}>
-    <button type="button" className="payment-gate-trigger" aria-describedby={`payment-gate-${sourceId}`} aria-label={`Pagamento trimestrale ${gate.overdue ? "in scadenza" : "previsto"} il ${formatDate(gate.dueDate)}`}><BadgeEuro size={18} /></button>
-    <span id={`payment-gate-${sourceId}`} className="payment-gate-tooltip" role="tooltip"><strong>{gate.overdue ? "Pagamento trimestrale da verificare" : "Prossimo pagamento trimestrale"}</strong>
-      <span>Ultimo pagamento: {formatDate(gate.latestPayment)}</span><span>Scadenza: {formatDate(gate.dueDate)}</span><small>Mesi successivi all’ultimo pagamento:</small>
-      {gate.monthly.map(({ month, amount }) => { const forecast = forecasts.filter((entry) => entry.sourceId === sourceId && entry.monthKey === month && month > date.slice(0, 7)).reduce((sum, entry) => sum + entry.amount, 0);
-        return <span key={month}>{month}: {formatEuro(amount)} maturati{forecast > 0 ? ` · ${formatEuro(forecast)} previsti` : ""}</span>; })}
-      <span>Totale maturato nei tre mesi: {formatEuro(gate.monthly.reduce((sum, row) => sum + row.amount, 0))}</span>
-      <span>Totale previsto nei tre mesi: {formatEuro(forecasts.filter((entry) => entry.sourceId === sourceId && gate.months.includes(entry.monthKey) && entry.monthKey > date.slice(0, 7)).reduce((sum, entry) => sum + entry.amount, 0))}</span>
-      <strong>Saldo da pagare oggi: {formatEuro(gate.balance)}</strong>
-      {!gate.overdue && <strong>Saldo previsto alla scadenza: {formatEuro(gate.balance + forecastUntilDue)}</strong>}<small>Saldo complessivo maturato meno pagamenti, inclusi eventuali arretrati. Le previsioni non sono ancora da pagare.</small>
-    </span>
-  </span>;
 }
