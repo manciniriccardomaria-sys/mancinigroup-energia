@@ -94,7 +94,7 @@ Verifica funzionale: `pnpm test:operations`, `pnpm test:pending-quotes` e `pnpm 
 
 Disponibile in `/call-calendar/` per admin e operativo. Importa il report clienti con `Contraente` in A e `Iniz. Rapp.` in I: una chiamata per codice fiscale/P. IVA e data di inizio rapporto, programmata dopo due mesi di calendario (fine mese adattato), con sabato anticipato al venerdì e domenica spostata al lunedì. Tutte le fonti sono gestite nell'area operativa, senza la funzione “Aiuta altre fonti”.
 
-Il calendario parte dal **2 novembre 2026**: le chiamate con data prevista precedente sono escluse da calendario, conteggi e arretrati, anche nelle importazioni successive. I dati rimangono conservati nel database. Le chiamate previste dal giorno di avvio in avanti diventano normalmente arretrate se non gestite entro la loro scadenza.
+Il calendario parte dal **3 novembre 2026**: le chiamate con data prevista precedente sono escluse da calendario, conteggi e arretrati, anche nelle importazioni successive. I dati rimangono conservati nel database. Le chiamate previste dal giorno di avvio in avanti diventano normalmente arretrate se non gestite entro la loro scadenza.
 
 Il calendario include telefono cliccabile, ricerca, filtri per esito e fonte, arretrati visibili oggi, note, richiami con data e storico delle azioni. Le chiamate restano consultabili nella data originale, nelle date dei richiami e delle azioni. La reimportazione aggiorna i dati senza cancellare esiti, note o storico; le righe non più presenti nel report restano conservate. Righe senza identità fiscale o data valida vengono segnalate ed escluse; i clienti senza telefono rimangono visibili.
 

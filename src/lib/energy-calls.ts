@@ -4,7 +4,7 @@ import type { EnergyCall, EnergyCallStatus, SessionUser, StoreData } from "./typ
 
 // Fixed launch date: calls created from earlier relationships must not become
 // a historical backlog, including when the same report is imported again.
-export const ENERGY_CALL_TRACKING_START = "2026-11-02";
+export const ENERGY_CALL_TRACKING_START = "2026-11-03";
 
 export function isTrackedEnergyCall(call: EnergyCall) {
   return call.dueDate >= ENERGY_CALL_TRACKING_START;
