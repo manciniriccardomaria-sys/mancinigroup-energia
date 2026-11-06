@@ -2009,6 +2009,10 @@ td small {
   gap: 12px;
 }
 
+.quote-clear-button {
+  grid-column: 1 / -1;
+}
+
 .print-button {
   min-height: 46px;
   border: 0;

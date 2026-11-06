@@ -17,6 +17,7 @@ import {
   ClipboardList,
   Database,
   Download,
+  Eraser,
   FilePlus2,
   Flame,
   FolderUp,
@@ -3336,7 +3337,7 @@ function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
       <p>Il salvataggio collega il risultato alla richiesta e aggiorna le richieste da preventivare allo stato Preventivato.</p>
     </section>
     <PreventivatoreView key={preparing.id} store={store} user={user} mutateStore={mutateStore}
-      pendingQuoteId={preparing.id} onSaved={() => setPreparing(undefined)}
+      pendingQuoteId={preparing.id}
       initialInput={{ ...(preparedQuote ? defaultEnergyQuoteInput(preparedQuote.inputSnapshot as Partial<EnergyQuoteInput>) : createDefaultQuoteInput(false)), firstName: preparing.firstName, lastName: preparing.lastName,
         phone: preparing.phone, commodity: preparing.commodity, customerType: preparing.customerType, sourceId: preparing.sourceId }} />
   </>;
@@ -3367,8 +3368,10 @@ function SavedQuotesView({ store, user, mutateStore }: ViewProps) {
   </>;
 }
 
-function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuoteId, onSaved }: ViewProps & { initialInput?: EnergyQuoteInput; pendingQuoteId?: string; onSaved?: () => void }) {
+function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuoteId }: ViewProps & { initialInput?: EnergyQuoteInput; pendingQuoteId?: string }) {
   const [instructionsOpen, setInstructionsOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const lastSavedQuote = useRef<string>(undefined);
   const instructionsId = useId();
   const [quoteInput, setQuoteInput] = useState<EnergyQuoteInput>(() => ({
     ...(initialInput ?? createDefaultQuoteInput()),
@@ -3491,61 +3494,83 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
     return quoteReady ? value : "-";
   }
 
-  async function saveQuote() {
-    if (!selectedOffer || !quoteReady) {
+  async function saveQuote(printButton?: HTMLButtonElement) {
+    if (!selectedOffer || !quoteReady || saving) {
       return;
     }
 
     const sourceId = isPersonalUser(user) ? user.sourceId : quoteInput.sourceId;
-    const saved = await mutateStore((draft) => {
-      addEnergyQuoteToStore(draft, {
-        calculationSnapshot: calculation,
-        quoteDate: quoteInput.quoteDate,
-        sourceId,
-        sourceName: store.sources.find((source) => source.id === sourceId)?.name,
-        customerFirstName: quoteInput.firstName,
-        customerLastName: quoteInput.lastName,
-        customerPhone: quoteInput.phone,
-        commodity: quoteInput.commodity,
-        customerType: quoteInput.customerType,
-        selectedOfferCode: selectedOffer.code,
-        selectedOfferName: selectedOffer.offerName,
-        currentAveragePrice: calculation.source.currentAveragePrice,
-        currentSpread: calculation.source.currentSpread,
-        currentPcv: calculation.source.currentPcv,
-        currentSpend: calculation.source.currentSpend,
-        totalConsumption: calculation.source.totalConsumption,
-        annualConsumption: calculation.source.annualConsumption,
-        quotaConsumi: selectedOffer.quotaConsumi,
-        annualDifference: selectedOffer.annualDifference,
-        annualSaving: selectedOffer.annualSaving,
-        agencyCommission: selectedOffer.agencyCommission,
-        inputSnapshot: {
-          ...quoteInput,
-          lightBandsComplete: bandsComplete,
-          sourceId
-        },
-        createdBy: user.id
-      });
-      if (pendingQuoteId) completePendingQuote(draft, user, pendingQuoteId, draft.energyQuotes[0].id);
-    }, "Preventivo salvato.");
-    if (!saved) return;
-    if (onSaved) {
-      onSaved();
-      return;
+    const quote = {
+      calculationSnapshot: calculation,
+      quoteDate: quoteInput.quoteDate,
+      sourceId,
+      sourceName: store.sources.find((source) => source.id === sourceId)?.name,
+      customerFirstName: quoteInput.firstName,
+      customerLastName: quoteInput.lastName,
+      customerPhone: quoteInput.phone,
+      commodity: quoteInput.commodity,
+      customerType: quoteInput.customerType,
+      selectedOfferCode: selectedOffer.code,
+      selectedOfferName: selectedOffer.offerName,
+      currentAveragePrice: calculation.source.currentAveragePrice,
+      currentSpread: calculation.source.currentSpread,
+      currentPcv: calculation.source.currentPcv,
+      currentSpend: calculation.source.currentSpend,
+      totalConsumption: calculation.source.totalConsumption,
+      annualConsumption: calculation.source.annualConsumption,
+      quotaConsumi: selectedOffer.quotaConsumi,
+      annualDifference: selectedOffer.annualDifference,
+      annualSaving: selectedOffer.annualSaving,
+      agencyCommission: selectedOffer.agencyCommission,
+      inputSnapshot: {
+        ...quoteInput,
+        lightBandsComplete: bandsComplete,
+        sourceId
+      },
+      createdBy: user.id
+    };
+    const snapshot = JSON.stringify(quote);
+    if (lastSavedQuote.current !== snapshot) {
+      setSaving(true);
+      try {
+        const saved = await mutateStore((draft) => {
+          addEnergyQuoteToStore(draft, quote);
+          if (pendingQuoteId) completePendingQuote(draft, user, pendingQuoteId, draft.energyQuotes[0].id);
+        }, "Preventivo salvato.");
+        if (!saved) return;
+        lastSavedQuote.current = snapshot;
+      } finally {
+        setSaving(false);
+      }
     }
+    if (printButton?.isConnected) {
+      printEnergyQuote(energyQuoteName(quote.commodity, quote.customerFirstName, quote.customerLastName));
+    }
+  }
+
+  function clearQuote() {
+    const request = pendingQuoteId ? initialInput : undefined;
     setQuoteInput({
       ...createDefaultQuoteInput(false),
-      sourceId: isPersonalUser(user) ? user.sourceId : undefined
+      ...(request && {
+        firstName: request.firstName,
+        lastName: request.lastName,
+        phone: request.phone,
+        commodity: request.commodity,
+        customerType: request.customerType
+      }),
+      sourceId: isPersonalUser(user) ? user.sourceId : request?.sourceId
     });
     setQuoteNumberInputs({});
     catalogModelRef.current = undefined;
     fixedModelRef.current = undefined;
+    lastSavedQuote.current = undefined;
   }
 
   return (
     <>
-      <section className="quote-workbench">
+      {saving && <p className="muted-text print-hidden" role="status">Salvataggio preventivo…</p>}
+      <section className="quote-workbench" inert={saving}>
         <div className="quote-workbench-header quote-header-with-help">
           <div>
             <p className="eyebrow">Preventivatore</p>
@@ -3946,13 +3971,17 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
             </div>
 
             <div className="quote-actions">
-              <button className="secondary-button" type="button" disabled={!quoteReady} onClick={() => void saveQuote()}>
+              <button className="secondary-button" type="button" disabled={!quoteReady || saving} onClick={() => void saveQuote()}>
                 <Save size={18} />
                 Salva
               </button>
-              <button className="print-button" type="button" disabled={!quoteReady} onClick={() => printEnergyQuote(energyQuoteName(quoteInput.commodity, quoteInput.firstName, quoteInput.lastName))}>
+              <button className="print-button" type="button" disabled={!quoteReady || saving} onClick={(event) => void saveQuote(event.currentTarget)}>
                 <Upload size={18} />
                 Stampa
+              </button>
+              <button className="secondary-button quote-clear-button" type="button" disabled={saving} onClick={clearQuote}>
+                <Eraser size={18} aria-hidden="true" />
+                Pulisci campi
               </button>
             </div>
             {calculation.warnings.length > 0 && <div role="alert">{calculation.warnings.map(message => <p key={message}>{message}</p>)}</div>}
@@ -3960,7 +3989,7 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
           </aside>
         </div>
       </section>
-      <section className="table-section quote-table-section">
+      <section className="table-section quote-table-section" inert={saving}>
         <div className="section-heading">
           <div>
             <p className="eyebrow">Confronto</p>
@@ -4011,13 +4040,13 @@ function PreventivatoreView({ store, user, mutateStore, initialInput, pendingQuo
           </table>
         </div>
       </section>
-      {!isFixedExcel && !isPersonalUser(user) && <MarketVariablesPanel store={store} user={user} mutateStore={mutateStore} />}
+      {!isFixedExcel && !isPersonalUser(user) && <MarketVariablesPanel store={store} user={user} mutateStore={mutateStore} inert={saving} />}
       <QuotePrintPage calculation={calculation} input={quoteInput} selectedOffer={selectedOffer} />
     </>
   );
 }
 
-function MarketVariablesPanel({ store, user, mutateStore }: ViewProps) {
+function MarketVariablesPanel({ store, user, mutateStore, inert }: ViewProps & { inert: boolean }) {
   const [monthKey, setMonthKey] = useState(currentMonthKey());
   const latestVariables = store.marketVariables.filter(variable => marketVariableDefinitions.some(definition => definition.key === variable.key)).sort((a, b) => b.monthKey.localeCompare(a.monthKey) || a.label.localeCompare(b.label, "it")).slice(0, 24);
 
@@ -4048,7 +4077,7 @@ function MarketVariablesPanel({ store, user, mutateStore }: ViewProps) {
   }
 
   return (
-    <section className="market-entry-grid">
+    <section className="market-entry-grid" inert={inert}>
       <article className="market-entry-card">
         <div className="panel-heading">
           <div>

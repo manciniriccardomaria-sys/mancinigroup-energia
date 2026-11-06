@@ -49,8 +49,9 @@ export function QuoteInstructions({ id, commodity, legacy }: {
         <p>{light
           ? "La stima annua usa il consumo medio dei mesi inseriti × 12, sia nel Variabile sia nel Fisso."
           : "La stima annua usa il consumo annuo gas inserito."} Gli indici del periodo restano costanti nella proiezione. Nel risultato, <strong>− indica una riduzione della spesa</strong> e <strong>+ un maggior costo</strong>.</p>
-        <p>Verifica avvisi, requisiti e dati mancanti, poi usa <strong>Salva</strong> o <strong>Stampa</strong>. Il confronto riguarda vendita {light ? "energia" : "gas"} e PCV. Conguagli, ricalcoli, bonus o periodi irregolari richiedono una verifica separata.</p>
+        <p>Verifica avvisi, requisiti e dati mancanti. Il confronto riguarda vendita {light ? "energia" : "gas"} e PCV. Conguagli, ricalcoli, bonus o periodi irregolari richiedono una verifica separata.</p>
       </>}
+      <p><strong>Salva</strong> archivia il preventivo. <strong>Stampa</strong> lo archivia e apre la finestra di stampa. Entrambi mantengono i dati nel modulo. Usa <strong>Pulisci campi</strong> per azzerare i dati inseriti.</p>
     </section>
   );
 }
