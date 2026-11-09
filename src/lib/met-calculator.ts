@@ -81,10 +81,11 @@ export function calculateMetOffer(
   if (!calendarFix && terms.minAnnualConsumption !== undefined && annualConsumption < terms.minAnnualConsumption) {
     issues.push(`Consumo annuo minimo: ${terms.minAnnualConsumption.toLocaleString("it-IT")} ${offer.commodity === "luce" ? "kWh" : "Smc"}.`);
   }
-  // Il limite Business Power Fix è rimosso anche dagli override già salvati.
-  const businessPowerFix = offer.code === "026846ENFFL46XX289BUSINESSEEFIXX" ||
-    offer.code === "026846ENFFL46XX289BUSINESSEFIX24";
-  if (!businessPowerFix && terms.maxAnnualConsumption !== undefined && annualConsumption > terms.maxAnnualConsumption) {
+  // Business Power Fix e Flex sono preventivabili anche con il limite nei dati salvati.
+  const ignoreMaxAnnualConsumption = offer.code === "026846ENFFL46XX289BUSINESSEEFIXX" ||
+    offer.code === "026846ENFFL46XX289BUSINESSEFIX24" ||
+    offer.code === "026846ENVOL46XX303BUSINESSEEFLEX";
+  if (!ignoreMaxAnnualConsumption && terms.maxAnnualConsumption !== undefined && annualConsumption > terms.maxAnnualConsumption) {
     issues.push(`Consumo annuo massimo: ${terms.maxAnnualConsumption.toLocaleString("it-IT")} ${offer.commodity === "luce" ? "kWh" : "Smc"}.`);
   }
   const pcs = input.gasPcs ?? 0.03852;

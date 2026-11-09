@@ -262,8 +262,14 @@ close(businessFlexTwoMonths.selectedOffer.quotaConsumi,
   23.38119 + 200 * ((0.18 + 0.0181 + 0.010501) * 1.1 + 0.006288 + 0.002 + 0.02 * 0.18));
 assert.equal(quote(businessFlex, { ...businessFlexInput, supplyStartDate: '2030-01-01' }).selectedOffer.annualSaving,
   businessFlexQuote.selectedOffer.annualSaving);
-assert.equal(quote(businessFlex, { ...businessFlexInput, consumptionMonth1: 50000 / 12 }).ready, true);
-assert.equal(quote(businessFlex, { ...businessFlexInput, consumptionMonth1: 50001 / 12 }).ready, false);
+assert.equal(businessFlex.met.maxAnnualConsumption, undefined);
+const highBusinessFlexInput = { ...businessFlexInput, consumptionMonth1: 5000 };
+const highBusinessFlexQuote = calculateEnergyQuote(highBusinessFlexInput, variables);
+assert.equal(highBusinessFlexQuote.ready, true);
+assert.equal(highBusinessFlexQuote.source.annualConsumption, 60000);
+close(highBusinessFlexQuote.selectedOffer.quotaConsumi, businessFlexQuote.selectedOffer.quotaConsumi * 50);
+const legacyBusinessFlex = { ...businessFlex, met: { ...businessFlex.met, maxAnnualConsumption: 50000 } };
+assert.deepEqual(quote(legacyBusinessFlex, highBusinessFlexInput), quote(businessFlex, highBusinessFlexInput));
 assert.equal(quote(businessFlex, { ...businessFlexInput, customerType: 'RES' }).offers.length, 0);
 assert.equal(quote(businessFlex, { ...businessFlexInput, calculationModel: 'catalog_fixed' }).offers.length, 0);
 assert.equal(quote({ ...businessFlex, active: false }, businessFlexInput).offers.length, 0);

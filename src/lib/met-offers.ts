@@ -54,7 +54,6 @@ export const metOfferCatalog: OfferCatalogItem[] = [
       monthlyServiceFee: 0,
       nonHourlySurcharge: 0.0025,
       financialRate: 0.02,
-      maxAnnualConsumption: 50000,
       commissionFixed: 56,
       commissionPerUnit: 0.0035,
       notes: [
